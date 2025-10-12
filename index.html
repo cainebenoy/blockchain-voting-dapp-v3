@@ -5,19 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Voting dApp</title>
     <style>
-        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 2em; background-color: #f7f7f7; color: #333;}
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 2em;
+            background-color: #f7f7f7;
+            color: #333;
+        }
         .container { max-width: 900px; margin: auto; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
         h1, h2 { color: #1a1a1a; }
-        input, select { width: calc(100% - 24px); padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 10px 20px; cursor: pointer; border-radius: 4px; border: none; color: white; font-weight: bold; transition: background-color 0.2s; }
+        input, select {
+            width: calc(100% - 24px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: none;
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
         .btn-primary { background-color: #007bff; }
         .btn-secondary { background-color: #6c757d; }
         .btn-danger { background-color: #dc3545; }
         #status { font-weight: bold; }
-        #winner-info { padding: 10px; background-color: #e0f0ff; border: 1px solid #b3d7ff; border-radius: 4px; margin-top: 10px; }
+        #winner-info {
+            padding: 10px;
+            background-color: #e0f0ff;
+            border: 1px solid #b3d7ff;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -62,10 +94,56 @@
 
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2/dist/ethers.umd.js"></script>
     <script>
+        // Fallback loader in case the primary CDN fails
+        (function ensureEthersLoaded() {
+            if (typeof window.ethers === 'undefined') {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js';
+                s.async = false; // preserve order
+                s.onload = () => console.log('Loaded ethers from fallback CDN');
+                s.onerror = () => console.error('Failed to load ethers from both CDNs');
+                document.head.appendChild(s);
+            }
+        })();
+
+        // Utility: wait until ethers is available (up to ~5s)
+        const waitForEthers = () => new Promise((resolve, reject) => {
+            let attempts = 0;
+            const iv = setInterval(() => {
+                if (typeof window.ethers !== 'undefined') {
+                    clearInterval(iv);
+                    return resolve(true);
+                }
+                if (++attempts > 50) { // ~5s
+                    clearInterval(iv);
+                    return reject(new Error('ethers is not available'));
+                }
+            }, 100);
+        });
+    </script>
+    <script>
         // --- CONFIGURATION ---
-        const contractAddress = "YOUR_CONTRACT_ADDRESS"; // <-- PASTE YOUR DEPLOYED CONTRACT ADDRESS HERE
-        const contractABI = [ { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "name", "type": "string" } ], "name": "CandidateAdded", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "winnerCandidateId", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "winnerName", "type": "string" }, { "indexed": false, "internalType": "uint256", "name": "winningVoteCount", "type": "uint256" } ], "name": "ElectionEnded", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "voter", "type": "address" }, { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" } ], "name": "VoteCast", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "voter", "type": "address" } ], "name": "VoterAuthorized", "type": "event" }, { "inputs": [ { "internalType": "string", "name": "_name", "type": "string" } ], "name": "addCandidate", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "admin", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_voter", "type": "address" } ], "name": "authorizeVoter", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "name": "candidates", "outputs": [ { "internalType": "uint256", "name": "id", "type": "uint256" }, { "internalType": "string", "name": "name", "type": "string" }, { "internalType": "uint256", "name": "voteCount", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "electionEnded", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "endElection", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "getAllCandidates", "outputs": [ { "components": [ { "internalType": "uint256", "name": "id", "type": "uint256" }, { "internalType": "string", "name": "name", "type": "string" }, { "internalType": "uint256", "name": "voteCount", "type": "uint256" } ], "internalType": "struct Voting.Candidate[]", "name": "", "type": "tuple[]" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "_candidateId", "type": "uint256" } ], "name": "getCandidate", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "string", "name": "", "type": "string" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_voter", "type": "address" } ], "name": "getVoterInfo", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" }, { "internalType": "bool", "name": "", "type": "bool" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getWinner", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "getWinnerDetails", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "string", "name": "", "type": "string" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "isElectionActive", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalCandidates", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "totalVotes", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "_candidateId", "type": "uint256" } ], "name": "vote", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "voters", "outputs": [ { "internalType": "bool", "name": "isAuthorized", "type": "bool" }, { "internalType": "bool", "name": "hasVoted", "type": "bool" }, { "internalType": "uint256", "name": "votedCandidateId", "type": "uint256" } ], "stateMutability": "view", "type": "function" } ];
         const contractAddress = "0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c";
+        const contractABI = [
+            { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
+            { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "name", "type": "string" } ], "name": "CandidateAdded", "type": "event" },
+            { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "voter", "type": "address" } ], "name": "VoterAuthorized", "type": "event" },
+            { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "voter", "type": "address" }, { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" } ], "name": "VoteCast", "type": "event" },
+            { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "winnerCandidateId", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "winnerName", "type": "string" }, { "indexed": false, "internalType": "uint256", "name": "winningVoteCount", "type": "uint256" } ], "name": "ElectionEnded", "type": "event" },
+            { "inputs": [], "name": "admin", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [ { "internalType": "string", "name": "_name", "type": "string" } ], "name": "addCandidate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+            { "inputs": [ { "internalType": "address", "name": "_voter", "type": "address" } ], "name": "authorizeVoter", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+            { "inputs": [], "name": "endElection", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+            { "inputs": [ { "internalType": "uint256", "name": "_candidateId", "type": "uint256" } ], "name": "vote", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+            { "inputs": [], "name": "isElectionActive", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [], "name": "totalCandidates", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [], "name": "totalVotes", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [ { "internalType": "uint256", "name": "_candidateId", "type": "uint256" } ], "name": "getCandidate", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "string", "name": "", "type": "string" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [], "name": "getAllCandidates", "outputs": [ { "components": [ { "internalType": "uint256", "name": "id", "type": "uint256" }, { "internalType": "string", "name": "name", "type": "string" }, { "internalType": "uint256", "name": "voteCount", "type": "uint256" } ], "internalType": "struct Voting.Candidate[]", "name": "", "type": "tuple[]" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [ { "internalType": "address", "name": "_voter", "type": "address" } ], "name": "getVoterInfo", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" }, { "internalType": "bool", "name": "", "type": "bool" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [], "name": "getWinner", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+            { "inputs": [], "name": "getWinnerDetails", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "string", "name": "", "type": "string" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }
+        ];
 
         // --- DOM Elements ---
         const statusEl = document.getElementById('status');
@@ -87,48 +165,112 @@
 
         let provider, signer, contract;
 
-        const connectWallet = async () => {
+        // Utility: request switch to Sepolia (11155111)
+        const switchToSepolia = async () => {
+            if (!window.ethereum?.request) return false;
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0xaa36a7' }], // 11155111
+                });
+                return true;
+            } catch (switchError) {
+                // 4902 = Unrecognized chain, offer to add
+                if (switchError && switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0xaa36a7',
+                                chainName: 'Sepolia Test Network',
+                                nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+                                rpcUrls: ['https://rpc.sepolia.org'],
+                                blockExplorerUrls: ['https://sepolia.etherscan.io']
+                            }],
+                        });
+                        return true;
+                    } catch (addError) {
+                        console.error('Add chain failed:', addError);
+                        return false;
+                    }
+                }
+                console.error('Switch chain failed:', switchError);
+                return false;
+            }
+        };
+
+    const connectWallet = async () => {
             if (typeof window.ethereum === 'undefined') return alert('Please install MetaMask!');
             try {
+        await waitForEthers();
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
-                provider = new ethers.providers.Web3Provider(window.ethereum);
+                provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
                 signer = provider.getSigner();
                 contract = new ethers.Contract(contractAddress, contractABI, signer);
-                
+
+                let network = await provider.getNetwork();
+                if (network.chainId !== 11155111) {
+                    const switched = await switchToSepolia();
+                    if (!switched) {
+                        alert("Please switch to the Sepolia Test Network in MetaMask.");
+                        return;
+                    }
+                    // Recreate provider/signer/contract after chain switch
+                    provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+                    signer = provider.getSigner();
+                    contract = new ethers.Contract(contractAddress, contractABI, signer);
+                    network = await provider.getNetwork();
+                }
+
                 const address = await signer.getAddress();
                 statusEl.textContent = `Connected: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
                 connectButton.textContent = "Connected";
+                statusEl.style.color = "green";
+
+                electionStatusEl.textContent = "Loading...";
+                candidatesList.innerHTML = "<li>Loading data...</li>";
+
                 await updateUI();
-            } catch (error) { console.error("User rejected connection.", error); }
+                setupEventListeners();
+            } catch (error) {
+                console.error("Connection error:", error);
+                const message = error?.message || error?.data?.message || String(error);
+                alert(`Failed to connect wallet: ${message}`);
+            }
         };
-        
+
         const updateUI = async () => {
             if (!contract) return;
-            await fetchElectionStatus();
-            await fetchCandidates();
-            await checkAdmin();
+            try {
+                await fetchElectionStatus();
+                await fetchCandidates();
+                await checkAdmin();
+            } catch (error) {
+                console.error("UI update failed", error);
+            }
         };
 
         const checkAdmin = async () => {
             const contractAdmin = await contract.admin();
             const currentUser = await signer.getAddress();
             adminAddressEl.textContent = contractAdmin;
-            if (currentUser.toLowerCase() === contractAdmin.toLowerCase()) {
-                adminPanel.style.display = 'block';
-            } else {
-                adminPanel.style.display = 'none';
-            }
+            adminPanel.style.display = (currentUser.toLowerCase() === contractAdmin.toLowerCase()) ? 'block' : 'none';
         };
 
         const fetchElectionStatus = async () => {
             try {
                 const isActive = await contract.isElectionActive();
                 electionStatusEl.textContent = isActive ? "Active" : "Ended";
-                if (!isActive) {
+                if (isActive) {
+                    [addCandidateButton, authorizeVoterButton, endElectionButton, voteButton].forEach(btn => btn.disabled = false);
+                    winnerInfoDiv.style.display = 'none';
+                } else {
                     [addCandidateButton, authorizeVoterButton, endElectionButton, voteButton].forEach(btn => btn.disabled = true);
                     await fetchWinner();
                 }
-            } catch (error) { console.error("Could not fetch election status", error); }
+            } catch (error) {
+                console.error("Could not fetch election status", error);
+            }
         };
 
         const fetchCandidates = async () => {
@@ -138,20 +280,29 @@
                 const allCandidates = await contract.getAllCandidates();
                 let html = "";
                 allCandidates.forEach(candidate => {
-                    html += `<li>ID: ${candidate.id} - ${candidate.name} - Votes: ${candidate.voteCount}</li>`;
+                    const id = candidate.id.toString();
+                    const name = candidate.name;
+                    const votes = candidate.voteCount.toString();
+                    html += `<li>ID: ${id} - ${name} - Votes: ${votes}</li>`;
                     const option = document.createElement('option');
-                    option.value = candidate.id;
-                    option.textContent = `${candidate.name} (ID: ${candidate.id})`;
+                    option.value = id;
+                    option.textContent = `${name} (ID: ${id})`;
                     candidateSelect.appendChild(option);
                 });
                 candidatesList.innerHTML = html || "<li>No candidates yet.</li>";
-            } catch (error) { console.error("Could not fetch candidates.", error); }
+            } catch (error) {
+                console.error("Could not fetch candidates.", error);
+                candidatesList.innerHTML = "<li>Error loading candidates.</li>";
+            }
         };
 
         const fetchWinner = async () => {
             try {
                 const winnerDetails = await contract.getWinnerDetails();
-                winnerDetailsP.textContent = `ID: ${winnerDetails[0]}, Name: ${winnerDetails[1]}, Votes: ${winnerDetails[2]}`;
+                const id = winnerDetails[0].toString();
+                const name = winnerDetails[1];
+                const votes = winnerDetails[2].toString();
+                winnerDetailsP.textContent = `ID: ${id}, Name: ${name}, Votes: ${votes}`;
                 winnerInfoDiv.style.display = 'block';
             } catch (error) {
                 winnerInfoDiv.style.display = 'none';
@@ -182,17 +333,25 @@
 
         connectButton.onclick = connectWallet;
         refreshCandidatesButton.onclick = updateUI;
-        
+
         addCandidateButton.onclick = () => {
-            const name = candidateNameInput.value;
+            const name = candidateNameInput.value.trim();
             if (!name) return alert('Please enter a candidate name.');
             handleTransaction(addCandidateButton, () => contract.addCandidate(name));
             candidateNameInput.value = "";
         };
 
+        const isAddressCompat = (addr) => {
+            try {
+                if (window.ethers?.utils?.isAddress) return window.ethers.utils.isAddress(addr); // v5
+                if (window.ethers?.isAddress) return window.ethers.isAddress(addr); // v6
+            } catch {}
+            return false;
+        };
+
         authorizeVoterButton.onclick = () => {
-            const address = voterAddressInput.value;
-            if (!ethers.utils.isAddress(address)) return alert('Please enter a valid Ethereum address.');
+            const address = voterAddressInput.value.trim();
+            if (!isAddressCompat(address)) return alert('Please enter a valid Ethereum address.');
             handleTransaction(authorizeVoterButton, () => contract.authorizeVoter(address));
             voterAddressInput.value = "";
         };
@@ -209,9 +368,21 @@
             handleTransaction(voteButton, () => contract.vote(id));
         };
 
-        if(window.ethereum) {
+        // Handle account/network changes
+        if (window.ethereum) {
             window.ethereum.on('accountsChanged', connectWallet);
+            window.ethereum.on('chainChanged', () => window.location.reload());
         }
+
+        // Optional: Real-time event listeners
+        const setupEventListeners = () => {
+            if (!contract) return;
+            contract.on("CandidateAdded", updateUI);
+            contract.on("VoteCast", updateUI);
+            contract.on("ElectionEnded", updateUI);
+        };
+
+        // Listeners are initialized after wallet connects (see connectWallet)
     </script>
 </body>
 </html>
