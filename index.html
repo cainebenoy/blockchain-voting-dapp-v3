@@ -1,388 +1,695 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="dark" lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Voting dApp</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoteChain Dashboard</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#135bec",
+              "background-light": "#f6f6f8",
+              "background-dark": "#101622",
+            },
+            fontFamily: {
+              display: ["Manrope"],
+            },
+            borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" },
+          },
+        },
+      };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <style>
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            margin: 2em;
-            background-color: #f7f7f7;
-            color: #333;
-        }
-        .container { max-width: 900px; margin: auto; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            background-color: #fff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        h1, h2 { color: #1a1a1a; }
-        input, select {
-            width: calc(100% - 24px);
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            padding: 10px 20px;
-            cursor: pointer;
-            border-radius: 4px;
-            border: none;
-            color: white;
-            font-weight: bold;
-            transition: background-color 0.2s;
-        }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        .btn-primary { background-color: #007bff; }
-        .btn-secondary { background-color: #6c757d; }
-        .btn-danger { background-color: #dc3545; }
-        #status { font-weight: bold; }
-        #winner-info {
-            padding: 10px;
-            background-color: #e0f0ff;
-            border: 1px solid #b3d7ff;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
+        /* Simple transition for tab content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Advanced Voting dApp</h1>
-        <div class="card">
-            <p>Status: <span id="status">Not Connected</span> | Election Active: <span id="electionStatus">Unknown</span></p>
-            <p>Admin: <span id="adminAddress">Unknown</span></p>
-            <button id="connectButton" class="btn-primary">Connect to MetaMask</button>
-        </div>
-
-        <div class="grid">
-            <div id="admin-panel" class="card" style="display:none;">
-                <h2>Admin Panel</h2>
-                <input type="text" id="candidateName" placeholder="Candidate Name">
-                <button id="addCandidateButton" class="btn-primary">Add Candidate</button>
-                <br><br>
-                <input type="text" id="voterAddress" placeholder="Voter Address">
-                <button id="authorizeVoterButton" class="btn-primary">Authorize Voter</button>
-                <hr style="margin: 20px 0;">
-                <button id="endElectionButton" class="btn-danger">End Election</button>
-            </div>
-
-            <div class="card">
-                <h2>Voter Panel</h2>
-                <select id="candidateSelect"></select>
-                <button id="voteButton" class="btn-primary">Cast Vote</button>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+    <div class="flex min-h-screen w-full flex-col">
+    <header class="sticky top-0 z-10 w-full border-b border-gray-200/50 dark:border-gray-700/50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 text-primary">
+                        <svg class="h-8 w-8" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z" fill="currentColor"></path><path clip-rule="evenodd" d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z" fill="currentColor" fill-rule="evenodd"></path></svg>
+                        <h1 class="text-xl font-bold text-gray-900 dark:text-white">VoteChain</h1>
+                    </div>
+                    <div id="network-display" class="hidden md:flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                        <span class="material-symbols-outlined text-sm">public</span>
+                        <span id="network-name">Not Connected</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="connectButton" class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">
+                        <span class="material-symbols-outlined text-base">account_balance_wallet</span>
+                        <span id="connectButtonText" class="truncate">Connect Wallet</span>
+                    </button>
+                </div>
             </div>
         </div>
-
-        <div class="card">
-            <h2>Election Results</h2>
-            <button id="refreshCandidatesButton" class="btn-secondary">Refresh List</button>
-            <div id="winner-info" style="display:none;">
-                <h3>🏆 Winner</h3>
-                <p id="winner-details"></p>
+    </header>
+    <main class="container mx-auto flex-grow px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mx-auto max-w-4xl">
+            <div class="mb-8">
+                <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white">Election Dashboard</h2>
             </div>
-            <h3>Candidates</h3>
-            <ul id="candidatesList"></ul>
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Election Status</p>
+                    <p id="electionStatus" class="mt-1 text-3xl font-bold text-gray-500">Unknown</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Candidates</p>
+                    <p id="totalCandidates" class="mt-1 text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Votes</p>
+                    <p id="totalVotes" class="mt-1 text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                </div>
+            </div>
+            <div>
+                <div class="border-b border-gray-200 dark:border-gray-700">
+                    <nav id="tabs" aria-label="Tabs" class="-mb-px flex space-x-8">
+                        <a data-tab="candidates" class="tab-link border-primary text-primary whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm" href="#">Candidates</a>
+                        <a data-tab="vote" class="tab-link border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" href="#">Vote</a>
+                        <a data-tab="results" class="tab-link border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" href="#">Results</a>
+                        <a id="admin-tab-link" data-tab="admin" class="tab-link border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" href="#" style="display: none;">Admin</a>
+                    </nav>
+                </div>
+                <div class="py-6">
+                    <!-- Candidates Tab Content -->
+                    <div id="content-candidates" class="tab-content active">
+                        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-800/50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" scope="col">ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" scope="col">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" scope="col">Vote Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="candidatesTbody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-background-dark/50">
+                                    <!-- Candidate rows will be injected here by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Vote Tab Content -->
+                    <div id="content-vote" class="tab-content">
+                         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
+                            <label for="voteCandidateSelect" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Candidate</label>
+                            <select id="voteCandidateSelect" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-background-dark/50 px-4 py-2 mb-4"></select>
+                            <button id="castVoteButton" class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">Cast Vote</button>
+                         </div>
+                    </div>
+
+                    <!-- Results Tab Content -->
+                    <div id="content-results" class="tab-content">
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Election Results</h3>
+                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Results will appear once the election ends.</p>
+                            <div id="results-placeholder" class="mt-4 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 text-sm text-gray-500 dark:text-gray-400">
+                                Election is still active. End the election from the Admin tab to view the winner.
+                            </div>
+                            <div id="winner-info" class="mt-4 hidden rounded-lg border border-green-500/40 bg-green-50/60 dark:bg-green-950/30 p-4 text-sm text-gray-900 dark:text-gray-100">
+                                <p class="mb-1 font-semibold text-green-700 dark:text-green-300">Winner</p>
+                                <p id="winner-details" class="text-sm"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin Tab Content -->
+                    <div id="content-admin" class="tab-content">
+                        <div class="space-y-6">
+                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add Candidate</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Register a new candidate for the election.</p>
+                                <label for="adminCandidateName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Candidate Name</label>
+                                <input id="adminCandidateName" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-background-dark/50 px-4 py-2 mb-4" placeholder="Enter candidate name" type="text" />
+                                <button id="adminAddCandidateButton" class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">Add Candidate</button>
+                            </div>
+
+                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Authorize Voter</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Grant voting rights to a wallet address.</p>
+                                <label for="adminVoterAddress" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voter Address</label>
+                                <input id="adminVoterAddress" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-background-dark/50 px-4 py-2 mb-4" placeholder="0x..." type="text" />
+                                <button id="adminAuthorizeVoterButton" class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">Authorize Voter</button>
+                            </div>
+
+                            <div class="rounded-xl border border-red-200 dark:border-red-700 bg-white dark:bg-background-dark/50 p-6">
+                                <h3 class="text-lg font-semibold text-red-600 dark:text-red-400">End Election</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Ending the election is irreversible. Only do this when voting is complete.</p>
+                                <button id="adminEndElectionButton" class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-500/30 transition-all hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">End Election</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+    </main>
+
+    <footer class="border-t border-gray-200 dark:border-gray-800 bg-white/30 dark:bg-background-dark/50 py-6">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-sm text-gray-500 dark:text-gray-400">
+            <p>Powered by VoteChain • Secure blockchain elections on Sepolia Testnet.</p>
+        </div>
+    </footer>
     </div>
 
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2/dist/ethers.umd.js"></script>
     <script>
-        // Fallback loader in case the primary CDN fails
-        (function ensureEthersLoaded() {
-            if (typeof window.ethers === 'undefined') {
-                const s = document.createElement('script');
-                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js';
-                s.async = false; // preserve order
-                s.onload = () => console.log('Loaded ethers from fallback CDN');
-                s.onerror = () => console.error('Failed to load ethers from both CDNs');
-                document.head.appendChild(s);
+    // --- CONFIGURATION ---
+    const contractAddress = "0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c";
+    const contractABI = [
+        {
+            "inputs": [],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" },
+                { "indexed": false, "internalType": "string", "name": "name", "type": "string" }
+            ],
+            "name": "CandidateAdded",
+            "type": "event"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                { "indexed": true, "internalType": "address", "name": "voter", "type": "address" }
+            ],
+            "name": "VoterAuthorized",
+            "type": "event"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                { "indexed": true, "internalType": "address", "name": "voter", "type": "address" },
+                { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }
+            ],
+            "name": "VoteCast",
+            "type": "event"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                { "indexed": false, "internalType": "uint256", "name": "winnerCandidateId", "type": "uint256" },
+                { "indexed": false, "internalType": "string", "name": "winnerName", "type": "string" },
+                { "indexed": false, "internalType": "uint256", "name": "winningVoteCount", "type": "uint256" }
+            ],
+            "name": "ElectionEnded",
+            "type": "event"
+        },
+        {
+            "inputs": [],
+            "name": "admin",
+            "outputs": [
+                { "internalType": "address", "name": "", "type": "address" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                { "internalType": "string", "name": "_name", "type": "string" }
+            ],
+            "name": "addCandidate",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                { "internalType": "address", "name": "_voter", "type": "address" }
+            ],
+            "name": "authorizeVoter",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "name": "candidates",
+            "outputs": [
+                { "internalType": "uint256", "name": "id", "type": "uint256" },
+                { "internalType": "string", "name": "name", "type": "string" },
+                { "internalType": "uint256", "name": "voteCount", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "electionEnded",
+            "outputs": [
+                { "internalType": "bool", "name": "", "type": "bool" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "endElection",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "getAllCandidates",
+            "outputs": [
+                {
+                    "components": [
+                        { "internalType": "uint256", "name": "id", "type": "uint256" },
+                        { "internalType": "string", "name": "name", "type": "string" },
+                        { "internalType": "uint256", "name": "voteCount", "type": "uint256" }
+                    ],
+                    "internalType": "struct Voting.Candidate[]",
+                    "name": "",
+                    "type": "tuple[]"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                { "internalType": "uint256", "name": "_candidateId", "type": "uint256" }
+            ],
+            "name": "getCandidate",
+            "outputs": [
+                { "internalType": "uint256", "name": "", "type": "uint256" },
+                { "internalType": "string", "name": "", "type": "string" },
+                { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                { "internalType": "address", "name": "_voter", "type": "address" }
+            ],
+            "name": "getVoterInfo",
+            "outputs": [
+                { "internalType": "bool", "name": "", "type": "bool" },
+                { "internalType": "bool", "name": "", "type": "bool" },
+                { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "getWinner",
+            "outputs": [
+                { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "getWinnerDetails",
+            "outputs": [
+                { "internalType": "uint256", "name": "", "type": "uint256" },
+                { "internalType": "string", "name": "", "type": "string" },
+                { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "isElectionActive",
+            "outputs": [
+                { "internalType": "bool", "name": "", "type": "bool" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "totalCandidates",
+            "outputs": [
+                { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "totalVotes",
+            "outputs": [
+                { "internalType": "uint256", "name": "", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                { "internalType": "uint256", "name": "_candidateId", "type": "uint256" }
+            ],
+            "name": "vote",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                { "internalType": "address", "name": "", "type": "address" }
+            ],
+            "name": "voters",
+            "outputs": [
+                { "internalType": "bool", "name": "isAuthorized", "type": "bool" },
+                { "internalType": "bool", "name": "hasVoted", "type": "bool" },
+                { "internalType": "uint256", "name": "votedCandidateId", "type": "uint256" }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ];
+
+    let provider;
+    let signer;
+    let contract;
+
+    // DOM References
+    const connectButton = document.getElementById('connectButton');
+    const connectButtonText = document.getElementById('connectButtonText');
+    const networkDisplay = document.getElementById('network-display');
+    const networkName = document.getElementById('network-name');
+    const electionStatusP = document.getElementById('electionStatus');
+    const totalCandidatesP = document.getElementById('totalCandidates');
+    const totalVotesP = document.getElementById('totalVotes');
+    const tabs = document.getElementById('tabs');
+    const adminTabLink = document.getElementById('admin-tab-link');
+    const candidatesTbody = document.getElementById('candidatesTbody');
+    const voteCandidateSelect = document.getElementById('voteCandidateSelect');
+    const castVoteButton = document.getElementById('castVoteButton');
+    const winnerInfoDiv = document.getElementById('winner-info');
+    const winnerDetailsP = document.getElementById('winner-details');
+    const resultsPlaceholder = document.getElementById('results-placeholder');
+    const adminCandidateNameInput = document.getElementById('adminCandidateName');
+    const adminAddCandidateButton = document.getElementById('adminAddCandidateButton');
+    const adminVoterAddressInput = document.getElementById('adminVoterAddress');
+    const adminAuthorizeVoterButton = document.getElementById('adminAuthorizeVoterButton');
+    const adminEndElectionButton = document.getElementById('adminEndElectionButton');
+
+    // --- Helpers ---
+    const formatAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+
+    const switchToSepolia = async () => {
+        if (!window.ethereum?.request) return false;
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0xaa36a7' }],
+            });
+            return true;
+        } catch (switchError) {
+            if (switchError?.code === 4902) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0xaa36a7',
+                            chainName: 'Sepolia Test Network',
+                            nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+                            rpcUrls: ['https://rpc.sepolia.org'],
+                            blockExplorerUrls: ['https://sepolia.etherscan.io'],
+                        }],
+                    });
+                    return true;
+                } catch (addError) {
+                    console.error('Adding Sepolia failed:', addError);
+                    return false;
+                }
             }
-        })();
+            console.error('Chain switch failed:', switchError);
+            return false;
+        }
+    };
 
-        // Utility: wait until ethers is available (up to ~5s)
-        const waitForEthers = () => new Promise((resolve, reject) => {
-            let attempts = 0;
-            const iv = setInterval(() => {
-                if (typeof window.ethers !== 'undefined') {
-                    clearInterval(iv);
-                    return resolve(true);
-                }
-                if (++attempts > 50) { // ~5s
-                    clearInterval(iv);
-                    return reject(new Error('ethers is not available'));
-                }
-            }, 100);
-        });
-    </script>
-    <script>
-        // --- CONFIGURATION ---
-        const contractAddress = "0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c";
-        const contractABI = [
-            { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
-            { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "name", "type": "string" } ], "name": "CandidateAdded", "type": "event" },
-            { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "voter", "type": "address" } ], "name": "VoterAuthorized", "type": "event" },
-            { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "voter", "type": "address" }, { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" } ], "name": "VoteCast", "type": "event" },
-            { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "winnerCandidateId", "type": "uint256" }, { "indexed": false, "internalType": "string", "name": "winnerName", "type": "string" }, { "indexed": false, "internalType": "uint256", "name": "winningVoteCount", "type": "uint256" } ], "name": "ElectionEnded", "type": "event" },
-            { "inputs": [], "name": "admin", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [ { "internalType": "string", "name": "_name", "type": "string" } ], "name": "addCandidate", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-            { "inputs": [ { "internalType": "address", "name": "_voter", "type": "address" } ], "name": "authorizeVoter", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-            { "inputs": [], "name": "endElection", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-            { "inputs": [ { "internalType": "uint256", "name": "_candidateId", "type": "uint256" } ], "name": "vote", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-            { "inputs": [], "name": "isElectionActive", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [], "name": "totalCandidates", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [], "name": "totalVotes", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [ { "internalType": "uint256", "name": "_candidateId", "type": "uint256" } ], "name": "getCandidate", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "string", "name": "", "type": "string" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [], "name": "getAllCandidates", "outputs": [ { "components": [ { "internalType": "uint256", "name": "id", "type": "uint256" }, { "internalType": "string", "name": "name", "type": "string" }, { "internalType": "uint256", "name": "voteCount", "type": "uint256" } ], "internalType": "struct Voting.Candidate[]", "name": "", "type": "tuple[]" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [ { "internalType": "address", "name": "_voter", "type": "address" } ], "name": "getVoterInfo", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" }, { "internalType": "bool", "name": "", "type": "bool" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [], "name": "getWinner", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
-            { "inputs": [], "name": "getWinnerDetails", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" }, { "internalType": "string", "name": "", "type": "string" }, { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }
-        ];
+    const ensureContract = () => {
+        if (!contract) throw new Error('Wallet not connected. Please connect first.');
+    };
 
-        // --- DOM Elements ---
-        const statusEl = document.getElementById('status');
-        const electionStatusEl = document.getElementById('electionStatus');
-        const adminAddressEl = document.getElementById('adminAddress');
-        const connectButton = document.getElementById('connectButton');
-        const adminPanel = document.getElementById('admin-panel');
-        const addCandidateButton = document.getElementById('addCandidateButton');
-        const authorizeVoterButton = document.getElementById('authorizeVoterButton');
-        const endElectionButton = document.getElementById('endElectionButton');
-        const voteButton = document.getElementById('voteButton');
-        const refreshCandidatesButton = document.getElementById('refreshCandidatesButton');
-        const candidatesList = document.getElementById('candidatesList');
-        const candidateNameInput = document.getElementById('candidateName');
-        const voterAddressInput = document.getElementById('voterAddress');
-        const candidateSelect = document.getElementById('candidateSelect');
-        const winnerInfoDiv = document.getElementById('winner-info');
-        const winnerDetailsP = document.getElementById('winner-details');
+    // --- Data Fetching ---
+    async function fetchDashboardStats() {
+        ensureContract();
+        try {
+            const isActive = await contract.isElectionActive();
+            electionStatusP.textContent = isActive ? 'Active' : 'Ended';
+            electionStatusP.className = `mt-1 text-3xl font-bold ${isActive ? 'text-green-500' : 'text-red-500'}`;
 
-        let provider, signer, contract;
+            const candidateCount = await contract.totalCandidates();
+            totalCandidatesP.textContent = candidateCount.toString();
 
-        // Utility: request switch to Sepolia (11155111)
-        const switchToSepolia = async () => {
-            if (!window.ethereum?.request) return false;
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0xaa36a7' }], // 11155111
-                });
-                return true;
-            } catch (switchError) {
-                // 4902 = Unrecognized chain, offer to add
-                if (switchError && switchError.code === 4902) {
-                    try {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: '0xaa36a7',
-                                chainName: 'Sepolia Test Network',
-                                nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
-                                rpcUrls: ['https://rpc.sepolia.org'],
-                                blockExplorerUrls: ['https://sepolia.etherscan.io']
-                            }],
-                        });
-                        return true;
-                    } catch (addError) {
-                        console.error('Add chain failed:', addError);
-                        return false;
-                    }
-                }
-                console.error('Switch chain failed:', switchError);
-                return false;
+            const votesCount = await contract.totalVotes();
+            totalVotesP.textContent = votesCount.toString();
+
+            if (!isActive) {
+                await fetchWinner();
+            } else {
+                winnerInfoDiv.classList.add('hidden');
+                resultsPlaceholder.classList.remove('hidden');
             }
-        };
+        } catch (error) {
+            console.error('Failed to load dashboard stats:', error);
+        }
+    }
 
+    async function fetchCandidates() {
+        ensureContract();
+        candidatesTbody.innerHTML = '';
+        voteCandidateSelect.innerHTML = '';
+        try {
+            const list = await contract.getAllCandidates();
+            if (!list.length) {
+                candidatesTbody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No candidates registered yet.</td></tr>`;
+                return;
+            }
+
+            list.forEach((candidate) => {
+                const id = candidate.id.toString();
+                const name = candidate.name;
+                const votes = candidate.voteCount.toString();
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400">${id}</td>
+                    <td class="whitespace-nowrap px-6 py-4 text-sm font-semibold text-gray-900 dark:text-white">${name}</td>
+                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">${votes}</td>`;
+                candidatesTbody.appendChild(row);
+
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = `${name} (ID: ${id})`;
+                voteCandidateSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Failed to load candidates:', error);
+        }
+    }
+
+    async function fetchWinner() {
+        ensureContract();
+        try {
+            const [idBN, name, votesBN] = await contract.getWinnerDetails();
+            const id = idBN.toString();
+            const votes = votesBN.toString();
+
+            if (id !== '0') {
+                winnerDetailsP.textContent = `ID: ${id} • ${name} • ${votes} vote${votes === '1' ? '' : 's'}`;
+            } else {
+                winnerDetailsP.textContent = 'No winner determined (tie or no votes).';
+            }
+            winnerInfoDiv.classList.remove('hidden');
+            resultsPlaceholder.classList.add('hidden');
+        } catch (error) {
+            winnerInfoDiv.classList.add('hidden');
+            resultsPlaceholder.classList.remove('hidden');
+            console.error('Failed to load winner details:', error);
+        }
+    }
+
+    async function checkAdmin() {
+        ensureContract();
+        try {
+            const adminAddress = await contract.admin();
+            const currentAddress = await signer.getAddress();
+            if (adminAddress.toLowerCase() === currentAddress.toLowerCase()) {
+                adminTabLink.style.display = 'block';
+            } else {
+                adminTabLink.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Failed to verify admin status:', error);
+        }
+    }
+
+    async function updateUI() {
+        if (!contract) return;
+        await Promise.allSettled([
+            fetchDashboardStats(),
+            fetchCandidates(),
+            checkAdmin(),
+        ]);
+    }
+
+    // --- Wallet & Transactions ---
     const connectWallet = async () => {
-            if (typeof window.ethereum === 'undefined') return alert('Please install MetaMask!');
-            try {
-        await waitForEthers();
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!window.ethereum) {
+            alert('MetaMask not detected. Please install it to continue.');
+            return;
+        }
+
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+            signer = provider.getSigner();
+            contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+            let network = await provider.getNetwork();
+            networkDisplay.style.display = 'flex';
+            networkName.textContent = `${network.name || 'Chain'} (${network.chainId})`;
+
+            if (network.chainId !== 11155111) {
+                const switched = await switchToSepolia();
+                if (!switched) {
+                    alert('Switch to Sepolia Test Network to continue.');
+                    return;
+                }
                 provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
                 signer = provider.getSigner();
                 contract = new ethers.Contract(contractAddress, contractABI, signer);
-
-                let network = await provider.getNetwork();
-                if (network.chainId !== 11155111) {
-                    const switched = await switchToSepolia();
-                    if (!switched) {
-                        alert("Please switch to the Sepolia Test Network in MetaMask.");
-                        return;
-                    }
-                    // Recreate provider/signer/contract after chain switch
-                    provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-                    signer = provider.getSigner();
-                    contract = new ethers.Contract(contractAddress, contractABI, signer);
-                    network = await provider.getNetwork();
-                }
-
-                const address = await signer.getAddress();
-                statusEl.textContent = `Connected: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-                connectButton.textContent = "Connected";
-                statusEl.style.color = "green";
-
-                electionStatusEl.textContent = "Loading...";
-                candidatesList.innerHTML = "<li>Loading data...</li>";
-
-                await updateUI();
-                setupEventListeners();
-            } catch (error) {
-                console.error("Connection error:", error);
-                const message = error?.message || error?.data?.message || String(error);
-                alert(`Failed to connect wallet: ${message}`);
+                network = await provider.getNetwork();
+                networkName.textContent = `${network.name || 'Chain'} (${network.chainId})`;
             }
-        };
 
-        const updateUI = async () => {
-            if (!contract) return;
-            try {
-                await fetchElectionStatus();
-                await fetchCandidates();
-                await checkAdmin();
-            } catch (error) {
-                console.error("UI update failed", error);
-            }
-        };
+            const address = await signer.getAddress();
+            connectButtonText.textContent = formatAddress(address);
+            connectButton.disabled = true;
 
-        const checkAdmin = async () => {
-            const contractAdmin = await contract.admin();
-            const currentUser = await signer.getAddress();
-            adminAddressEl.textContent = contractAdmin;
-            adminPanel.style.display = (currentUser.toLowerCase() === contractAdmin.toLowerCase()) ? 'block' : 'none';
-        };
+            await updateUI();
+        } catch (error) {
+            console.error('Wallet connection failed:', error);
+            const message = error?.reason || error?.message || 'Wallet connection rejected.';
+            alert(message);
+        }
+    };
 
-        const fetchElectionStatus = async () => {
-            try {
-                const isActive = await contract.isElectionActive();
-                electionStatusEl.textContent = isActive ? "Active" : "Ended";
-                if (isActive) {
-                    [addCandidateButton, authorizeVoterButton, endElectionButton, voteButton].forEach(btn => btn.disabled = false);
-                    winnerInfoDiv.style.display = 'none';
-                } else {
-                    [addCandidateButton, authorizeVoterButton, endElectionButton, voteButton].forEach(btn => btn.disabled = true);
-                    await fetchWinner();
-                }
-            } catch (error) {
-                console.error("Could not fetch election status", error);
-            }
-        };
-
-        const fetchCandidates = async () => {
-            candidatesList.innerHTML = "<li>Loading...</li>";
-            candidateSelect.innerHTML = "";
-            try {
-                const allCandidates = await contract.getAllCandidates();
-                let html = "";
-                allCandidates.forEach(candidate => {
-                    const id = candidate.id.toString();
-                    const name = candidate.name;
-                    const votes = candidate.voteCount.toString();
-                    html += `<li>ID: ${id} - ${name} - Votes: ${votes}</li>`;
-                    const option = document.createElement('option');
-                    option.value = id;
-                    option.textContent = `${name} (ID: ${id})`;
-                    candidateSelect.appendChild(option);
-                });
-                candidatesList.innerHTML = html || "<li>No candidates yet.</li>";
-            } catch (error) {
-                console.error("Could not fetch candidates.", error);
-                candidatesList.innerHTML = "<li>Error loading candidates.</li>";
-            }
-        };
-
-        const fetchWinner = async () => {
-            try {
-                const winnerDetails = await contract.getWinnerDetails();
-                const id = winnerDetails[0].toString();
-                const name = winnerDetails[1];
-                const votes = winnerDetails[2].toString();
-                winnerDetailsP.textContent = `ID: ${id}, Name: ${name}, Votes: ${votes}`;
-                winnerInfoDiv.style.display = 'block';
-            } catch (error) {
-                winnerInfoDiv.style.display = 'none';
-            }
-        };
-
-        const handleTransaction = async (button, txFunction) => {
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = "Mining...";
-            try {
-                const tx = await txFunction();
-                await tx.wait();
-                button.textContent = "Success!";
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.disabled = false;
-                    updateUI();
-                }, 2000);
-            } catch (error) {
-                console.error("Transaction failed:", error);
-                const reason = error.reason || error?.data?.message || "Transaction failed.";
-                alert(`Error: ${reason}`);
+    async function handleTransaction(button, action) {
+        ensureContract();
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Processing...';
+        try {
+            const tx = await action();
+            await tx.wait();
+            button.textContent = 'Success!';
+            setTimeout(() => {
                 button.textContent = originalText;
                 button.disabled = false;
-            }
-        };
-
-        connectButton.onclick = connectWallet;
-        refreshCandidatesButton.onclick = updateUI;
-
-        addCandidateButton.onclick = () => {
-            const name = candidateNameInput.value.trim();
-            if (!name) return alert('Please enter a candidate name.');
-            handleTransaction(addCandidateButton, () => contract.addCandidate(name));
-            candidateNameInput.value = "";
-        };
-
-        const isAddressCompat = (addr) => {
-            try {
-                if (window.ethers?.utils?.isAddress) return window.ethers.utils.isAddress(addr); // v5
-                if (window.ethers?.isAddress) return window.ethers.isAddress(addr); // v6
-            } catch {}
-            return false;
-        };
-
-        authorizeVoterButton.onclick = () => {
-            const address = voterAddressInput.value.trim();
-            if (!isAddressCompat(address)) return alert('Please enter a valid Ethereum address.');
-            handleTransaction(authorizeVoterButton, () => contract.authorizeVoter(address));
-            voterAddressInput.value = "";
-        };
-
-        endElectionButton.onclick = () => {
-            if (confirm("Are you sure you want to end the election? This cannot be undone.")) {
-                handleTransaction(endElectionButton, () => contract.endElection());
-            }
-        };
-
-        voteButton.onclick = () => {
-            const id = candidateSelect.value;
-            if (!id) return alert('No candidate selected.');
-            handleTransaction(voteButton, () => contract.vote(id));
-        };
-
-        // Handle account/network changes
-        if (window.ethereum) {
-            window.ethereum.on('accountsChanged', connectWallet);
-            window.ethereum.on('chainChanged', () => window.location.reload());
+            }, 1200);
+            await updateUI();
+        } catch (error) {
+            console.error('Transaction error:', error);
+            const message = error?.reason || error?.data?.message || error?.message || 'Transaction failed.';
+            alert(message);
+            button.textContent = originalText;
+            button.disabled = false;
         }
+    }
 
-        // Optional: Real-time event listeners
-        const setupEventListeners = () => {
-            if (!contract) return;
-            contract.on("CandidateAdded", updateUI);
-            contract.on("VoteCast", updateUI);
-            contract.on("ElectionEnded", updateUI);
-        };
+    // --- Event Bindings ---
+    connectButton.addEventListener('click', connectWallet);
 
-        // Listeners are initialized after wallet connects (see connectWallet)
+    adminAddCandidateButton.addEventListener('click', () => {
+        const name = adminCandidateNameInput.value.trim();
+        if (!name) {
+            alert('Enter a candidate name first.');
+            return;
+        }
+        handleTransaction(adminAddCandidateButton, () => contract.addCandidate(name));
+        adminCandidateNameInput.value = '';
+    });
+
+    adminAuthorizeVoterButton.addEventListener('click', () => {
+        const address = adminVoterAddressInput.value.trim();
+        if (!address || !ethers.utils.isAddress(address)) {
+            alert('Enter a valid Ethereum address.');
+            return;
+        }
+        handleTransaction(adminAuthorizeVoterButton, () => contract.authorizeVoter(address));
+        adminVoterAddressInput.value = '';
+    });
+
+    adminEndElectionButton.addEventListener('click', () => {
+        if (!confirm('End the election now? This action cannot be reversed.')) return;
+        handleTransaction(adminEndElectionButton, () => contract.endElection());
+    });
+
+    castVoteButton.addEventListener('click', () => {
+        const candidateId = voteCandidateSelect.value;
+        if (!candidateId) {
+            alert('Select a candidate to vote for.');
+            return;
+        }
+        handleTransaction(castVoteButton, () => contract.vote(candidateId));
+    });
+
+    tabs.addEventListener('click', (event) => {
+        if (event.target.tagName !== 'A') return;
+        event.preventDefault();
+
+        document.querySelectorAll('.tab-link').forEach((link) => {
+            link.classList.remove('border-primary', 'text-primary', 'font-bold');
+            link.classList.add('border-transparent', 'text-gray-500', 'font-medium');
+        });
+
+        event.target.classList.add('border-primary', 'text-primary', 'font-bold');
+        event.target.classList.remove('border-transparent', 'text-gray-500', 'font-medium');
+
+        const selected = event.target.dataset.tab;
+        document.querySelectorAll('.tab-content').forEach((content) => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`content-${selected}`).classList.add('active');
+    });
+
+    if (window.ethereum) {
+        window.ethereum.on('accountsChanged', () => window.location.reload());
+        window.ethereum.on('chainChanged', () => window.location.reload());
+    }
+
+    // Attempt eager connection if already authorized
+    (async () => {
+        if (!window.ethereum) return;
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length) {
+                await connectWallet();
+            }
+        } catch (error) {
+            console.warn('Auto-connect skipped:', error);
+        }
+    })();
     </script>
 </body>
 </html>
+
