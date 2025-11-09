@@ -1,30 +1,30 @@
-import "dotenv/config";
 import { network } from "hardhat";
 
-// Usage (Sepolia):
-//   VOTING_V2_ADDRESS=0xDeployedAddress SERVER_WALLET_ADDRESS=0xServerSigner npx hardhat run scripts/authorize-signer.ts --network sepolia
-
 async function main() {
-  const contractAddress = process.env.VOTING_V2_ADDRESS;
-  const serverSignerAddress = process.env.SERVER_WALLET_ADDRESS;
+  // --- CONFIGURATION ---
+  const VOTING_V2_ADDRESS = "0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA";
+  // Your backend server address (from the previous step 0.1 ETH funding)
+  const SERVER_WALLET_ADDRESS = "0xf0CEfA35A826C17D92FbD7Bf872275d0304B6a1c";
 
-  if (!contractAddress) throw new Error("Missing VOTING_V2_ADDRESS env var.");
-  if (!serverSignerAddress) throw new Error("Missing SERVER_WALLET_ADDRESS env var.");
+  if (VOTING_V2_ADDRESS.includes("PASTE") || SERVER_WALLET_ADDRESS.includes("PASTE")) {
+      console.error("❌ ERROR: Please paste your real addresses at the top of the script.");
+      process.exit(1);
+  }
 
   const { ethers } = await network.connect();
-  const [admin] = await ethers.getSigners();
-  console.log(`Admin signer: ${admin.address}`);
-  console.log(`Target VotingV2: ${contractAddress}`);
-  console.log(`Authorizing server signer: ${serverSignerAddress}`);
+  const votingV2 = await ethers.getContractAt("VotingV2", VOTING_V2_ADDRESS);
 
-  const votingV2 = await ethers.getContractAt("VotingV2", contractAddress, admin);
-  const tx = await votingV2.authorizeSigner(serverSignerAddress);
-  console.log("authorizeSigner tx sent:", tx.hash);
+  console.log(`Authorizing server at ${SERVER_WALLET_ADDRESS} on contract ${VOTING_V2_ADDRESS}...`);
+  
+  // CORRECT FUNCTION NAME: setOfficialSigner
+  const tx = await votingV2.setOfficialSigner(SERVER_WALLET_ADDRESS);
+  
+  console.log("Transaction sent. Waiting for confirmation...");
   await tx.wait();
-  console.log("Signer authorized successfully.");
+  console.log("✅ SUCCESS! Backend server is authorized.");
 }
 
-main().catch((err) => {
-  console.error(err);
+main().catch((error) => {
+  console.error(error);
   process.exitCode = 1;
 });
