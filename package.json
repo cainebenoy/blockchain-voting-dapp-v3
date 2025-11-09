@@ -7,8 +7,10 @@
     "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy.ts --network hardhatMainnet",
     "deploy:sepolia": "hardhat ignition deploy --network sepolia ignition/modules/Voting.ts",
-  "balance:sepolia": "hardhat run scripts/check-balance.ts --network sepolia",
-    "balance:local": "hardhat run scripts/check-balance.ts --network hardhatMainnet"
+    "deploy:v2:sepolia": "hardhat run scripts/deployV2.ts --network sepolia",
+    "balance:sepolia": "hardhat run scripts/check-balance.ts --network sepolia",
+    "balance:local": "hardhat run scripts/check-balance.ts --network hardhatMainnet",
+    "authorize:signer:sepolia": "hardhat run scripts/authorize-signer.ts --network sepolia"
   },
   "keywords": [],
   "author": "",
