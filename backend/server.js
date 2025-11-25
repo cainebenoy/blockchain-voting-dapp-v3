@@ -1,10 +1,18 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
-const { ethers } = require('ethers');
-const fs = require('fs');
-const path = require('path');
+import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
+import { createClient } from '@supabase/supabase-js';
+import { ethers } from 'ethers';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Load environment variables
+dotenv.config();
+
+// Fix for __dirname in ESM (it doesn't exist by default)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = 3000;
@@ -19,7 +27,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
 const wallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
 
-// Load the Contract ABI (Make sure VotingV2.json is in the backend folder!)
+// Load the Contract ABI
 const abiPath = path.join(__dirname, 'VotingV2.json');
 const contractJson = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 const ABI = contractJson.abi;
@@ -89,7 +97,7 @@ app.post('/api/vote', async (req, res) => {
         console.log("Submitting to blockchain...");
         const tx = await contract.vote(candidate_id, aadhaar_id);
         console.log("Transaction sent:", tx.hash);
-
+        
         // Wait for 1 confirmation to be sure
         await tx.wait(1);
         console.log("Transaction confirmed on-chain.");
@@ -102,7 +110,6 @@ app.post('/api/vote', async (req, res) => {
 
         if (dbError) {
             console.error("Database update failed AFTER blockchain success. Manual sync needed for:", aadhaar_id);
-            // In a real production system, you'd have a background job to fix these rare inconsistencies.
         }
 
         res.json({
@@ -113,7 +120,6 @@ app.post('/api/vote', async (req, res) => {
 
     } catch (err) {
         console.error("Voting Error:", err);
-        // Extract readable error message from smart contract revert if possible
         const errorMessage = err.reason || err.message || "Blockchain transaction failed.";
         res.status(500).json({ status: 'error', message: errorMessage });
     }
