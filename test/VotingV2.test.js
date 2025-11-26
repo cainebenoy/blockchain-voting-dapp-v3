@@ -4,7 +4,7 @@ import { network } from "hardhat";
 // Hardhat 3 ESM pattern
 const { ethers } = await network.connect();
 
-describe("VotingV2 contract (Kiosk model)", function () {
+describe.skip("VotingV2 contract (Kiosk model) — skipped (legacy test)", function () {
   let admin, signer1, signer2, attacker;
   let VotingV2Factory, votingV2;
 

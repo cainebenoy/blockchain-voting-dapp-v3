@@ -1,698 +1,295 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en" class="dark">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VoteChain Dashboard</title>
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoteChain | Live Election Results</title>
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              primary: "#135bec",
-              "background-light": "#f6f6f8",
-              "background-dark": "#101622",
-            },
-            fontFamily: {
-              display: ["Manrope"],
-            },
-            borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" },
-          },
-        },
-      };
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <style>
-        /* Simple transition for tab content */
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .live-indicator { display: inline-block; width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
     </style>
 </head>
-<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
-    <div class="flex min-h-screen w-full flex-col">
-    <header class="sticky top-0 z-10 w-full border-b border-gray-200/50 dark:border-gray-700/50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex h-16 items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2 text-primary">
-                        <svg class="h-8 w-8" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path d="M24 18.4228L42 11.475V34.3663C42 34.7796 41.7457 35.1504 41.3601 35.2992L24 42V18.4228Z" fill="currentColor"></path><path clip-rule="evenodd" d="M24 8.18819L33.4123 11.574L24 15.2071L14.5877 11.574L24 8.18819ZM9 15.8487L21 20.4805V37.6263L9 32.9945V15.8487ZM27 37.6263V20.4805L39 15.8487V32.9945L27 37.6263ZM25.354 2.29885C24.4788 1.98402 23.5212 1.98402 22.646 2.29885L4.98454 8.65208C3.7939 9.08038 3 10.2097 3 11.475V34.3663C3 36.0196 4.01719 37.5026 5.55962 38.098L22.9197 44.7987C23.6149 45.0671 24.3851 45.0671 25.0803 44.7987L42.4404 38.098C43.9828 37.5026 45 36.0196 45 34.3663V11.475C45 10.2097 44.2061 9.08038 43.0155 8.65208L25.354 2.29885Z" fill="currentColor" fill-rule="evenodd"></path></svg>
-                        <h1 class="text-xl font-bold text-gray-900 dark:text-white">VoteChain</h1>
+<body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+                        <span class="material-symbols-rounded text-2xl">how_to_vote</span>
                     </div>
-                    <div id="network-display" class="hidden md:flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                        <span class="material-symbols-outlined text-sm">public</span>
-                        <span id="network-name">Not Connected</span>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">VoteChain</h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Public Ledger Interface</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
-                    <button id="connectButton" class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">
-                        <span class="material-symbols-outlined text-base">account_balance_wallet</span>
-                        <span id="connectButtonText" class="truncate">Connect Wallet</span>
+                    <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-800">
+                        <span class="live-indicator"></span> Live Data: Sepolia
+                    </div>
+                    <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
+                        <span id="theme-icon" class="material-symbols-rounded text-xl">light_mode</span>
                     </button>
                 </div>
             </div>
         </div>
-    </header>
-    <main class="container mx-auto flex-grow px-4 sm:px-6 lg:px-8 py-8">
-        <div class="mx-auto max-w-4xl">
-            <div class="mb-8">
-                <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white">Election Dashboard</h2>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
+        
+        <!-- HEADER STATS -->
+        <div class="text-center mb-12">
+            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Official Election Results</h2>
+            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
+                Real-time data directly from the Ethereum Blockchain. Verified, immutable, and transparent.
+            </p>
+        </div>
+
+        <!-- SUMMARY CARDS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <!-- Status Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                    <span class="material-symbols-rounded text-3xl">pending_actions</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Election Status</p>
+                    <h3 id="electionStatus" class="text-xl font-bold text-slate-900 dark:text-white">Connecting...</h3>
+                </div>
             </div>
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Election Status</p>
-                    <p id="electionStatus" class="mt-1 text-3xl font-bold text-gray-500">Unknown</p>
+
+            <!-- Votes Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                    <span class="material-symbols-rounded text-3xl">ballot</span>
                 </div>
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Candidates</p>
-                    <p id="totalCandidates" class="mt-1 text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                </div>
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Votes</p>
-                    <p id="totalVotes" class="mt-1 text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Votes Cast</p>
+                    <h3 id="totalVotes" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
                 </div>
             </div>
-            <div>
-                <div class="border-b border-gray-200 dark:border-gray-700">
-                    <nav id="tabs" aria-label="Tabs" class="-mb-px flex space-x-8">
-                        <a data-tab="candidates" class="tab-link border-primary text-primary whitespace-nowrap py-4 px-1 border-b-2 font-bold text-sm" href="#">Candidates</a>
-                        <a data-tab="vote" class="tab-link border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" href="#">Vote</a>
-                        <a data-tab="results" class="tab-link border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" href="#">Results</a>
-                        <a id="admin-tab-link" data-tab="admin" class="tab-link border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" href="#" style="display: none;">Admin</a>
-                    </nav>
+
+            <!-- Candidates Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+                    <span class="material-symbols-rounded text-3xl">groups</span>
                 </div>
-                <div class="py-6">
-                    <!-- Candidates Tab Content -->
-                    <div id="content-candidates" class="tab-content active">
-                        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-800/50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" scope="col">ID</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" scope="col">Name</th>
-                                        <th class="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400" scope="col">Vote Count</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="candidatesTbody" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-background-dark/50">
-                                    <!-- Candidate rows will be injected here by JavaScript -->
-                                </tbody>
-                            </table>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Candidates</p>
+                    <h3 id="totalCandidates" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- WINNER BANNER (Hidden until election ends) -->
+        <div id="winner-display" class="hidden mb-12 fade-in">
+            <div class="bg-gradient-to-r from-brand-600 to-indigo-800 rounded-2xl p-8 md:p-10 text-white shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
+                    <span class="material-symbols-rounded text-[150px]">emoji_events</span>
+                </div>
+                <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Official Winner</span>
+                            <span class="text-brand-200 text-xs">Election Ended</span>
                         </div>
+                        <h2 id="winnerName" class="text-4xl md:text-5xl font-extrabold mb-2">--</h2>
+                        <p class="text-brand-100 text-lg">Victory with <span id="winnerVotes" class="font-bold text-white">--</span> confirmed votes.</p>
                     </div>
-
-                    <!-- Vote Tab Content -->
-                    <div id="content-vote" class="tab-content">
-                         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
-                            <label for="voteCandidateSelect" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Candidate</label>
-                            <select id="voteCandidateSelect" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-background-dark/50 px-4 py-2 mb-4"></select>
-                            <button id="castVoteButton" class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">Cast Vote</button>
-                         </div>
-                    </div>
-
-                    <!-- Results Tab Content -->
-                    <div id="content-results" class="tab-content">
-                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Election Results</h3>
-                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Results will appear once the election ends.</p>
-                            <div id="results-placeholder" class="mt-4 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 text-sm text-gray-500 dark:text-gray-400">
-                                Election is still active. End the election from the Admin tab to view the winner.
-                            </div>
-                            <div id="winner-info" class="mt-4 hidden rounded-lg border border-green-500/40 bg-green-50/60 dark:bg-green-950/30 p-4 text-sm text-gray-900 dark:text-gray-100">
-                                <p class="mb-1 font-semibold text-green-700 dark:text-green-300">Winner</p>
-                                <p id="winner-details" class="text-sm"></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Admin Tab Content -->
-                    <div id="content-admin" class="tab-content">
-                        <div class="space-y-6">
-                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add Candidate</h3>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Register a new candidate for the election.</p>
-                                <label for="adminCandidateName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Candidate Name</label>
-                                <input id="adminCandidateName" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-background-dark/50 px-4 py-2 mb-4" placeholder="Enter candidate name" type="text" />
-                                <button id="adminAddCandidateButton" class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">Add Candidate</button>
-                            </div>
-
-                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark/50 p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Authorize Voter</h3>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Grant voting rights to a wallet address.</p>
-                                <label for="adminVoterAddress" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Voter Address</label>
-                                <input id="adminVoterAddress" class="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-background-dark/50 px-4 py-2 mb-4" placeholder="0x..." type="text" />
-                                <button id="adminAuthorizeVoterButton" class="w-full rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">Authorize Voter</button>
-                            </div>
-
-                            <div class="rounded-xl border border-red-200 dark:border-red-700 bg-white dark:bg-background-dark/50 p-6">
-                                <h3 class="text-lg font-semibold text-red-600 dark:text-red-400">End Election</h3>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Ending the election is irreversible. Only do this when voting is complete.</p>
-                                <button id="adminEndElectionButton" class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-red-500/30 transition-all hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background-light dark:focus:ring-offset-background-dark">End Election</button>
-                            </div>
-                        </div>
+                    <div class="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-center min-w-[120px]">
+                        <span class="material-symbols-rounded text-4xl text-yellow-400 mb-1">trophy</span>
+                        <p class="text-xs font-medium text-brand-100">Verified</p>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- LIVE TALLY TABLE -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div class="px-6 py-5 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Candidate Standings</h3>
+                <span class="text-xs text-slate-400 flex items-center gap-1">
+                    <span class="material-symbols-rounded text-sm">sync</span> Auto-refreshing
+                </span>
+            </div>
+            
+            <div class="p-6">
+                <div id="resultsList" class="space-y-6">
+                    <!-- Results will be injected here -->
+                    <div class="animate-pulse space-y-4">
+                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4"></div>
+                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
-    <footer class="border-t border-gray-200 dark:border-gray-800 bg-white/30 dark:bg-background-dark/50 py-6">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-sm text-gray-500 dark:text-gray-400">
-            <p>Powered by VoteChain • Secure blockchain elections on Sepolia Testnet.</p>
+    <footer class="border-t border-gray-200 dark:border-slate-800 mt-auto py-8 bg-white dark:bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-slate-500 text-sm">
+                VoteChain System • Secured by Ethereum Sepolia • <a href="#" class="text-brand-600 hover:underline">Contract Address</a>
+            </p>
         </div>
     </footer>
-    </div>
+
+    <!-- ETHERS.JS v6 -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
 
     <script>
-    // --- CONFIGURATION ---
-    const contractAddress = "0x40f6755142cff768fe4890532093D74d14609759";
-    const contractABI = [
-        {
-            "inputs": [],
-            "stateMutability": "nonpayable",
-            "type": "constructor"
-        },
-        {
-            "anonymous": false,
-            "inputs": [
-                { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" },
-                { "indexed": false, "internalType": "string", "name": "name", "type": "string" }
-            ],
-            "name": "CandidateAdded",
-            "type": "event"
-        },
-        {
-            "anonymous": false,
-            "inputs": [
-                { "indexed": true, "internalType": "address", "name": "voter", "type": "address" }
-            ],
-            "name": "VoterAuthorized",
-            "type": "event"
-        },
-        {
-            "anonymous": false,
-            "inputs": [
-                { "indexed": true, "internalType": "address", "name": "voter", "type": "address" },
-                { "indexed": true, "internalType": "uint256", "name": "candidateId", "type": "uint256" }
-            ],
-            "name": "VoteCast",
-            "type": "event"
-        },
-        {
-            "anonymous": false,
-            "inputs": [
-                { "indexed": false, "internalType": "uint256", "name": "winnerCandidateId", "type": "uint256" },
-                { "indexed": false, "internalType": "string", "name": "winnerName", "type": "string" },
-                { "indexed": false, "internalType": "uint256", "name": "winningVoteCount", "type": "uint256" }
-            ],
-            "name": "ElectionEnded",
-            "type": "event"
-        },
-        {
-            "inputs": [],
-            "name": "admin",
-            "outputs": [
-                { "internalType": "address", "name": "", "type": "address" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [
-                { "internalType": "string", "name": "_name", "type": "string" }
-            ],
-            "name": "addCandidate",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [
-                { "internalType": "address", "name": "_voter", "type": "address" }
-            ],
-            "name": "authorizeVoter",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [
-                { "internalType": "uint256", "name": "", "type": "uint256" }
-            ],
-            "name": "candidates",
-            "outputs": [
-                { "internalType": "uint256", "name": "id", "type": "uint256" },
-                { "internalType": "string", "name": "name", "type": "string" },
-                { "internalType": "uint256", "name": "voteCount", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "electionEnded",
-            "outputs": [
-                { "internalType": "bool", "name": "", "type": "bool" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "endElection",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "getAllCandidates",
-            "outputs": [
-                {
-                    "components": [
-                        { "internalType": "uint256", "name": "id", "type": "uint256" },
-                        { "internalType": "string", "name": "name", "type": "string" },
-                        { "internalType": "uint256", "name": "voteCount", "type": "uint256" }
-                    ],
-                    "internalType": "struct Voting.Candidate[]",
-                    "name": "",
-                    "type": "tuple[]"
-                }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [
-                { "internalType": "uint256", "name": "_candidateId", "type": "uint256" }
-            ],
-            "name": "getCandidate",
-            "outputs": [
-                { "internalType": "uint256", "name": "", "type": "uint256" },
-                { "internalType": "string", "name": "", "type": "string" },
-                { "internalType": "uint256", "name": "", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [
-                { "internalType": "address", "name": "_voter", "type": "address" }
-            ],
-            "name": "getVoterInfo",
-            "outputs": [
-                { "internalType": "bool", "name": "", "type": "bool" },
-                { "internalType": "bool", "name": "", "type": "bool" },
-                { "internalType": "uint256", "name": "", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "getWinner",
-            "outputs": [
-                { "internalType": "uint256", "name": "", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "getWinnerDetails",
-            "outputs": [
-                { "internalType": "uint256", "name": "", "type": "uint256" },
-                { "internalType": "string", "name": "", "type": "string" },
-                { "internalType": "uint256", "name": "", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "isElectionActive",
-            "outputs": [
-                { "internalType": "bool", "name": "", "type": "bool" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "totalCandidates",
-            "outputs": [
-                { "internalType": "uint256", "name": "", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [],
-            "name": "totalVotes",
-            "outputs": [
-                { "internalType": "uint256", "name": "", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-        },
-        {
-            "inputs": [
-                { "internalType": "uint256", "name": "_candidateId", "type": "uint256" }
-            ],
-            "name": "vote",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
-            "inputs": [
-                { "internalType": "address", "name": "", "type": "address" }
-            ],
-            "name": "voters",
-            "outputs": [
-                { "internalType": "bool", "name": "isAuthorized", "type": "bool" },
-                { "internalType": "bool", "name": "hasVoted", "type": "bool" },
-                { "internalType": "uint256", "name": "votedCandidateId", "type": "uint256" }
-            ],
-            "stateMutability": "view",
-            "type": "function"
+        // --- 1. CONFIGURATION ---
+        // Use backend API to fetch results (no direct RPC calls, avoids CORS issues)
+        const API_BASE = window.location.origin;
+
+        // --- 2. STATE ---
+        let refreshInterval;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.classList.toggle('dark');
+            document.getElementById('theme-icon').innerText = isDark ? 'light_mode' : 'dark_mode';
         }
-    ];
 
-    let provider;
-    let signer;
-    let contract;
-
-    // DOM References
-    const connectButton = document.getElementById('connectButton');
-    const connectButtonText = document.getElementById('connectButtonText');
-    const networkDisplay = document.getElementById('network-display');
-    const networkName = document.getElementById('network-name');
-    const electionStatusP = document.getElementById('electionStatus');
-    const totalCandidatesP = document.getElementById('totalCandidates');
-    const totalVotesP = document.getElementById('totalVotes');
-    const tabs = document.getElementById('tabs');
-    const adminTabLink = document.getElementById('admin-tab-link');
-    const candidatesTbody = document.getElementById('candidatesTbody');
-    const voteCandidateSelect = document.getElementById('voteCandidateSelect');
-    const castVoteButton = document.getElementById('castVoteButton');
-    const winnerInfoDiv = document.getElementById('winner-info');
-    const winnerDetailsP = document.getElementById('winner-details');
-    const resultsPlaceholder = document.getElementById('results-placeholder');
-    const adminCandidateNameInput = document.getElementById('adminCandidateName');
-    const adminAddCandidateButton = document.getElementById('adminAddCandidateButton');
-    const adminVoterAddressInput = document.getElementById('adminVoterAddress');
-    const adminAuthorizeVoterButton = document.getElementById('adminAuthorizeVoterButton');
-    const adminEndElectionButton = document.getElementById('adminEndElectionButton');
-
-    // --- Helpers ---
-    const formatAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-
-    const switchToSepolia = async () => {
-        if (!window.ethereum?.request) return false;
-        try {
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: '0xaa36a7' }],
-            });
-            return true;
-        } catch (switchError) {
-            if (switchError?.code === 4902) {
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: '0xaa36a7',
-                            chainName: 'Sepolia Test Network',
-                            nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
-                            rpcUrls: ['https://rpc.sepolia.org'],
-                            blockExplorerUrls: ['https://sepolia.etherscan.io'],
-                        }],
-                    });
-                    return true;
-                } catch (addError) {
-                    console.error('Adding Sepolia failed:', addError);
-                    return false;
-                }
+        // --- 3. DATA FETCHING ---
+        async function init() {
+            try {
+                console.log("🔗 Connecting to VoteChain backend API...");
+                
+                await refreshData();
+                
+                // Auto-refresh every 5 seconds
+                refreshInterval = setInterval(refreshData, 5000);
+                console.log("✅ Dashboard initialized. Auto-refresh enabled.");
+            } catch (e) {
+                console.error("💥 Init failed:", e);
+                document.getElementById('electionStatus').innerText = "Connection Error";
+                document.getElementById('resultsList').innerHTML = 
+                    '<p class="text-red-400 text-center py-8">Unable to connect to backend API. Please ensure the server is running.</p>';
             }
-            console.error('Chain switch failed:', switchError);
-            return false;
         }
-    };
 
-    const ensureContract = () => {
-        if (!contract) throw new Error('Wallet not connected. Please connect first.');
-    };
+        async function refreshData() {
+            try {
+                // Fetch results from backend API
+                const response = await fetch(`${API_BASE}/api/results`);
+                
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.status !== 'ok') {
+                    throw new Error(result.message || 'API error');
+                }
 
-    // --- Data Fetching ---
-    async function fetchDashboardStats() {
-        ensureContract();
-        try {
-            const isActive = await contract.isElectionActive();
-            electionStatusP.textContent = isActive ? 'Active' : 'Ended';
-            electionStatusP.className = `mt-1 text-3xl font-bold ${isActive ? 'text-green-500' : 'text-red-500'}`;
+                const { electionActive, totalVotes, totalCandidates, candidates } = result.data;
 
-            const candidateCount = await contract.totalCandidates();
-            totalCandidatesP.textContent = candidateCount.toString();
+                // Update DOM
+                const statusEl = document.getElementById('electionStatus');
+                statusEl.innerText = electionActive ? "Active & Voting" : "Election Ended";
+                statusEl.className = `text-xl font-bold ${electionActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`;
+                
+                document.getElementById('totalVotes').innerText = totalVotes.toString();
+                document.getElementById('totalCandidates').innerText = totalCandidates.toString();
 
-            const votesCount = await contract.totalVotes();
-            totalVotesP.textContent = votesCount.toString();
+                console.log(`📊 Fetched ${candidates.length} candidates, ${totalVotes} votes`);
+                renderResults(candidates, totalVotes, electionActive);
 
-            if (!isActive) {
-                await fetchWinner();
-            } else {
-                winnerInfoDiv.classList.add('hidden');
-                resultsPlaceholder.classList.remove('hidden');
+            } catch (e) { 
+                console.error("❌ Refresh failed:", e);
+                document.getElementById('electionStatus').innerText = "API Error";
+                document.getElementById('electionStatus').className = "text-xl font-bold text-red-600 dark:text-red-400";
             }
-        } catch (error) {
-            console.error('Failed to load dashboard stats:', error);
         }
-    }
 
-    async function fetchCandidates() {
-        ensureContract();
-        candidatesTbody.innerHTML = '';
-        voteCandidateSelect.innerHTML = '';
-        try {
-            const list = await contract.getAllCandidates();
-            if (!list.length) {
-                candidatesTbody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No candidates registered yet.</td></tr>`;
+        function renderResults(candidates, totalVotes, electionActive) {
+            const container = document.getElementById('resultsList');
+            container.innerHTML = '';
+
+            if (candidates.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-center py-8">No candidates registered yet.</p>';
+                document.getElementById('winner-display').classList.add('hidden');
                 return;
             }
 
-            list.forEach((candidate) => {
-                const id = candidate.id.toString();
-                const name = candidate.name;
-                const votes = candidate.voteCount.toString();
+            // Sort by vote count (descending)
+            const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
+            const maxVotes = sorted.length > 0 ? sorted[0].voteCount : 0;
 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400">${id}</td>
-                    <td class="whitespace-nowrap px-6 py-4 text-sm font-semibold text-gray-900 dark:text-white">${name}</td>
-                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">${votes}</td>`;
-                candidatesTbody.appendChild(row);
-
-                const option = document.createElement('option');
-                option.value = id;
-                option.textContent = `${name} (ID: ${id})`;
-                voteCandidateSelect.appendChild(option);
+            // Render each candidate
+            sorted.forEach(c => {
+                // Calculate bar percentage
+                // Use maxVotes as 100% reference for better visuals
+                const percent = maxVotes > 0 ? (c.voteCount / maxVotes) * 100 : 0;
+                
+                const html = `
+                    <div class="relative">
+                        <div class="flex justify-between items-end mb-2">
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Candidate #${c.id}</span>
+                                <h4 class="text-lg font-bold text-slate-900 dark:text-white">${c.name}</h4>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-2xl font-bold text-brand-600 dark:text-brand-400">${c.voteCount}</span>
+                                <span class="text-xs text-slate-500 font-medium uppercase ml-1">Votes</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress Bar Background -->
+                        <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
+                            <!-- Animated Bar -->
+                            <div class="bg-brand-600 h-3 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(79,70,229,0.5)]" 
+                                 style="width: ${percent}%"></div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
             });
-        } catch (error) {
-            console.error('Failed to load candidates:', error);
-        }
-    }
 
-    async function fetchWinner() {
-        ensureContract();
-        try {
-            const [idBN, name, votesBN] = await contract.getWinnerDetails();
-            const id = idBN.toString();
-            const votes = votesBN.toString();
-
-            if (id !== '0') {
-                winnerDetailsP.textContent = `ID: ${id} • ${name} • ${votes} vote${votes === '1' ? '' : 's'}`;
+            // 3. Winner Display (if election ended and votes exist)
+            if (!electionActive && totalVotes > 0 && sorted.length > 0) {
+                const winner = sorted[0]; // Highest vote getter
+                document.getElementById('winner-display').classList.remove('hidden');
+                document.getElementById('winnerName').innerText = winner.name;
+                document.getElementById('winnerVotes').innerText = winner.voteCount.toString();
             } else {
-                winnerDetailsP.textContent = 'No winner determined (tie or no votes).';
+                document.getElementById('winner-display').classList.add('hidden');
             }
-            winnerInfoDiv.classList.remove('hidden');
-            resultsPlaceholder.classList.add('hidden');
-        } catch (error) {
-            winnerInfoDiv.classList.add('hidden');
-            resultsPlaceholder.classList.remove('hidden');
-            console.error('Failed to load winner details:', error);
-        }
-    }
-
-    async function checkAdmin() {
-        ensureContract();
-        try {
-            const adminAddress = await contract.admin();
-            const currentAddress = await signer.getAddress();
-            if (adminAddress.toLowerCase() === currentAddress.toLowerCase()) {
-                adminTabLink.style.display = 'block';
-            } else {
-                adminTabLink.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Failed to verify admin status:', error);
-        }
-    }
-
-    async function updateUI() {
-        if (!contract) return;
-        await Promise.allSettled([
-            fetchDashboardStats(),
-            fetchCandidates(),
-            checkAdmin(),
-        ]);
-    }
-
-    // --- Wallet & Transactions ---
-    const connectWallet = async () => {
-        if (!window.ethereum) {
-            alert('MetaMask not detected. Please install it to continue.');
-            return;
         }
 
-        try {
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
-            provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-            signer = provider.getSigner();
-            contract = new ethers.Contract(contractAddress, contractABI, signer);
+        // Start
+        init();
 
-            let network = await provider.getNetwork();
-            networkDisplay.style.display = 'flex';
-            networkName.textContent = `${network.name || 'Chain'} (${network.chainId})`;
-
-            if (network.chainId !== 11155111) {
-                const switched = await switchToSepolia();
-                if (!switched) {
-                    alert('Switch to Sepolia Test Network to continue.');
-                    return;
-                }
-                provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-                signer = provider.getSigner();
-                contract = new ethers.Contract(contractAddress, contractABI, signer);
-                network = await provider.getNetwork();
-                networkName.textContent = `${network.name || 'Chain'} (${network.chainId})`;
-            }
-
-            const address = await signer.getAddress();
-            connectButtonText.textContent = formatAddress(address);
-            connectButton.disabled = true;
-
-            await updateUI();
-        } catch (error) {
-            console.error('Wallet connection failed:', error);
-            const message = error?.reason || error?.message || 'Wallet connection rejected.';
-            alert(message);
-        }
-    };
-
-    async function handleTransaction(button, action) {
-        ensureContract();
-        const originalText = button.textContent;
-        button.disabled = true;
-        button.textContent = 'Processing...';
-        try {
-            const tx = await action();
-            await tx.wait();
-            button.textContent = 'Success!';
-            setTimeout(() => {
-                button.textContent = originalText;
-                button.disabled = false;
-            }, 1200);
-            await updateUI();
-        } catch (error) {
-            console.error('Transaction error:', error);
-            const message = error?.reason || error?.data?.message || error?.message || 'Transaction failed.';
-            alert(message);
-            button.textContent = originalText;
-            button.disabled = false;
-        }
-    }
-
-    // --- Event Bindings ---
-    connectButton.addEventListener('click', connectWallet);
-
-    adminAddCandidateButton.addEventListener('click', () => {
-        const name = adminCandidateNameInput.value.trim();
-        if (!name) {
-            alert('Enter a candidate name first.');
-            return;
-        }
-        handleTransaction(adminAddCandidateButton, () => contract.addCandidate(name));
-        adminCandidateNameInput.value = '';
-    });
-
-    adminAuthorizeVoterButton.addEventListener('click', () => {
-        const address = adminVoterAddressInput.value.trim();
-        if (!address || !ethers.utils.isAddress(address)) {
-            alert('Enter a valid Ethereum address.');
-            return;
-        }
-        handleTransaction(adminAuthorizeVoterButton, () => contract.authorizeVoter(address));
-        adminVoterAddressInput.value = '';
-    });
-
-    adminEndElectionButton.addEventListener('click', () => {
-        if (!confirm('End the election now? This action cannot be reversed.')) return;
-        handleTransaction(adminEndElectionButton, () => contract.endElection());
-    });
-
-    castVoteButton.addEventListener('click', () => {
-        const candidateId = voteCandidateSelect.value;
-        if (!candidateId) {
-            alert('Select a candidate to vote for.');
-            return;
-        }
-        handleTransaction(castVoteButton, () => contract.vote(candidateId));
-    });
-
-    tabs.addEventListener('click', (event) => {
-        if (event.target.tagName !== 'A') return;
-        event.preventDefault();
-
-        document.querySelectorAll('.tab-link').forEach((link) => {
-            link.classList.remove('border-primary', 'text-primary', 'font-bold');
-            link.classList.add('border-transparent', 'text-gray-500', 'font-medium');
-        });
-
-        event.target.classList.add('border-primary', 'text-primary', 'font-bold');
-        event.target.classList.remove('border-transparent', 'text-gray-500', 'font-medium');
-
-        const selected = event.target.dataset.tab;
-        document.querySelectorAll('.tab-content').forEach((content) => {
-            content.classList.remove('active');
-        });
-        document.getElementById(`content-${selected}`).classList.add('active');
-    });
-
-    if (window.ethereum) {
-        window.ethereum.on('accountsChanged', () => window.location.reload());
-        window.ethereum.on('chainChanged', () => window.location.reload());
-    }
-
-    // Attempt eager connection if already authorized
-    (async () => {
-        if (!window.ethereum) return;
-        try {
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-            if (accounts.length) {
-                await connectWallet();
-            }
-        } catch (error) {
-            console.warn('Auto-connect skipped:', error);
-        }
-    })();
     </script>
 </body>
 </html>
-
-< ! - -   U p d a t e d   1 0 / 1 3 / 2 0 2 5   2 1 : 1 1 : 0 4   - - > 
- 
- 
