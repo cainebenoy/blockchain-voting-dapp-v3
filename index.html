@@ -174,7 +174,8 @@
         
         // Blockchain configuration (for GitHub Pages)
         const CONTRACT_ADDRESS = '0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c';
-        const SEPOLIA_RPC = 'https://rpc.sepolia.org';
+        // Use Alchemy or Infura public endpoint (supports CORS)
+        const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
         const CONTRACT_ABI = [
             "function isElectionActive() view returns (bool)",
             "function totalVotes() view returns (uint256)",
