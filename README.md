@@ -25,7 +25,7 @@ This project is a decentralized voting system combining blockchain transparency 
 
 1. **Deploy New Election**: Admin dashboard button triggers backend deployment, resets voter database, updates .env
 2. **Add Candidates**: Registry unlocked, candidates added on-chain
-3. **Register Voters (Remote Enrollment)**: 
+3. **Register Voters (Remote Enrollment)**:
    - Admin enters voter details, clicks "Register Eligible Voter"
    - Backend queues enrollment with auto-calculated fingerprint ID
    - Admin dashboard shows "Waiting for Kiosk Scan..." spinner
