@@ -12,7 +12,7 @@
 **Development Duration**: 46 days (Oct 12 - Nov 27, 2025)  
 **Total Commits**: 39  
 **Total Files**: 64 (excluding node_modules)  
-**Total Lines of Code**: 17,582 LOC (complete codebase including artifacts)  
+**Total Lines of Code**: 17,602 LOC (complete codebase including artifacts)  
 **Source Code Only**: 3,961 LOC (JS/TS/Solidity)  
 **Test Coverage**: Limited (1 active test file, legacy tests skipped)  
 **Code Quality**: High (0 lint errors, formatted with Prettier)
@@ -344,7 +344,7 @@ utils/blockchainHelpers.js - Contract interaction wrapper
 
 ### 5.1 Lines of Code by Language
 
-**Total Project LOC**: 17,582 lines (complete codebase, excluding node_modules)
+**Total Project LOC**: 17,602 lines (complete codebase, excluding node_modules)
 
 | Language/Type | Files | Lines | Percentage |
 |---------------|-------|-------|------------|
@@ -406,9 +406,9 @@ utils/blockchainHelpers.js - Contract interaction wrapper
 
 **Total Project Files**: 64 (excluding node_modules, .git)
 
-**Total npm Packages**: 28 dependencies
+**Total npm Packages**: 23 dependencies
 
-**DevDependencies** (20):
+**DevDependencies** (21):
 
 - Testing: `chai`, `mocha`, `@types/chai`, `@types/mocha`
 - Hardhat: `hardhat`, `@nomicfoundation/*` (4 packages)
@@ -416,12 +416,14 @@ utils/blockchainHelpers.js - Contract interaction wrapper
 - Linting: `eslint`, `eslint-config-prettier`, `eslint-plugin-*` (3)
 - Build Tools: `tailwindcss`, `autoprefixer`, `postcss`, `prettier`
 
-**Production Dependencies** (8):
+**Production Dependencies** (2 in root, 6 in backend):
 
 - Core: `ethers` v6.15.0, `dotenv`, `express`
 - Security: `cors`, `express-rate-limit`
 - Database: `@supabase/supabase-js`
 - Smart Contracts: `@openzeppelin/contracts` v5.4.0
+
+**Note**: Backend has separate package.json with 6 production deps (express, cors, ethers, dotenv, supabase, express-rate-limit)
 
 ### 5.5 Folder Hierarchy
 
@@ -465,32 +467,32 @@ my-voting-dapp/
 
 **Total Endpoints**: 13 routes
 
-**Public Endpoints** (3):
+**Public Endpoints** (4):
 
 1. `GET /api/health` - Health check
 2. `GET /api/config` - Frontend configuration
 3. `GET /api/results` - Live election results
+4. `GET /api/active-contract` - Get current contract address
 
 **Voter Endpoints** (2):
 
-4. `POST /api/voter/check-in` - Verify voter eligibility
-5. `POST /api/vote` - Submit vote (rate limited: 3/hour)
+5. `POST /api/voter/check-in` - Verify voter eligibility
+6. `POST /api/vote` - Submit vote (rate limited: 3/hour)
 
 **Admin Endpoints** (4):
 
-6. `POST /api/admin/deploy-contract` - Deploy new election contract
-7. `POST /api/admin/add-voter` - Register voter to database
-8. `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment
-9. `GET /api/admin/enrollment-status` - Poll enrollment status
+7. `POST /api/admin/deploy-contract` - Deploy new election contract
+8. `POST /api/admin/add-voter` - Register voter to database
+9. `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment
+10. `GET /api/admin/enrollment-status` - Poll enrollment status
 
 **Kiosk Endpoints** (2):
 
-10. `GET /api/kiosk/poll-commands` - Check for enrollment requests
-11. `POST /api/kiosk/enrollment-complete` - Submit fingerprint scan result
+11. `GET /api/kiosk/poll-commands` - Check for enrollment requests
+12. `POST /api/kiosk/enrollment-complete` - Submit fingerprint scan result
 
-**Utility Endpoints** (2):
+**Utility Endpoints** (1):
 
-12. `GET /api/active-contract` - Get current contract address
 13. `GET /api/metrics` - Server health metrics (planned)
 
 ---
@@ -632,9 +634,64 @@ Best code comments (literary quality):
 
 ---
 
-## 8. Security Metrics
+## 8. CI/CD and Project Health
 
-### 8.1 Security Measures Implemented
+### 8.1 Continuous Integration
+
+**Status**: ✅ **Configured**
+
+**CI Pipeline**: GitHub Actions (`.github/workflows/ci.yml`)
+
+**Workflow**:
+
+- Triggers: Push to main, Pull Requests
+- Node.js: v22
+- Steps:
+  1. Checkout code
+  2. Setup Node with npm cache
+  3. Install dependencies (`npm ci`)
+  4. Run linter (`npm run lint`)
+  5. Run tests (`npm test`)
+
+**Build Status**: Currently passing linter, tests skipped (describe.skip)
+
+### 8.2 Project Health Indicators
+
+| Metric | Status | Notes |
+|--------|--------|-------|
+| ✅ `.env.example` | Present | Good practice for environment setup |
+| ✅ `.gitignore` | Present | 18 lines, properly excludes node_modules |
+| ✅ `README.md` | Present | 312 lines, comprehensive |
+| ✅ `package-lock.json` | Present | Dependency lock for reproducibility |
+| ✅ CI/CD Pipeline | Configured | GitHub Actions workflow |
+| ⚠️ `LICENSE` | Missing | No license file (recommend MIT or Apache 2.0) |
+| ⚠️ `CONTRIBUTING.md` | Missing | No contribution guidelines |
+| ⚠️ `CHANGELOG.md` | Missing | No version history tracking |
+
+### 8.3 Code Quality Indicators
+
+**Console Statements**: 8 files contain `console.log/error/warn`
+
+- Locations: Backend logs (intentional for monitoring)
+- Recommendation: Consider using proper logging library (e.g., Winston, Pino)
+
+**TODO/FIXME Comments**: 0 found ✅
+
+- No technical debt markers in codebase
+- Clean code without pending fixes
+
+**Test Status**:
+
+- Test files: 2 (both with `describe.skip`)
+- Active tests: 0 passing
+- Legacy tests: 19 tests (skipped, contract deleted)
+- **Action Required**: Update VotingV2.test.js and remove skip
+
+---
+
+## 9. Security Metrics
+
+### 9.1 Security Measures Implemented
 
 ✅ **Enabled**:
 
@@ -653,7 +710,7 @@ Best code comments (literary quality):
 - API key authentication for admin endpoints
 - Secrets management (keys in .env, needs Vault/AWS Secrets Manager)
 
-### 8.2 npm Audit Results
+### 9.2 npm Audit Results
 
 **Status**: ✅ **ZERO VULNERABILITIES**
 
@@ -668,7 +725,7 @@ found 0 vulnerabilities
 
 ---
 
-## 9. Performance Metrics
+## 10. Performance Metrics
 
 ### 9.1 API Response Times
 
@@ -704,7 +761,7 @@ found 0 vulnerabilities
 
 ---
 
-## 10. Recommendations and Action Items
+## 11. Recommendations and Action Items
 
 ### High Priority (Week 1-2)
 
@@ -740,21 +797,32 @@ found 0 vulnerabilities
    - Consider React/Vue for better maintainability
    - Estimated Effort: 3 days
 
+7. **Add Missing Project Files**
+   - Create LICENSE file (MIT recommended)
+   - Add CONTRIBUTING.md for collaboration guidelines
+   - Create CHANGELOG.md for version tracking
+   - Estimated Effort: 2 hours
+
 ### Low Priority (Week 5+)
 
-7. **Performance Optimization**
+8. **Performance Optimization**
    - Implement caching for `/api/results`
    - Use WebSocket for live updates
    - Estimated Effort: 2 days
 
-8. **Documentation**
+9. **Documentation**
    - Add JSDoc comments to backend functions
    - Create API documentation (OpenAPI/Swagger)
    - Estimated Effort: 1 day
 
+10. **Replace Console Logs**
+    - Implement proper logging library (Winston/Pino)
+    - Add log rotation and levels
+    - Estimated Effort: 4 hours
+
 ---
 
-## Conclusion
+## 12. Conclusion
 
 **Project Health**: 🟢 **Healthy**
 
@@ -788,7 +856,7 @@ found 0 vulnerabilities
 
 ---
 
-## Appendix: Metric Collection Commands
+## 13. Appendix: Metric Collection Commands
 
 For future reference, these PowerShell commands generated this report:
 
