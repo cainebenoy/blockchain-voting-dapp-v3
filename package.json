@@ -10,7 +10,8 @@
     "authorize:signer:sepolia": "hardhat run scripts/authorize-signer.ts --network sepolia",
     "serve": "node backend/server.js",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:css": "tailwindcss -i ./src/styles.css -o ./dist/output.css --minify"
   },
   "keywords": [],
   "author": "",
@@ -22,18 +23,21 @@
     "@types/chai-as-promised": "^8.0.2",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.18.9",
+    "autoprefixer": "^10.4.22",
     "chai": "^5.3.3",
-    "ethers": "^6.15.0",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "hardhat": "^3.0.7",
-    "mocha": "^11.7.4",
-    "typescript": "~5.8.0",
     "eslint": "^9.13.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-jsdoc": "^50.0.0",
     "eslint-plugin-node": "^11.1.0",
-    "prettier": "^3.3.3"
+    "ethers": "^6.15.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
+    "hardhat": "^3.0.7",
+    "mocha": "^11.7.4",
+    "postcss": "^8.5.6",
+    "prettier": "^3.3.3",
+    "tailwindcss": "^3.4.18",
+    "typescript": "~5.8.0"
   },
   "type": "module",
   "dependencies": {
