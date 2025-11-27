@@ -3,7 +3,7 @@ import { network } from "hardhat";
 
 const { ethers } = await network.connect();
 
-describe("Voting contract — full unit tests", function () {
+describe.skip("Voting contract — full unit tests (legacy - contract deleted)", function () {
   let Voting;
   let voting;
   let admin;
