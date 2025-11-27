@@ -239,8 +239,12 @@ app.post('/api/vote', voteLimiter, async (req, res) => {
                 candidateId: cidNum,
                 txHash: tx.hash,
             };
-            fs.appendFile(path.join(__dirname, 'logs', 'vote-audit.log'), JSON.stringify(auditEntry) + '\n', () => {});
-        } catch {}
+            fs.appendFile(path.join(__dirname, 'logs', 'vote-audit.log'), JSON.stringify(auditEntry) + '\n', () => {
+                // Audit log written
+            });
+        } catch {
+            // Audit logging failed, but vote succeeded
+        }
 
         res.json({
             status: 'success',

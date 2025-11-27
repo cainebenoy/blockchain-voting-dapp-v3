@@ -5,11 +5,11 @@ import { network } from "hardhat";
 const { ethers } = await network.connect();
 
 describe.skip("VotingV2 contract (Kiosk model) — skipped (legacy test)", function () {
-  let admin, signer1, signer2, attacker;
+  let admin, signer1, attacker;
   let VotingV2Factory, votingV2;
 
   beforeEach(async function () {
-    [admin, signer1, signer2, attacker] = await ethers.getSigners();
+    [admin, signer1, , attacker] = await ethers.getSigners();
     VotingV2Factory = await ethers.getContractFactory("VotingV2", admin);
     votingV2 = await VotingV2Factory.deploy();
     await votingV2.waitForDeployment();
