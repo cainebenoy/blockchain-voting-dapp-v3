@@ -77,6 +77,10 @@ const contractJson = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 const ABI = contractJson.abi;
 const contract = new ethers.Contract(process.env.VOTING_CONTRACT_ADDRESS, ABI, wallet);
 
+// --- 3. SERVER STATE (Remote Enrollment System) ---
+// This acts as temporary memory to coordinate between Admin Dashboard and Kiosk
+let pendingEnrollment = null;
+
 // --- API ENDPOINTS ---
 
 // Health check
@@ -376,6 +380,145 @@ app.post('/api/admin/add-voter', async (req, res) => {
     } catch (err) {
         console.error('[ADMIN] Add Voter Error:', err);
         res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
+// ---------------------------------------------------------
+// REMOTE ENROLLMENT ENDPOINTS (Kiosk Integration)
+// ---------------------------------------------------------
+
+// 1. Initiate Remote Enrollment (Called by Admin Dashboard)
+app.post('/api/admin/initiate-enrollment', async (req, res) => {
+    const { aadhaar_id, name, constituency } = req.body;
+    
+    // Validate input
+    if (!aadhaar_id || !name) {
+        return res.status(400).json({ status: 'error', message: 'Aadhaar ID and name are required.' });
+    }
+    
+    if (!/^\d{12}$/.test(aadhaar_id)) {
+        return res.status(400).json({ status: 'error', message: 'Invalid Aadhaar ID format (must be 12 digits).' });
+    }
+    
+    try {
+        // Check if already exists
+        const { data: existing } = await supabase
+            .from('voters')
+            .select('id')
+            .eq('aadhaar_id', aadhaar_id)
+            .single();
+
+        if (existing) {
+            return res.status(400).json({ status: 'error', message: 'Voter already registered.' });
+        }
+
+        // Get the next available Fingerprint ID
+        // We check the highest ID currently in the DB and add 1
+        const { data: lastVoter } = await supabase
+            .from('voters')
+            .select('fingerprint_id')
+            .order('fingerprint_id', { ascending: false })
+            .limit(1)
+            .single();
+            
+        const nextId = (lastVoter?.fingerprint_id || 0) + 1;
+        
+        // Queue the enrollment command in server memory
+        pendingEnrollment = {
+            status: 'WAITING_FOR_KIOSK',
+            aadhaar_id,
+            name,
+            constituency: constituency || null,
+            target_finger_id: nextId,
+            timestamp: Date.now()
+        };
+        
+        console.log(`[REMOTE ENROLL] Command queued for ${name} -> Target ID #${nextId}`);
+        res.json({ 
+            status: 'success', 
+            message: 'Waiting for Kiosk scan...', 
+            target_id: nextId 
+        });
+
+    } catch (err) {
+        console.error('[REMOTE ENROLL] Init Error:', err);
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
+// 2. Check Enrollment Status (Polled by Admin Dashboard to update UI)
+app.get('/api/admin/enrollment-status', (req, res) => {
+    // If a request is older than 60 seconds, clear it (timeout)
+    if (pendingEnrollment && (Date.now() - pendingEnrollment.timestamp > 60000)) {
+        console.log('[REMOTE ENROLL] Request timed out, clearing...');
+        pendingEnrollment = null;
+    }
+    res.json(pendingEnrollment || { status: 'IDLE' });
+});
+
+// 3. Poll for Commands (Called by Kiosk in a loop)
+app.get('/api/kiosk/poll-commands', (req, res) => {
+    if (pendingEnrollment && pendingEnrollment.status === 'WAITING_FOR_KIOSK') {
+        console.log('[REMOTE ENROLL] Kiosk polled, sending command...');
+        res.json({ command: 'ENROLL', ...pendingEnrollment });
+    } else {
+        res.json({ command: 'NONE' });
+    }
+});
+
+// 4. Complete Enrollment (Called by Kiosk after successful scan)
+app.post('/api/kiosk/enrollment-complete', async (req, res) => {
+    if (!pendingEnrollment) {
+        return res.status(400).json({ 
+            status: 'error', 
+            message: 'No active enrollment request.' 
+        });
+    }
+
+    const { success, fingerprint_id } = req.body;
+
+    if (success) {
+        // The Kiosk succeeded! Now save to Database.
+        const { error } = await supabase.from('voters').insert([{
+            aadhaar_id: pendingEnrollment.aadhaar_id,
+            name: pendingEnrollment.name,
+            constituency: pendingEnrollment.constituency,
+            fingerprint_id: fingerprint_id, // The ID the kiosk actually used
+            has_voted: false
+        }]);
+        
+        if (error) {
+            console.error('[REMOTE ENROLL] DB Save Error:', error);
+            pendingEnrollment.status = 'FAILED';
+            pendingEnrollment.error_message = 'Database save failed';
+            return res.status(500).json({ 
+                status: 'error', 
+                message: 'Database save failed' 
+            });
+        }
+
+        console.log(`[REMOTE ENROLL] ✅ Success! Saved ${pendingEnrollment.name} as ID #${fingerprint_id}`);
+        pendingEnrollment.status = 'COMPLETED'; // Signal success to Admin UI
+        
+        // Clear the pending state after a few seconds so the system resets
+        setTimeout(() => { 
+            pendingEnrollment = null; 
+            console.log('[REMOTE ENROLL] State cleared, ready for next enrollment.');
+        }, 5000);
+        
+        res.json({ status: 'success', message: 'Voter enrolled successfully.' });
+    } else {
+        console.log('[REMOTE ENROLL] ❌ Kiosk reported failure.');
+        pendingEnrollment.status = 'FAILED';
+        pendingEnrollment.error_message = 'Fingerprint scan failed';
+        
+        // Clear failure state quickly
+        setTimeout(() => { 
+            pendingEnrollment = null; 
+            console.log('[REMOTE ENROLL] Failed state cleared.');
+        }, 5000);
+        
+        res.json({ status: 'received', message: 'Enrollment failed, cleared.' });
     }
 });
 
