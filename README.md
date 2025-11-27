@@ -7,6 +7,7 @@ This project is a decentralized voting system combining blockchain transparency 
 - Automated contract deployment to Sepolia (VotingV2.sol)
 - Election lifecycle management (Start/End Election, registry lock/unlock)
 - Candidate management on-chain
+- **Remote Enrollment System**: Admin dashboard coordinates fingerprint capture with Raspberry Pi kiosk
 - Voter registration in Supabase (with Row-Level Security and service_role key)
 - Real-time results dashboard (public and admin views)
 - MetaMask integration for admin actions
@@ -15,15 +16,23 @@ This project is a decentralized voting system combining blockchain transparency 
 ### Architecture Overview
 
 - **Smart Contract**: VotingV2.sol (constructor starts inactive, startElection() added)
-- **Backend**: Node.js/Express, Ethers.js, Supabase client, CORS enabled for dev
+- **Backend**: Node.js/Express with remote enrollment coordination (4 new kiosk endpoints)
 - **Database**: Supabase PostgreSQL, voters table with Aadhaar, name, constituency, fingerprint_id, has_voted
-- **Frontend**: admin.html (admin dashboard), index.html (public results)
+- **Frontend**: admin.html (admin dashboard with polling UI), index.html (public results)
+- **Kiosk Integration**: Backend queues enrollment requests, kiosk polls for commands
 
 ### Workflow
 
 1. **Deploy New Election**: Admin dashboard button triggers backend deployment, resets voter database, updates .env
 2. **Add Candidates**: Registry unlocked, candidates added on-chain
-3. **Register Voters**: Voters added to Supabase via backend API
+3. **Register Voters (Remote Enrollment)**: 
+   - Admin enters voter details, clicks "Register Eligible Voter"
+   - Backend queues enrollment with auto-calculated fingerprint ID
+   - Admin dashboard shows "Waiting for Kiosk Scan..." spinner
+   - Raspberry Pi kiosk polls backend, receives ENROLL command
+   - Kiosk captures fingerprint, saves to sensor, reports back to backend
+   - Backend saves voter to Supabase with captured fingerprint_id
+   - Admin dashboard shows "✅ Voter Enrolled & Saved Successfully!"
 4. **Start Election**: Registry locks, voting opens
 5. **Vote Submission**: Backend validates voter, submits vote to blockchain, updates has_voted
 6. **End Election**: Registry unlocks, results finalized
@@ -34,16 +43,24 @@ This project is a decentralized voting system combining blockchain transparency 
 - Voter identities stored only in Supabase, not on-chain
 - Admin-only contract functions
 - Aadhaar validation and duplicate prevention
+- 60-second timeout for enrollment requests
+
+### Remote Enrollment API Endpoints
+
+- `POST /api/admin/initiate-enrollment` - Queue enrollment request
+- `GET /api/admin/enrollment-status` - Poll status (IDLE/WAITING_FOR_KIOSK/COMPLETED/FAILED)
+- `GET /api/kiosk/poll-commands` - Kiosk checks for work
+- `POST /api/kiosk/enrollment-complete` - Kiosk reports scan result
 
 ### Pending Features
 
-- Fingerprint integration for voter registration and authentication
+- Raspberry Pi kiosk script updates to poll backend and trigger fingerprint scans
 - Comprehensive frontend voting interface
 - Production deployment and security hardening
 
 ---
 
-## For full details, see `docs/PHASE1_COMPLETION_SUMMARY.md`.
+## For full details, see `docs/PHASE1_COMPLETION_SUMMARY.md`
 
 ## Project Overview
 

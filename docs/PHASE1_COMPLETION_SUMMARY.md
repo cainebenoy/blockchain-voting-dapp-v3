@@ -29,7 +29,7 @@ A decentralized voting application (DApp) built on Ethereum Sepolia testnet with
   - `electionActive` - Current election status
 
 ### 2. **Backend Server** (Node.js + Express)
-- **Location**: `backend/server.js` (421 lines, ESM module)
+- **Location**: `backend/server.js` (552 lines, ESM module)
 - **Port**: 3000
 - **Tech Stack**: 
   - Node.js 22 with ESM imports
@@ -48,6 +48,27 @@ A decentralized voting application (DApp) built on Ethereum Sepolia testnet with
   - Updates `backend/.env` file with new `VOTING_CONTRACT_ADDRESS` via regex replacement
   - Updates runtime environment variable
   - Returns new contract address
+
+**Remote Enrollment Endpoints** (NEW - Kiosk Integration):
+- `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment request
+  - Validates Aadhaar ID and checks for duplicates
+  - Calculates next available fingerprint ID from database
+  - Queues enrollment in server memory (`pendingEnrollment` state)
+  - Returns target fingerprint ID to admin dashboard
+  
+- `GET /api/admin/enrollment-status` - Poll enrollment status
+  - Returns current state: IDLE, WAITING_FOR_KIOSK, COMPLETED, FAILED
+  - Auto-clears requests after 60-second timeout
+  
+- `GET /api/kiosk/poll-commands` - Kiosk polls for work
+  - Returns ENROLL command with voter details when pending
+  - Returns NONE when idle
+  
+- `POST /api/kiosk/enrollment-complete` - Kiosk reports scan result
+  - Receives success/failure status and fingerprint_id from kiosk
+  - Saves voter to Supabase with captured fingerprint_id
+  - Updates enrollment status to COMPLETED or FAILED
+  - Auto-clears state after 5 seconds
   
 - `POST /api/admin/add-voter` - Register eligible voter
   - Validates Aadhaar ID format (12 digits)
@@ -122,12 +143,16 @@ A decentralized voting application (DApp) built on Ethereum Sepolia testnet with
 - Real-time list display with vote counts
 - Registry lock overlay when election is active (prevents additions)
 
-**Voter Registration**:
+**Voter Registration** (Remote Enrollment):
 - Form fields: Aadhaar ID, Name, Constituency
-- Calls `POST /api/admin/add-voter` (backend handles Supabase)
+- Calls `POST /api/admin/initiate-enrollment` (queues enrollment for kiosk)
 - Client-side validation (12-digit Aadhaar)
-- Success/error toast notifications
-- Note: `fingerprint_id` set to null, awaiting scanner integration
+- Button changes to "Waiting for Kiosk Scan..." with spinner animation
+- Polls `/api/admin/enrollment-status` every 1 second for updates
+- Shows success toast when kiosk completes enrollment: "✅ Voter Enrolled & Saved Successfully!"
+- Shows error toast if kiosk fails or 60-second timeout occurs
+- Auto-clears form on successful enrollment
+- Preserves all existing functionality
 
 **Toast Notifications**:
 - Success messages (green)
@@ -270,19 +295,25 @@ await supabase.from('voters').update({ has_voted: false }).neq('id', 0);
 - ✅ Registry lock/unlock based on election state
 - ✅ Real-time vote count display
 - ✅ Public results dashboard with auto-contract fetching
+- ✅ Remote enrollment system (admin dashboard → backend → kiosk coordination)
+- ✅ Polling-based status updates with 1-second refresh
+- ✅ Automatic fingerprint ID calculation from database
 
 ---
 
 ## Pending Features (Phase 2)
 
-### Fingerprint Integration:
-- **Current State**: `fingerprint_id` field exists but is `null`
+### Raspberry Pi Kiosk Integration:
+- **Current State**: Backend coordination complete, awaiting Pi connection
+- **Backend Ready**: 
+  - 4 kiosk endpoints fully implemented and tested
+  - Server-side enrollment queue with timeout handling
+  - Automatic fingerprint ID assignment
 - **Next Steps**: 
-  - Identify fingerprint scanner hardware/SDK
-  - Integrate scanner API with voter registration flow
-  - Capture fingerprint template during registration
-  - Store hashed template as `fingerprint_id`
-  - Implement fingerprint verification during voting
+  - Update `kiosk_main.py` on Raspberry Pi to poll `/api/kiosk/poll-commands`
+  - Implement fingerprint scan trigger when ENROLL command received
+  - Report scan results back to `/api/kiosk/enrollment-complete`
+  - Test end-to-end remote enrollment workflow
 
 ### Vote Submission Flow:
 - **Current State**: Backend has `/api/vote` endpoint ready
