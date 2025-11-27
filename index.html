@@ -156,7 +156,7 @@
         // Use Alchemy or Infura public endpoint (supports CORS)
         const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
         const CONTRACT_ABI = [
-            "function isElectionActive() view returns (bool)",
+            "function electionActive() view returns (bool)",
             "function totalVotes() view returns (uint256)",
             "function totalCandidates() view returns (uint256)",
             "function getAllCandidates() view returns (tuple(uint256 id, string name, uint256 voteCount)[])"
@@ -242,7 +242,7 @@
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
             
             const [electionActive, totalVotes, totalCandidates, candidates] = await Promise.all([
-                contract.isElectionActive(),
+                contract.electionActive(),
                 contract.totalVotes(),
                 contract.totalCandidates(),
                 contract.getAllCandidates()
