@@ -1,5 +1,50 @@
 # VoteChain V3: Secure Cyber-Physical Voting System
 
+## Phase 1 Completion Summary
+
+This project is a decentralized voting system combining blockchain transparency with off-chain voter privacy. The admin dashboard now supports:
+
+- Automated contract deployment to Sepolia (VotingV2.sol)
+- Election lifecycle management (Start/End Election, registry lock/unlock)
+- Candidate management on-chain
+- Voter registration in Supabase (with Row-Level Security and service_role key)
+- Real-time results dashboard (public and admin views)
+- MetaMask integration for admin actions
+- Automatic .env updates and database resets
+
+### Architecture Overview
+
+- **Smart Contract**: VotingV2.sol (constructor starts inactive, startElection() added)
+- **Backend**: Node.js/Express, Ethers.js, Supabase client, CORS enabled for dev
+- **Database**: Supabase PostgreSQL, voters table with Aadhaar, name, constituency, fingerprint_id, has_voted
+- **Frontend**: admin.html (admin dashboard), index.html (public results)
+
+### Workflow
+
+1. **Deploy New Election**: Admin dashboard button triggers backend deployment, resets voter database, updates .env
+2. **Add Candidates**: Registry unlocked, candidates added on-chain
+3. **Register Voters**: Voters added to Supabase via backend API
+4. **Start Election**: Registry locks, voting opens
+5. **Vote Submission**: Backend validates voter, submits vote to blockchain, updates has_voted
+6. **End Election**: Registry unlocks, results finalized
+
+### Security
+
+- Supabase RLS enabled, backend uses service_role key
+- Voter identities stored only in Supabase, not on-chain
+- Admin-only contract functions
+- Aadhaar validation and duplicate prevention
+
+### Pending Features
+
+- Fingerprint integration for voter registration and authentication
+- Comprehensive frontend voting interface
+- Production deployment and security hardening
+
+---
+
+## For full details, see `docs/PHASE1_COMPLETION_SUMMARY.md`.
+
 ## Project Overview
 
 VoteChain is a decentralized electronic voting system designed to address the "trust gap" in traditional EVMs. It combines the physical security of a polling booth kiosk with the transparency and immutability of the Ethereum blockchain.
