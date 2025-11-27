@@ -151,8 +151,8 @@
         const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
         const API_BASE = IS_GITHUB_PAGES ? null : window.location.origin;
         
-        // Blockchain configuration (for GitHub Pages)
-        const CONTRACT_ADDRESS = '0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA';
+        // Blockchain configuration (will be fetched from backend or use fallback)
+        let CONTRACT_ADDRESS = '0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA'; // Fallback
         // Use Alchemy or Infura public endpoint (supports CORS)
         const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
         const CONTRACT_ABI = [
@@ -175,6 +175,24 @@
         async function init() {
             try {
                 console.log(`🔗 Connecting to VoteChain ${IS_GITHUB_PAGES ? 'blockchain' : 'backend API'}...`);
+                
+                // Fetch active contract address from backend (if local)
+                if (!IS_GITHUB_PAGES) {
+                    try {
+                        const configRes = await fetch(`${API_BASE}/api/active-contract`);
+                        const config = await configRes.json();
+                        if (config.status === 'ok' && config.contractAddress) {
+                            CONTRACT_ADDRESS = config.contractAddress;
+                            console.log(`📄 Using contract: ${CONTRACT_ADDRESS}`);
+                            
+                            // Update Etherscan link
+                            document.querySelector('a[href*="etherscan"]').href = 
+                                `https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`;
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Could not fetch active contract, using fallback');
+                    }
+                }
                 
                 await refreshData();
                 

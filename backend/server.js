@@ -35,20 +35,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = 3000;
 
-// Restrict CORS (use env ALLOWED_ORIGINS=comma,separated list)
-const envOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
-const allowedOrigins = envOrigins.length ? envOrigins : [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-];
-app.use(cors({
-    origin: function (origin, callback) {
-        // allow non-browser tools (no origin)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        callback(new Error('Not allowed by CORS'));
-    },
-}));
+// CORS - Allow all origins for development
+app.use(cors());
 app.use(express.json());
 
 // Request ID + basic structured logging
@@ -102,6 +90,15 @@ app.get('/api/config', (req, res) => {
         status: 'ok',
         contractAddress: process.env.VOTING_CONTRACT_ADDRESS,
         rpcUrl: process.env.SEPOLIA_RPC_URL,
+        network: 'sepolia'
+    });
+});
+
+// Get current active contract (returns runtime contract, useful after deployments)
+app.get('/api/active-contract', (req, res) => {
+    res.json({
+        status: 'ok',
+        contractAddress: contract.target || contract.address || process.env.VOTING_CONTRACT_ADDRESS,
         network: 'sepolia'
     });
 });
@@ -256,6 +253,129 @@ app.post('/api/vote', voteLimiter, async (req, res) => {
         console.error("Voting Error:", err);
         const errorMessage = err.reason || err.message || "Blockchain transaction failed.";
         res.status(500).json({ status: 'error', message: errorMessage, data: null });
+    }
+});
+
+// ---------------------------------------------------------
+// ADMIN ENDPOINTS
+// ---------------------------------------------------------
+
+// Deploy New Election Contract
+app.post('/api/admin/deploy-contract', async (req, res) => {
+    console.log('[ADMIN] Deploying new VotingV2 contract...');
+    
+    try {
+        // 1. Deploy new contract
+        const ContractFactory = new ethers.ContractFactory(ABI, contractJson.bytecode, wallet);
+        const newContract = await ContractFactory.deploy();
+        await newContract.waitForDeployment();
+        
+        const contractAddress = await newContract.getAddress();
+        console.log(`[ADMIN] ✅ New contract deployed at: ${contractAddress}`);
+        
+        // 2. Reset voter database for new election (keep fingerprints)
+        console.log('[ADMIN] Resetting voter voting status...');
+        const { error: resetError } = await supabase
+            .from('voters')
+            .update({ has_voted: false })
+            .neq('id', 0); // Update all records
+        
+        if (resetError) {
+            console.error('[ADMIN] ⚠️ Database reset failed:', resetError);
+        } else {
+            console.log('[ADMIN] ✅ All voters reset to has_voted=false (fingerprints preserved)');
+        }
+        
+        // 3. Update .env file automatically
+        console.log('[ADMIN] Updating .env file...');
+        const envPath = path.join(__dirname, '.env');
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        
+        // Replace the contract address line
+        envContent = envContent.replace(
+            /VOTING_CONTRACT_ADDRESS="0x[a-fA-F0-9]{40}"/,
+            `VOTING_CONTRACT_ADDRESS="${contractAddress}"`
+        );
+        
+        fs.writeFileSync(envPath, envContent, 'utf8');
+        console.log('[ADMIN] ✅ .env file updated with new contract address');
+        
+        // 4. Update runtime environment variable
+        process.env.VOTING_CONTRACT_ADDRESS = contractAddress;
+        
+        res.json({
+            status: 'success',
+            message: 'New election deployed! Contract address saved to .env',
+            data: {
+                contractAddress: contractAddress,
+                network: 'Sepolia',
+                deployer: wallet.address,
+                votersReset: resetError ? false : true,
+                envUpdated: true
+            }
+        });
+        
+    } catch (err) {
+        console.error('[ADMIN] Contract deployment failed:', err);
+        res.status(500).json({
+            status: 'error',
+            message: err.message || 'Contract deployment failed',
+            data: null
+        });
+    }
+});
+
+// Add Eligible Voter to Registry
+app.post('/api/admin/add-voter', async (req, res) => {
+    const { aadhaar_id, name, constituency } = req.body;
+    
+    // Validate input
+    if (!aadhaar_id || !name) {
+        return res.status(400).json({ status: 'error', message: 'Aadhaar ID and name are required.' });
+    }
+    
+    if (!/^\d{12}$/.test(aadhaar_id)) {
+        return res.status(400).json({ status: 'error', message: 'Invalid Aadhaar ID format (must be 12 digits).' });
+    }
+    
+    console.log(`[ADMIN] Registering voter: ${name} (${aadhaar_id})`);
+
+    try {
+        // 1. Check if already exists
+        const { data: existing } = await supabase
+            .from('voters')
+            .select('id')
+            .eq('aadhaar_id', aadhaar_id)
+            .single();
+
+        if (existing) {
+            return res.status(400).json({ status: 'error', message: 'Voter already registered.' });
+        }
+
+        // 2. Insert new voter 
+        // Note: fingerprint_id is null initially. Enroll at kiosk later.
+        const { data, error } = await supabase
+            .from('voters')
+            .insert([{ 
+                aadhaar_id, 
+                name, 
+                constituency: constituency || null,
+                fingerprint_id: null, // Pending enrollment
+                has_voted: false 
+            }])
+            .select();
+
+        if (error) throw error;
+
+        res.json({ 
+            status: 'success', 
+            message: 'Voter added to registry successfully.', 
+            data: data[0] 
+        });
+
+    } catch (err) {
+        console.error('[ADMIN] Add Voter Error:', err);
+        res.status(500).json({ status: 'error', message: err.message });
     }
 });
 

@@ -40,7 +40,7 @@ contract VotingV2 {
 
     constructor() {
         admin = msg.sender;
-        electionActive = true; // Starts active by default for ease
+        electionActive = false; // Starts inactive - admin must add candidates first
     }
 
     // --- SETUP FUNCTIONS ---
@@ -52,6 +52,13 @@ contract VotingV2 {
     function addCandidate(string memory _name) external onlyAdmin {
         totalCandidates++;
         candidates[totalCandidates] = Candidate(totalCandidates, _name, 0);
+    }
+
+    // Start the election (can only be done once)
+    function startElection() external onlyAdmin {
+        require(!electionActive, "Election already active");
+        require(totalCandidates > 0, "Must have at least one candidate");
+        electionActive = true;
     }
 
     // --- CORE VOTING ---
