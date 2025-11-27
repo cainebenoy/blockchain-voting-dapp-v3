@@ -187,28 +187,28 @@ utils/blockchainHelpers.js - Contract interaction wrapper
 
 ### 3.1 Architectural Layers
 
-**Layer 1: Smart Contract (Blockchain)**
+#### Layer 1: Smart Contract (Blockchain)
 
 - **Files**: `contracts/VotingV2.sol` (74 lines)
 - **Technology**: Solidity 0.8.0, deployed on Ethereum Sepolia
 - **Responsibility**: Immutable vote storage, candidate management, election lifecycle
 - **Functions**: 6 public functions (3 admin, 1 voting, 2 view)
 
-**Layer 2: Backend API (Service Layer)**
+#### Layer 2: Backend API (Service Layer)
 
 - **Files**: `backend/server.js` (498 lines)
 - **Technology**: Node.js, Express.js, ethers.js v6
 - **Responsibility**: API gateway, blockchain interaction, database coordination
 - **Endpoints**: 13 routes
 
-**Layer 3: Database (Persistence)**
+#### Layer 3: Database (Persistence)
 
 - **Provider**: Supabase (PostgreSQL)
 - **Tables**: `voters` (Aadhaar ID, fingerprint ID, has_voted)
 - **Security**: Row-Level Security (RLS) enabled, service_role key
 - **Responsibility**: Voter registry, biometric mapping, vote tracking
 
-**Layer 4: Frontend (UI)**
+#### Layer 4: Frontend (UI)
 
 - **Files**:
   - `admin.html` (563 lines) - Admin control panel
@@ -218,7 +218,7 @@ utils/blockchainHelpers.js - Contract interaction wrapper
 - **Technology**: HTML5, Tailwind CSS, vanilla JavaScript
 - **Responsibility**: User interaction, MetaMask integration, real-time updates
 
-**Layer 5: Infrastructure**
+#### Layer 5: Infrastructure
 
 - **Deployment**: Hardhat 3.0 (ESM modules)
 - **Network**: Ethereum Sepolia Testnet
@@ -476,24 +476,24 @@ my-voting-dapp/
 
 **Voter Endpoints** (2):
 
-5. `POST /api/voter/check-in` - Verify voter eligibility
-6. `POST /api/vote` - Submit vote (rate limited: 3/hour)
+1. `POST /api/voter/check-in` - Verify voter eligibility
+2. `POST /api/vote` - Submit vote (rate limited: 3/hour)
 
 **Admin Endpoints** (4):
 
-7. `POST /api/admin/deploy-contract` - Deploy new election contract
-8. `POST /api/admin/add-voter` - Register voter to database
-9. `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment
-10. `GET /api/admin/enrollment-status` - Poll enrollment status
+1. `POST /api/admin/deploy-contract` - Deploy new election contract
+2. `POST /api/admin/add-voter` - Register voter to database
+3. `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment
+4. `GET /api/admin/enrollment-status` - Poll enrollment status
 
 **Kiosk Endpoints** (2):
 
-11. `GET /api/kiosk/poll-commands` - Check for enrollment requests
-12. `POST /api/kiosk/enrollment-complete` - Submit fingerprint scan result
+1. `GET /api/kiosk/poll-commands` - Check for enrollment requests
+2. `POST /api/kiosk/enrollment-complete` - Submit fingerprint scan result
 
 **Utility Endpoints** (1):
 
-13. `GET /api/metrics` - Server health metrics (planned)
+1. `GET /api/metrics` - Server health metrics (planned)
 
 ---
 
@@ -782,22 +782,22 @@ found 0 vulnerabilities
 
 ### Medium Priority (Week 3-4)
 
-4. **Extract Configuration**
+1. **Extract Configuration**
    - Move hardcoded values to `config.js`
    - Support environment-specific configs (dev/staging/prod)
    - Estimated Effort: 2 hours
 
-5. **Add API Authentication**
+2. **Add API Authentication**
    - Implement API key for admin endpoints
    - Use JWT for session management
    - Estimated Effort: 1 day
 
-6. **Component Refactoring**
+3. **Component Refactoring**
    - Split `admin.html` into smaller components
    - Consider React/Vue for better maintainability
    - Estimated Effort: 3 days
 
-7. **Add Missing Project Files**
+4. **Add Missing Project Files**
    - Create LICENSE file (MIT recommended)
    - Add CONTRIBUTING.md for collaboration guidelines
    - Create CHANGELOG.md for version tracking
@@ -805,20 +805,20 @@ found 0 vulnerabilities
 
 ### Low Priority (Week 5+)
 
-8. **Performance Optimization**
+1. **Performance Optimization**
    - Implement caching for `/api/results`
    - Use WebSocket for live updates
    - Estimated Effort: 2 days
 
-9. **Documentation**
+2. **Documentation**
    - Add JSDoc comments to backend functions
    - Create API documentation (OpenAPI/Swagger)
    - Estimated Effort: 1 day
 
-10. **Replace Console Logs**
-    - Implement proper logging library (Winston/Pino)
-    - Add log rotation and levels
-    - Estimated Effort: 4 hours
+3. **Replace Console Logs**
+   - Implement proper logging library (Winston/Pino)
+   - Add log rotation and levels
+   - Estimated Effort: 4 hours
 
 ---
 
@@ -877,5 +877,3 @@ grep -rn "function " contracts/VotingV2.sol
 # Test run
 npx hardhat test
 ```
-
-
