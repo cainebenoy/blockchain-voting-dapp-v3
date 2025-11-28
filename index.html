@@ -137,7 +137,7 @@
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-slate-500 text-sm">
                 VoteChain System • Secured by Ethereum Sepolia • 
-                <a href="https://sepolia.etherscan.io/address/0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA" target="_blank" rel="noopener" class="text-brand-600 hover:underline">View Contract</a>
+                <a id="etherscan-link" href="#" target="_blank" rel="noopener" class="text-brand-600 hover:underline">View Contract</a>
             </p>
         </div>
     </footer>
@@ -147,24 +147,17 @@
 
     <script>
         // --- 1. CONFIGURATION ---
-        // Auto-detect environment: use backend API if running locally, otherwise connect directly to blockchain
-        const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
-        const API_BASE = IS_GITHUB_PAGES ? null : window.location.origin;
+        // Always use backend API (required for local system)
+        const API_BASE = window.location.origin;
         
-        // Blockchain configuration (will be fetched from backend or use fallback)
-        let CONTRACT_ADDRESS = '0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA'; // Fallback
-        // Use Alchemy or Infura public endpoint (supports CORS)
-        const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
-        const CONTRACT_ABI = [
-            "function electionActive() view returns (bool)",
-            "function totalVotes() view returns (uint256)",
-            "function totalCandidates() view returns (uint256)",
-            "function getAllCandidates() view returns (tuple(uint256 id, string name, uint256 voteCount)[])"
-        ];
+        // Contract address will be fetched from backend
+        let CONTRACT_ADDRESS = null;
+        let CONFIG_LOADED = false;
 
         // --- 2. STATE ---
         let refreshInterval;
 
+        // --- THEME TOGGLE ---
         function toggleTheme() {
             const html = document.documentElement;
             const isDark = html.classList.toggle('dark');
@@ -172,110 +165,95 @@
         }
 
         // --- 3. DATA FETCHING ---
+        async function loadConfig() {
+            try {
+                const configRes = await fetch(`${API_BASE}/api/active-contract`);
+                const config = await configRes.json();
+                
+                if (config.status === 'ok' && config.contractAddress) {
+                    CONTRACT_ADDRESS = config.contractAddress;
+                    CONFIG_LOADED = true;
+                    
+                    console.log(`📄 Contract: ${CONTRACT_ADDRESS}`);
+                    
+                    // Update Etherscan link
+                    const etherscanLink = document.getElementById('etherscan-link');
+                    etherscanLink.href = `https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`;
+                    
+                    return true;
+                } else {
+                    throw new Error('Invalid config response');
+                }
+            } catch (e) {
+                console.error('❌ Failed to load config:', e);
+                throw new Error('Cannot connect to backend server');
+            }
+        }
+
         async function init() {
             try {
-                console.log(`🔗 Connecting to VoteChain ${IS_GITHUB_PAGES ? 'blockchain' : 'backend API'}...`);
+                console.log('🔗 Connecting to VoteChain backend...');
                 
-                // Fetch active contract address from backend (if local)
-                if (!IS_GITHUB_PAGES) {
-                    try {
-                        const configRes = await fetch(`${API_BASE}/api/active-contract`);
-                        const config = await configRes.json();
-                        if (config.status === 'ok' && config.contractAddress) {
-                            CONTRACT_ADDRESS = config.contractAddress;
-                            console.log(`📄 Using contract: ${CONTRACT_ADDRESS}`);
-                            
-                            // Update Etherscan link
-                            document.querySelector('a[href*="etherscan"]').href = 
-                                `https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`;
-                        }
-                    } catch (e) {
-                        console.warn('⚠️ Could not fetch active contract, using fallback');
-                    }
-                }
+                // Load contract config first
+                await loadConfig();
                 
+                // Fetch initial data
                 await refreshData();
                 
                 // Auto-refresh every 5 seconds
                 refreshInterval = setInterval(refreshData, 5000);
-                console.log("✅ Dashboard initialized. Auto-refresh enabled.");
+                console.log("✅ Dashboard initialized. Auto-refresh every 5s.");
             } catch (e) {
                 console.error("💥 Init failed:", e);
                 document.getElementById('electionStatus').innerText = "Connection Error";
+                document.getElementById('totalVotes').innerText = "—";
+                document.getElementById('totalCandidates').innerText = "—";
                 document.getElementById('resultsList').innerHTML = 
-                    `<p class="text-red-400 text-center py-8">Unable to connect. ${e.message}</p>`;
+                    `<p class="text-red-400 text-center py-8">❌ Unable to connect to backend: ${e.message}</p>`;
             }
         }
 
         async function refreshData() {
             try {
-                let result;
-                
-                if (IS_GITHUB_PAGES) {
-                    // Direct blockchain connection for GitHub Pages
-                    result = await fetchFromBlockchain();
-                } else {
-                    // Backend API for local development
-                    result = await fetchFromBackend();
+                // Ensure config is loaded
+                if (!CONFIG_LOADED) {
+                    await loadConfig();
                 }
 
-                const { electionActive, totalVotes, totalCandidates, candidates } = result;
+                // Fetch results from backend API
+                const response = await fetch(`${API_BASE}/api/results`);
+                
+                if (!response.ok) {
+                    throw new Error(`Backend returned ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.status !== 'ok') {
+                    throw new Error(result.message || 'API error');
+                }
 
-                // Update DOM
+                const { electionActive, totalVotes, totalCandidates, candidates } = result.data;
+
+                // Update status badge
                 const statusEl = document.getElementById('electionStatus');
                 statusEl.innerText = electionActive ? "Active & Voting" : "Election Ended";
                 statusEl.className = `text-xl font-bold ${electionActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`;
                 
+                // Update stats
                 document.getElementById('totalVotes').innerText = totalVotes.toString();
                 document.getElementById('totalCandidates').innerText = totalCandidates.toString();
 
-                console.log(`📊 Fetched ${candidates.length} candidates, ${totalVotes} votes`);
+                console.log(`📊 ${candidates.length} candidates, ${totalVotes} votes total`);
+                
+                // Render candidate results
                 renderResults(candidates, totalVotes, electionActive);
 
             } catch (e) { 
                 console.error("❌ Refresh failed:", e);
-                document.getElementById('electionStatus').innerText = "API Error";
+                document.getElementById('electionStatus').innerText = "Connection Error";
                 document.getElementById('electionStatus').className = "text-xl font-bold text-red-600 dark:text-red-400";
             }
-        }
-
-        async function fetchFromBackend() {
-            const response = await fetch(`${API_BASE}/api/results`);
-            
-            if (!response.ok) {
-                throw new Error(`API returned ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.status !== 'ok') {
-                throw new Error(result.message || 'API error');
-            }
-            
-            return result.data;
-        }
-
-        async function fetchFromBlockchain() {
-            const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC);
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-            
-            const [electionActive, totalVotes, totalCandidates, candidates] = await Promise.all([
-                contract.electionActive(),
-                contract.totalVotes(),
-                contract.totalCandidates(),
-                contract.getAllCandidates()
-            ]);
-            
-            return {
-                electionActive,
-                totalVotes: Number(totalVotes),
-                totalCandidates: Number(totalCandidates),
-                candidates: candidates.map(c => ({
-                    id: Number(c.id),
-                    name: c.name,
-                    voteCount: Number(c.voteCount)
-                }))
-            };
         }
 
         function renderResults(candidates, totalVotes, electionActive) {
@@ -283,48 +261,60 @@
             container.innerHTML = '';
 
             if (candidates.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 text-center py-8">No candidates registered yet.</p>';
+                container.innerHTML = '<p class="text-slate-400 text-center py-8">No candidates registered yet. Start an election from the admin dashboard.</p>';
                 document.getElementById('winner-display').classList.add('hidden');
                 return;
             }
 
             // Sort by vote count (descending)
             const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
-            const maxVotes = sorted.length > 0 ? sorted[0].voteCount : 0;
+            const maxVotes = sorted[0].voteCount || 1; // At least 1 to avoid division by zero
 
             // Render each candidate
-            sorted.forEach(c => {
-                // Calculate bar percentage
-                // Use maxVotes as 100% reference for better visuals
+            sorted.forEach((c, index) => {
+                // Calculate bar percentage (use maxVotes as 100% for visual scaling)
                 const percent = maxVotes > 0 ? (c.voteCount / maxVotes) * 100 : 0;
+                
+                // Winner badge for top candidate (if votes > 0)
+                const isLeader = index === 0 && c.voteCount > 0;
+                const leaderBadge = isLeader ? 
+                    '<span class="ml-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-0.5 rounded">Leading</span>' : '';
                 
                 const html = `
                     <div class="relative">
                         <div class="flex justify-between items-end mb-2">
-                            <div>
-                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Candidate #${c.id}</span>
-                                <h4 class="text-lg font-bold text-slate-900 dark:text-white">${c.name}</h4>
+                            <div class="flex items-center">
+                                <div>
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Candidate #${c.id}</span>
+                                    <h4 class="text-lg font-bold text-slate-900 dark:text-white inline-block">${c.name}</h4>
+                                    ${leaderBadge}
+                                </div>
                             </div>
                             <div class="text-right">
                                 <span class="text-2xl font-bold text-brand-600 dark:text-brand-400">${c.voteCount}</span>
-                                <span class="text-xs text-slate-500 font-medium uppercase ml-1">Votes</span>
+                                <span class="text-xs text-slate-500 font-medium uppercase ml-1">Vote${c.voteCount !== 1 ? 's' : ''}</span>
                             </div>
                         </div>
                         
                         <!-- Progress Bar Background -->
                         <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
                             <!-- Animated Bar -->
-                            <div class="bg-brand-600 h-3 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(79,70,229,0.5)]" 
+                            <div class="bg-gradient-to-r from-brand-600 to-brand-500 h-3 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(79,70,229,0.4)]" 
                                  style="width: ${percent}%"></div>
+                        </div>
+                        
+                        <!-- Percentage label -->
+                        <div class="text-right mt-1">
+                            <span class="text-xs text-slate-400">${totalVotes > 0 ? ((c.voteCount / totalVotes) * 100).toFixed(1) : '0.0'}%</span>
                         </div>
                     </div>
                 `;
                 container.innerHTML += html;
             });
 
-            // 3. Winner Display (if election ended and votes exist)
+            // Winner Display (if election ended and votes exist)
             if (!electionActive && totalVotes > 0 && sorted.length > 0) {
-                const winner = sorted[0]; // Highest vote getter
+                const winner = sorted[0];
                 document.getElementById('winner-display').classList.remove('hidden');
                 document.getElementById('winnerName').innerText = winner.name;
                 document.getElementById('winnerVotes').innerText = winner.voteCount.toString();
@@ -333,7 +323,7 @@
             }
         }
 
-        // Start
+        // Start the dashboard
         init();
 
     </script>

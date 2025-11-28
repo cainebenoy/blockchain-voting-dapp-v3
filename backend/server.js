@@ -68,7 +68,12 @@ app.use(express.static(frontendPath));
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // --- 2. SETUP BLOCKCHAIN CONNECTION ---
-const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL, null, {
+    staticNetwork: true,
+    batchMaxCount: 1
+});
+// Increase polling interval and timeout for Pi's network
+provider.pollingInterval = 4000; // 4 seconds between polls
 const wallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
 
 // Load the Contract ABI (Kiosk model: VotingV2)
@@ -80,6 +85,44 @@ const contract = new ethers.Contract(process.env.VOTING_CONTRACT_ADDRESS, ABI, w
 // --- 3. SERVER STATE (Remote Enrollment System) ---
 // This acts as temporary memory to coordinate between Admin Dashboard and Kiosk
 let pendingEnrollment = null;
+
+// --- Auto-authorize official signer (server wallet) ---
+async function ensureAuthorizedSignerFor(address) {
+    try {
+        const target = new ethers.Contract(address, ABI, wallet);
+        const [adminAddr, currentSigner] = await Promise.all([
+            target.admin(),
+            target.officialSigner(),
+        ]);
+
+        if (adminAddr.toLowerCase() !== wallet.address.toLowerCase()) {
+            console.warn('[AUTHZ] Skipping: server wallet is not admin of', address);
+            return { changed: false, reason: 'not-admin', admin: adminAddr, currentSigner };
+        }
+
+        if (currentSigner.toLowerCase() === wallet.address.toLowerCase()) {
+            console.log('[AUTHZ] Official signer already set.');
+            return { changed: false, reason: 'already-set', admin: adminAddr, currentSigner };
+        }
+
+        console.log('[AUTHZ] Setting official signer to server wallet for', address);
+        const tx = await target.setOfficialSigner(wallet.address);
+        console.log('[AUTHZ] Tx sent:', tx.hash);
+        await tx.wait(1);
+        console.log('[AUTHZ] ✅ Official signer authorized');
+        return { changed: true, admin: adminAddr, currentSigner: wallet.address };
+    } catch (e) {
+        console.warn('[AUTHZ] Authorization check failed:', e.message || e);
+        return { changed: false, error: e.message || String(e) };
+    }
+}
+
+// Kick off authorization check on startup (non-blocking)
+(async () => {
+    const addr = process.env.VOTING_CONTRACT_ADDRESS;
+    console.log('[AUTHZ] Startup check for contract', addr);
+    await ensureAuthorizedSignerFor(addr);
+})();
 
 // --- API ENDPOINTS ---
 
@@ -100,6 +143,11 @@ app.get('/api/config', (req, res) => {
 
 // Get current active contract (returns runtime contract, useful after deployments)
 app.get('/api/active-contract', (req, res) => {
+    // Prevent caching to avoid reload loops
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     res.json({
         status: 'ok',
         contractAddress: contract.target || contract.address || process.env.VOTING_CONTRACT_ADDRESS,
@@ -216,9 +264,25 @@ app.post('/api/vote', voteLimiter, async (req, res) => {
         const tx = await contract.vote(cidNum, aadhaar_id);
         console.log("Transaction sent:", tx.hash);
         
-        // Wait for 1 confirmation to be sure
-        await tx.wait(1);
-        console.log("Transaction confirmed on-chain.");
+        // Wait for 1 confirmation with timeout protection
+        const receiptPromise = tx.wait(1);
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('RPC_TIMEOUT')), 60000) // 60 second timeout
+        );
+        
+        let receipt;
+        try {
+            receipt = await Promise.race([receiptPromise, timeoutPromise]);
+            console.log("Transaction confirmed on-chain.");
+        } catch (err) {
+            if (err.message === 'RPC_TIMEOUT') {
+                console.warn("⚠️ RPC timeout during tx.wait(), but transaction was sent. Hash:", tx.hash);
+                console.log("Proceeding with database update (vote likely succeeded).");
+                // Continue execution - transaction was sent successfully
+            } else {
+                throw err; // Re-throw other errors
+            }
+        }
 
         // 3. Mark as Voted in Database
         const { error: dbError } = await supabase
@@ -307,6 +371,17 @@ app.post('/api/admin/deploy-contract', async (req, res) => {
         // 4. Update runtime environment variable
         process.env.VOTING_CONTRACT_ADDRESS = contractAddress;
         
+        // 5. Auto-authorize server wallet as official signer on the new contract
+        console.log('[ADMIN] Authorizing server wallet as official signer...');
+        const authz = await ensureAuthorizedSignerFor(contractAddress);
+        if (authz.error) {
+            console.warn('[ADMIN] ⚠️ Authorization failed:', authz.error);
+        } else if (authz.changed) {
+            console.log('[ADMIN] ✅ Official signer set successfully');
+        } else {
+            console.log('[ADMIN] Official signer unchanged:', authz.reason);
+        }
+        
         res.json({
             status: 'success',
             message: 'New election deployed! Contract address saved to .env',
@@ -315,7 +390,8 @@ app.post('/api/admin/deploy-contract', async (req, res) => {
                 network: 'Sepolia',
                 deployer: wallet.address,
                 votersReset: resetError ? false : true,
-                envUpdated: true
+                envUpdated: true,
+                signerAuthorized: !authz.error
             }
         });
         

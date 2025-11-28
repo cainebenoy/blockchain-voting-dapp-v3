@@ -243,14 +243,34 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
         // --- CONFIGURATION ---
-        const BACKEND_URL = "http://localhost:3000";
+        const BACKEND_URL = "http://127.0.0.1:3000";
         
         // DEFAULT CONTRACT ADDRESS (Sepolia)
         const DEFAULT_CONTRACT = "0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA";
         
-        // Load from Storage or Default
-        let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
-        updateAddressDisplay();
+        // Contract address will be fetched from backend on load
+        let contractAddress = DEFAULT_CONTRACT;
+        
+        // Fetch active contract from backend on page load
+        async function loadActiveContract() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/active-contract`);
+                const data = await res.json();
+                if (data.status === 'ok' && data.contractAddress) {
+                    contractAddress = data.contractAddress;
+                    updateAddressDisplay();
+                    console.log('✅ Loaded contract from backend:', contractAddress);
+                }
+            } catch (e) {
+                console.error('Failed to load contract from backend:', e);
+                // Fall back to localStorage or default
+                contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
+                updateAddressDisplay();
+            }
+        }
+        
+        // Load contract address immediately
+        loadActiveContract();
 
         // ABI
         const contractABI = [ 
@@ -559,18 +579,20 @@
                     const newAddr = data.data.contractAddress;
                     const votersReset = data.data.votersReset;
                     
-                    showToast(`Contract deployed: ${newAddr.substring(0,10)}...`, 'success');
+                    showToast(`✅ Contract deployed: ${newAddr.substring(0,10)}...`, 'success');
                     if(votersReset) {
-                        showToast('Voter database reset successfully', 'success');
+                        showToast('✅ Voter database reset successfully', 'success');
                     }
                     
-                    // Save and switch to new contract
-                    localStorage.setItem("votechain_contract", newAddr);
+                    // Update the contract address in memory
                     contractAddress = newAddr;
                     updateAddressDisplay();
                     
-                    // Reload page to connect to new contract
-                    setTimeout(() => window.location.reload(), 2500);
+                    showToast('✅ Contract updated. Reconnect wallet to use new contract.', 'success');
+                    
+                    // Reset button
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-rounded">add_circle</span> Deploy New Election';
                 } else {
                     showToast(data.message || 'Deployment failed', 'error');
                     btn.disabled = false;

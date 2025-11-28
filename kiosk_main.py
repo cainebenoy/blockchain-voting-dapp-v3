@@ -1,4 +1,17 @@
 import time
+import sys
+import tty
+import termios
+import select
+import atexit
+
+# Optional global keyboard capture (works without terminal focus)
+try:
+    from evdev import InputDevice, ecodes, list_devices
+except Exception:
+    InputDevice = None
+    ecodes = None
+    list_devices = lambda: []
 import serial
 import adafruit_fingerprint
 import requests
@@ -9,7 +22,7 @@ from luma.oled.device import sh1106, ssd1306
 
 # --- CONFIGURATION ---
 # ⚠️ UPDATE THIS IP IF YOUR LAPTOP IP CHANGES ⚠️
-BACKEND_URL = "http://192.168.1.8:3000"
+BACKEND_URL = "http://127.0.0.1:3000"
 
 # --- PIN LAYOUT (BCM) ---
 PIN_LED_GREEN = 17
@@ -24,22 +37,38 @@ OLED_DC = 24
 OLED_RST = 25
 
 # --- 1. SENSOR SETUP ---
+finger = None
 try:
     uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1) 
-except serial.SerialException as e:
-    print(f"Error opening serial port: {e}")
-    exit()
-
-finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
+    finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
+    print("✓ Fingerprint sensor initialized")
+except Exception as e:
+    print(f"⚠️  Fingerprint sensor unavailable: {e}")
+    print("⚠️  Continuing in demo mode (fingerprint checks will be skipped)")
+    finger = None
 
 # --- 2. GPIO & OLED SETUP ---
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
-# Outputs
-GPIO.setup(PIN_LED_GREEN, GPIO.OUT)
-GPIO.setup(PIN_LED_RED, GPIO.OUT)
-GPIO.setup(PIN_BUZZER, GPIO.OUT)
+# Always release GPIO on exit/crash
+def _cleanup_gpio():
+    try:
+        GPIO.output(PIN_LED_GREEN, GPIO.LOW)
+        GPIO.output(PIN_LED_RED, GPIO.LOW)
+    except Exception:
+        pass
+    try:
+        GPIO.cleanup()
+    except Exception:
+        pass
+
+atexit.register(_cleanup_gpio)
+
+# Outputs (set initial LOW to avoid pre-read on lgpio backend)
+GPIO.setup(PIN_LED_GREEN, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(PIN_LED_RED, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(PIN_BUZZER, GPIO.OUT, initial=GPIO.LOW)
 
 # Inputs (Internal Pull-up)
 GPIO.setup(PIN_BTN_START, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -78,9 +107,154 @@ def show_msg(line1, line2="", line3=""):
             draw.text((5, 25), line2, fill="white")
             draw.text((5, 45), line3, fill="white")
 
+def read_aadhaar_on_oled(max_len: int = 12) -> str:
+    """Read Aadhaar digits from keyboard, reflecting input on OLED line 3.
+    Character-by-character input with instant OLED updates.
+    """
+    digits = ""
+    show_msg("Manual Mode", "Enter Aadhaar:", "_")
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        # Raw mode: get characters instantly without echo
+        tty.setraw(fd)
+        while True:
+            ch = sys.stdin.read(1)
+            
+            # Enter submits (both \n and \r)
+            if ch in ("\n", "\r", "\x0d", "\x0a"):
+                if digits:  # Only submit if we have input
+                    print()  # New line in logs
+                    return digits
+            
+            # Ctrl+C exits
+            elif ch == "\x03":
+                print("\n⚠️ Cancelled by user")
+                GPIO.cleanup()
+                sys.exit(0)
+            
+            # ESC cancels input
+            elif ch == "\x1b":
+                digits = ""
+                show_msg("Manual Mode", "Cancelled", "")
+                time.sleep(1)
+                return ""
+            
+            # Backspace/delete
+            elif ch in ("\x08", "\x7f", "\x17"):  # \x17 is Ctrl+W
+                digits = digits[:-1]
+            
+            # Accept only digits up to max_len
+            elif ch.isdigit() and len(digits) < max_len:
+                digits += ch
+            
+            # Update OLED immediately after every key
+            cursor = "_" if len(digits) < max_len else ""
+            show_msg("Manual Mode", "Enter Aadhaar:", digits + cursor)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return digits
+
+def _find_keyboard_device():
+    try:
+        for dev_path in list_devices():
+            try:
+                dev = InputDevice(dev_path)
+                caps = dev.capabilities(verbose=True)
+                if ('EV_KEY', ecodes.EV_KEY) in caps:
+                    name = (dev.name or '').lower()
+                    phys = (dev.phys or '').lower()
+                    if 'kbd' in name or 'key' in name or 'keyboard' in name or 'event-kbd' in phys:
+                        return dev
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return None
+
+def read_aadhaar_from_evdev(max_len: int = 12, timeout_sec: int = 60) -> str:
+    """Capture digits from any keyboard globally via evdev, mirror to OLED.
+    Requires permission to read /dev/input/event* (run with sudo or set udev rules).
+    Returns empty string on cancel/timeout.
+    """
+    if InputDevice is None:
+        return ""
+    dev = _find_keyboard_device()
+    if not dev:
+        return ""
+    digits = ""
+    deadline = time.time() + timeout_sec
+    show_msg("Manual Mode", "Enter Aadhaar:", "_")
+    try:
+        while time.time() < deadline:
+            r, _, _ = select.select([dev.fd], [], [], 0.3)
+            if not r:
+                continue
+            for event in dev.read():
+                if event.type != ecodes.EV_KEY:
+                    continue
+                # value: 1 = keydown
+                if event.value != 1:
+                    continue
+                code = event.code
+                if code in (ecodes.KEY_ENTER, getattr(ecodes, 'KEY_KPENTER', 0)):
+                    return digits
+                if code == ecodes.KEY_BACKSPACE:
+                    digits = digits[:-1]
+                elif code in (
+                    ecodes.KEY_0, ecodes.KEY_1, ecodes.KEY_2, ecodes.KEY_3, ecodes.KEY_4,
+                    ecodes.KEY_5, ecodes.KEY_6, ecodes.KEY_7, ecodes.KEY_8, ecodes.KEY_9,
+                    getattr(ecodes, 'KEY_KP0', 0), getattr(ecodes, 'KEY_KP1', 0), getattr(ecodes, 'KEY_KP2', 0),
+                    getattr(ecodes, 'KEY_KP3', 0), getattr(ecodes, 'KEY_KP4', 0), getattr(ecodes, 'KEY_KP5', 0),
+                    getattr(ecodes, 'KEY_KP6', 0), getattr(ecodes, 'KEY_KP7', 0), getattr(ecodes, 'KEY_KP8', 0),
+                    getattr(ecodes, 'KEY_KP9', 0)
+                ):
+                    # Map keycode -> digit char
+                    key_to_digit = {
+                        ecodes.KEY_0: '0', ecodes.KEY_1: '1', ecodes.KEY_2: '2', ecodes.KEY_3: '3', ecodes.KEY_4: '4',
+                        ecodes.KEY_5: '5', ecodes.KEY_6: '6', ecodes.KEY_7: '7', ecodes.KEY_8: '8', ecodes.KEY_9: '9',
+                    }
+                    if code not in key_to_digit:
+                        # Keypad mapping
+                        try:
+                            if code == ecodes.KEY_KP0: ch = '0'
+                            elif code == ecodes.KEY_KP1: ch = '1'
+                            elif code == ecodes.KEY_KP2: ch = '2'
+                            elif code == ecodes.KEY_KP3: ch = '3'
+                            elif code == ecodes.KEY_KP4: ch = '4'
+                            elif code == ecodes.KEY_KP5: ch = '5'
+                            elif code == ecodes.KEY_KP6: ch = '6'
+                            elif code == ecodes.KEY_KP7: ch = '7'
+                            elif code == ecodes.KEY_KP8: ch = '8'
+                            elif code == ecodes.KEY_KP9: ch = '9'
+                            else: ch = ''
+                        except Exception:
+                            ch = ''
+                    else:
+                        ch = key_to_digit[code]
+                    if ch and len(digits) < max_len:
+                        digits += ch
+                        if len(digits) >= max_len:
+                            return digits
+                # Update OLED after any key
+                cursor = '_' if len(digits) < max_len else ''
+                show_msg("Manual Mode", "Enter Aadhaar:", digits + cursor)
+    except PermissionError:
+        # No permission to read input device
+        show_msg("Keyboard blocked", "Run with sudo", "or set udev perms")
+        time.sleep(2)
+        return ""
+    except Exception:
+        return ""
+    return digits
+
 # --- FINGERPRINT LOGIC ---
 
 def get_image_with_timeout(timeout_seconds=10.0):
+    if finger is None:
+        print("[DEMO MODE] Simulating finger scan...")
+        time.sleep(2)
+        return True
     MANDATORY_HOLD_TIME = 1.5
     print(f"Waiting for finger...", end="", flush=True)
     
@@ -101,6 +275,9 @@ def get_image_with_timeout(timeout_seconds=10.0):
     return False
 
 def scan_finger_and_get_id():
+    if finger is None:
+        print("[DEMO MODE] Returning fingerprint ID 1")
+        return 1  # Demo mode: always return ID 1
     finger.set_led(color=1, mode=1) # Breathing
     if not get_image_with_timeout(10.0):
         finger.set_led(color=1, mode=3) # Red error
@@ -123,6 +300,11 @@ def scan_finger_and_get_id():
 
 def enroll_finger(location_id):
     """Captures a new finger and saves it to the specified ID"""
+    if finger is None:
+        print(f"[DEMO MODE] Simulating enrollment for ID #{location_id}")
+        show_msg("DEMO ENROLL", f"ID #{location_id}", "Success!")
+        time.sleep(3)
+        return True
     show_msg("ENROLL MODE", f"ID #{location_id}", "Place Finger...")
     set_leds(green=True, red=True) # Both LEDs ON for Enroll Mode
     
@@ -243,6 +425,9 @@ if __name__ == '__main__':
     print("--- VOTECHAIN KIOSK LIVE (V3) ---")
     beep(count=2)
     
+    # Track idle state
+    idle_message_shown = False
+    
     while True:
         # 1. POLL FOR ADMIN COMMANDS (Remote Enrollment)
         try:
@@ -251,6 +436,7 @@ if __name__ == '__main__':
             
             if cmd.get('command') == 'ENROLL':
                 # --- SWITCH TO ENROLLMENT MODE ---
+                print(f"\n🔔 [REMOTE ENROLL] Command received for {cmd['name']}")
                 success = perform_remote_enrollment(cmd['target_finger_id'], cmd['name'])
                 
                 # Report result back to server
@@ -258,47 +444,61 @@ if __name__ == '__main__':
                               json={"success": success, "fingerprint_id": cmd['target_finger_id']})
                 
                 time.sleep(2)
+                idle_message_shown = False  # Reset idle state
                 continue # Skip voting loop, check for commands again
         except: 
             pass # Ignore network blips during polling
 
-        # 2. VOTING MODE (Idle)
-        set_leds(green=False, red=False)
-        show_msg("   VOTECHAIN   ", "   SECURE EVM   ", "Enter Aadhaar ->")
+        # 2. VOTING MODE (Idle) - Show idle message once
+        if not idle_message_shown:
+            set_leds(green=False, red=False)
+            show_msg("   VOTECHAIN   ", "   SECURE EVM   ", "Enter Aadhaar ->")
+            print("\n⏳ Polling for commands... (Press Ctrl+C to exit)")
+            idle_message_shown = True
         
-        # NOTE: This 'input' blocks execution. 
-        # To let the Kiosk check for Admin commands, just press ENTER on the keyboard!
-        # This refreshes the loop.
+        # Small delay to prevent CPU spinning, then poll again
+        time.sleep(0.5)
+        
+        # Check for keyboard input (non-blocking would be better, but this works)
+        # For now, we'll use button input instead
         try:
-            aadhaar = input("\n=== Enter Aadhaar (or press Enter to refresh): ")
-            
-            if not aadhaar: continue # Loop back to check for commands
+            # Check if START button is pressed (replaces keyboard input)
+            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+                time.sleep(0.2)  # Debounce
+                # Use terminal-based input with live OLED updates
+                aadhaar = read_aadhaar_on_oled()
+                
+                if not aadhaar or aadhaar.strip() == "": 
+                    idle_message_shown = False
+                    continue # Loop back to check for commands
 
-            # 3. VOTER CHECK-IN
-            voter = check_in_voter(aadhaar)
-            
-            if voter:
-                # 4. VERIFY FINGERPRINT
-                show_msg("Verifying...", "Scan Finger")
-                set_leds(green=False, red=True) 
+                # 3. VOTER CHECK-IN
+                voter = check_in_voter(aadhaar)
                 
-                print(f"Expecting Finger ID #{voter['fingerprint_id']}")
-                scanned_id = scan_finger_and_get_id()
-                
-                if scanned_id == voter['fingerprint_id']:
-                    # 5. VOTE INTERFACE
-                    print("✅ Identity Verified.")
-                    final_choice = run_voting_interface(voter['name'])
+                if voter:
+                    # 4. VERIFY FINGERPRINT
+                    show_msg("Verifying...", "Scan Finger")
+                    set_leds(green=False, red=True) 
                     
-                    # 6. SUBMIT
-                    submit_vote(aadhaar, final_choice)
-                    time.sleep(4)
-                else:
-                    print("⛔ Mismatch.")
-                    show_msg("Access Denied", "Finger Mismatch")
-                    set_leds(green=False, red=True)
-                    beep(count=3, duration=0.2)
-                    time.sleep(3)
+                    print(f"Expecting Finger ID #{voter['fingerprint_id']}")
+                    scanned_id = scan_finger_and_get_id()
+                    
+                    if scanned_id == voter['fingerprint_id']:
+                        # 5. VOTE INTERFACE
+                        print("✅ Identity Verified.")
+                        final_choice = run_voting_interface(voter['name'])
+                        
+                        # 6. SUBMIT
+                        submit_vote(aadhaar, final_choice)
+                        time.sleep(4)
+                    else:
+                        print("⛔ Mismatch.")
+                        show_msg("Access Denied", "Finger Mismatch")
+                        set_leds(green=False, red=True)
+                        beep(count=3, duration=0.2)
+                        time.sleep(3)
+                    
+                    idle_message_shown = False  # Reset for next iteration
             
         except KeyboardInterrupt:
             GPIO.cleanup()

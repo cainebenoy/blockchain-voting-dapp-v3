@@ -2,7 +2,7 @@ import { network } from "hardhat";
 
 async function main() {
   // --- CONFIGURATION ---
-  const VOTING_V2_ADDRESS = "0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA";
+  const VOTING_V2_ADDRESS = "0xA70C926205c8738E0B8F7e61780189CB114ce267";
   // Your backend server address (from the previous step 0.1 ETH funding)
   const SERVER_WALLET_ADDRESS = "0xf0CEfA35A826C17D92FbD7Bf872275d0304B6a1c";
 
