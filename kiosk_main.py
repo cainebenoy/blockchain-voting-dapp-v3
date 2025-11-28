@@ -37,15 +37,15 @@ OLED_DC = 24
 OLED_RST = 25
 
 # --- 1. SENSOR SETUP ---
-finger = None
 try:
     uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1) 
     finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
     print("✓ Fingerprint sensor initialized")
 except Exception as e:
-    print(f"⚠️  Fingerprint sensor unavailable: {e}")
-    print("⚠️  Continuing in demo mode (fingerprint checks will be skipped)")
-    finger = None
+    print(f"❌ FATAL: Fingerprint sensor unavailable: {e}")
+    print("❌ Please check the wiring and connections.")
+    print("❌ Cannot start kiosk without fingerprint scanner.")
+    sys.exit(1)
 
 # --- 2. GPIO & OLED SETUP ---
 GPIO.setmode(GPIO.BCM)
@@ -251,10 +251,6 @@ def read_aadhaar_from_evdev(max_len: int = 12, timeout_sec: int = 60) -> str:
 # --- FINGERPRINT LOGIC ---
 
 def get_image_with_timeout(timeout_seconds=10.0):
-    if finger is None:
-        print("[DEMO MODE] Simulating finger scan...")
-        time.sleep(2)
-        return True
     MANDATORY_HOLD_TIME = 1.5
     print(f"Waiting for finger...", end="", flush=True)
     
@@ -275,9 +271,6 @@ def get_image_with_timeout(timeout_seconds=10.0):
     return False
 
 def scan_finger_and_get_id():
-    if finger is None:
-        print("[DEMO MODE] Returning fingerprint ID 1")
-        return 1  # Demo mode: always return ID 1
     finger.set_led(color=1, mode=1) # Breathing
     if not get_image_with_timeout(10.0):
         finger.set_led(color=1, mode=3) # Red error
@@ -300,11 +293,6 @@ def scan_finger_and_get_id():
 
 def enroll_finger(location_id):
     """Captures a new finger and saves it to the specified ID"""
-    if finger is None:
-        print(f"[DEMO MODE] Simulating enrollment for ID #{location_id}")
-        show_msg("DEMO ENROLL", f"ID #{location_id}", "Success!")
-        time.sleep(3)
-        return True
     show_msg("ENROLL MODE", f"ID #{location_id}", "Place Finger...")
     set_leds(green=True, red=True) # Both LEDs ON for Enroll Mode
     
@@ -418,9 +406,10 @@ def run_voting_interface(voter_name):
 # --- MAIN APP LOOP ---
 
 if __name__ == '__main__':
+    # Verify sensor is working
     if finger.read_sysparam() != adafruit_fingerprint.OK:
-        print("❌ Sensor check failed.")
-        exit()
+        print("❌ Sensor check failed. Please check the wiring.")
+        sys.exit(1)
     
     print("--- VOTECHAIN KIOSK LIVE (V3) ---")
     beep(count=2)

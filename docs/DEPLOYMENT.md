@@ -5,6 +5,7 @@ Complete guide for deploying VoteChain V3 on Raspberry Pi 5.
 ## Hardware Requirements
 
 ### Required Components
+
 - **Raspberry Pi 5** (4GB or 8GB RAM recommended)
 - **R307 Fingerprint Sensor** (UART)
 - **OLED Display** (SH1106 or SSD1306, 128x64, SPI)
@@ -14,6 +15,7 @@ Complete guide for deploying VoteChain V3 on Raspberry Pi 5.
 - **Internet Connection** (Ethernet recommended for stability)
 
 ### Optional Components
+
 - **LEDs** (Green/Red for status indicators)
 - **Buzzer** (Audio feedback)
 - **Enclosure** (3D-printed or commercial case)
@@ -21,14 +23,16 @@ Complete guide for deploying VoteChain V3 on Raspberry Pi 5.
 ## Pin Connections (BCM Mode)
 
 ### GPIO Buttons
-```
+
+```text
 START Button    → BCM 4  (Physical Pin 7)
 Candidate A     → BCM 22 (Physical Pin 15)
 Candidate B     → BCM 23 (Physical Pin 16)
 ```
 
 ### OLED Display (SPI)
-```
+
+```text
 VCC → 3.3V (Pin 1)
 GND → Ground (Pin 6)
 CLK → GPIO 11 / SCLK (Pin 23)
@@ -39,7 +43,8 @@ CS → GPIO 8 / CE0 (Pin 24)
 ```
 
 ### R307 Fingerprint Sensor (UART)
-```
+
+```text
 VCC (Red)    → 5V (Pin 2)
 GND (Black)  → Ground (Pin 14)
 TX (White)   → RX / GPIO 15 (Pin 10)
@@ -53,7 +58,8 @@ RX (Green)   → TX / GPIO 14 (Pin 8)
 **Download:** Raspberry Pi OS (64-bit) Bookworm
 **Flash Tool:** Raspberry Pi Imager
 
-**Settings in Imager:**
+#### Settings in Imager
+
 - Enable SSH
 - Set username/password
 - Configure Wi-Fi (if not using Ethernet)
@@ -320,6 +326,7 @@ except KeyboardInterrupt:
 **Symptoms:** `/dev/ttyAMA0` doesn't exist or sensor not responding
 
 **Solutions:**
+
 ```bash
 # Check if serial port is enabled
 ls -la /dev/ttyAMA0
@@ -340,6 +347,7 @@ sudo reboot
 **Symptoms:** Screen stays blank or shows garbage
 
 **Solutions:**
+
 ```bash
 # Verify SPI is enabled
 lsmod | grep spi
@@ -361,6 +369,7 @@ python3 ../examples/sys_info.py -d sh1106
 **Symptoms:** `RuntimeError: Cannot export GPIO`
 
 **Solution:**
+
 ```bash
 # Run with sudo (required for GPIO access)
 sudo -E python3 kiosk_main.py
@@ -374,11 +383,13 @@ sudo usermod -aG gpio pi
 **Symptoms:** Connection refused on port 3000
 
 **Check logs:**
+
 ```bash
 sudo journalctl -u votechain-backend.service -n 50
 ```
 
-**Common issues:**
+- **Common issues:**
+
 - Missing `.env` file → Create from template
 - Wrong RPC URL → Test with curl: `curl $SEPOLIA_RPC_URL`
 - Port 3000 already in use → `sudo lsof -i :3000`
@@ -386,11 +397,13 @@ sudo journalctl -u votechain-backend.service -n 50
 ### Kiosk Crashes on Startup
 
 **Check logs:**
+
 ```bash
 sudo journalctl -u votechain-kiosk.service -n 50
 ```
 
-**Common issues:**
+- **Common issues:**
+
 - Fingerprint sensor disconnected → Check wiring
 - Display not detected → Verify SPI enabled
 - Backend not running → Start backend first
@@ -417,7 +430,8 @@ sudo nano /etc/dhcpcd.conf
 ```
 
 Add at end:
-```
+
+```text
 interface eth0
 static ip_address=192.168.1.100/24
 static routers=192.168.1.1
@@ -429,6 +443,7 @@ static domain_name_servers=8.8.8.8 8.8.4.4
 If experiencing vote submission failures due to slow blockchain confirmation:
 
 Edit `backend/server.js` line ~230:
+
 ```javascript
 const timeoutPromise = new Promise((_, reject) => 
     setTimeout(() => reject(new Error('RPC_TIMEOUT')), 90000) // Increase to 90s
@@ -475,7 +490,8 @@ sudo nano /etc/ssh/sshd_config
 ```
 
 Set:
-```
+
+```text
 PermitRootLogin no
 PasswordAuthentication no  # Use SSH keys only
 X11Forwarding no
@@ -510,7 +526,7 @@ sudo systemctl status votechain-kiosk.service
 sudo nano /etc/logrotate.d/votechain
 ```
 
-```
+```conf
 /var/log/votechain/*.log {
     daily
     rotate 7
@@ -547,6 +563,7 @@ find $BACKUP_DIR -name "env_*" -mtime +7 -delete
 ```
 
 Make executable and add to cron:
+
 ```bash
 chmod +x /home/pi/backup.sh
 crontab -e
@@ -587,6 +604,7 @@ if finger.empty_library() == adafruit_fingerprint.OK:
 ## Support
 
 For additional help:
+
 - Check logs: `sudo journalctl -u votechain-backend.service -f`
 - Test hardware with scripts above
 - Verify network connectivity: `ping 8.8.8.8`

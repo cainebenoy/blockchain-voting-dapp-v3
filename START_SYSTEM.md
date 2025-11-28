@@ -3,6 +3,7 @@
 ## ✅ Pre-Flight Checklist
 
 Your system is already configured correctly:
+
 - ✅ `kiosk_main.py` → BACKEND_URL = `http://127.0.0.1:3000`
 - ✅ `admin.html` → BACKEND_URL = `http://127.0.0.1:3000`
 - ✅ Backend has all enrollment endpoints ready
@@ -22,7 +23,8 @@ node server.js
 ```
 
 **Expected Output:**
-```
+
+```text
 🔌 Connected to Supabase
 🤖 VoteChain V3 Backend API listening on http://localhost:3000
 ```
@@ -40,7 +42,8 @@ python3 kiosk_main.py
 ```
 
 **Expected Output:**
-```
+
+```text
 🔌 OLED Connected
 🖐️ Fingerprint Scanner Ready
 ⏳ Polling backend for commands...
@@ -52,15 +55,18 @@ python3 kiosk_main.py
 
 ### 3️⃣ Open the Admin Dashboard
 
-**Option A: Quick Open (Recommended)**
+#### Option A: Quick Open (Recommended)
+
 1. Press `Ctrl+O` in Chromium Browser
 2. Navigate to your project folder
 3. Select `admin.html`
 4. Press Open
 
-**Option B: Direct Path**
+#### Option B: Direct Path
+
 Open Chromium and type in the address bar:
-```
+
+```text
 file:///home/cainepi/Desktop/FInal%20Year%20Project/blockchain-voting-dapp-v3/admin.html
 ```
 
@@ -68,7 +74,7 @@ file:///home/cainepi/Desktop/FInal%20Year%20Project/blockchain-voting-dapp-v3/ad
 
 ## 🧪 Test the Remote Enrollment
 
-### In the Admin Dashboard:
+### In the Admin Dashboard
 
 1. **Fill in the Registration Form:**
    - Aadhaar Number: `999999999999` (12 digits)
@@ -88,6 +94,7 @@ file:///home/cainepi/Desktop/FInal%20Year%20Project/blockchain-voting-dapp-v3/ad
 ## 🔍 Troubleshooting
 
 ### Backend won't start?
+
 ```bash
 # Check if port 3000 is already in use
 sudo lsof -i:3000
@@ -100,6 +107,7 @@ cd backend && node server.js
 ```
 
 ### Kiosk script errors?
+
 ```bash
 # Check if fingerprint scanner is connected
 ls /dev/ttyAMA0
@@ -109,6 +117,7 @@ ls /dev/ttyAMA0
 ```
 
 ### Admin page not connecting?
+
 - Make sure backend is running (check terminal #1)
 - Check browser console for errors (F12)
 - Verify BACKEND_URL is `http://127.0.0.1:3000` in the script
@@ -119,10 +128,11 @@ ls /dev/ttyAMA0
 
 After testing enrollment, open the public results dashboard:
 
-**Option 1:** Press `Ctrl+O` and select `index.html`
+### Option 1: Press `Ctrl+O` and select `index.html`
 
-**Option 2:** Open in browser:
-```
+### Option 2: Open in browser
+
+```text
 file:///home/cainepi/Desktop/FInal%20Year%20Project/blockchain-voting-dapp-v3/index.html
 ```
 

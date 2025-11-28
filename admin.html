@@ -175,6 +175,51 @@
         <!-- RIGHT COLUMN: OVERVIEW -->
         <div class="space-y-6">
             
+            <!-- SYSTEM HEALTH MONITORING -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-6">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <span class="material-symbols-rounded text-green-500">health_and_safety</span> System Health
+                </h2>
+                
+                <div class="space-y-3">
+                    <!-- Backend API Status -->
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                        <div class="flex items-center gap-3">
+                            <div id="backendStatusIndicator" class="w-2 h-2 rounded-full bg-slate-300 animate-pulse"></div>
+                            <span class="text-sm text-slate-600 dark:text-slate-300">Backend API</span>
+                        </div>
+                        <span id="backendStatus" class="text-xs font-bold text-slate-400">Checking...</span>
+                    </div>
+
+                    <!-- Blockchain Connection -->
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                        <div class="flex items-center gap-3">
+                            <div id="blockchainStatusIndicator" class="w-2 h-2 rounded-full bg-slate-300 animate-pulse"></div>
+                            <span class="text-sm text-slate-600 dark:text-slate-300">Blockchain RPC</span>
+                        </div>
+                        <span id="blockchainStatus" class="text-xs font-bold text-slate-400">Checking...</span>
+                    </div>
+
+                    <!-- Database Connection -->
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                        <div class="flex items-center gap-3">
+                            <div id="databaseStatusIndicator" class="w-2 h-2 rounded-full bg-slate-300 animate-pulse"></div>
+                            <span class="text-sm text-slate-600 dark:text-slate-300">Database</span>
+                        </div>
+                        <span id="databaseStatus" class="text-xs font-bold text-slate-400">Checking...</span>
+                    </div>
+
+                    <!-- Kiosk Connection -->
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                        <div class="flex items-center gap-3">
+                            <div id="kioskStatusIndicator" class="w-2 h-2 rounded-full bg-slate-300 animate-pulse"></div>
+                            <span class="text-sm text-slate-600 dark:text-slate-300">Kiosk Terminal</span>
+                        </div>
+                        <span id="kioskStatus" class="text-xs font-bold text-slate-400">Checking...</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- LIVE STATUS CARD -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                 <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-6">Election Overview</h2>
@@ -195,11 +240,24 @@
                         <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
                             <p class="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase">Votes</p>
                             <h3 id="totalVotes" class="text-2xl font-bold text-slate-900 dark:text-white mt-1">--</h3>
+                            <p id="voteDelta" class="text-[10px] text-green-600 dark:text-green-400 mt-1 font-medium"></p>
                         </div>
                         <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800/30">
                             <p class="text-xs font-medium text-purple-600 dark:text-purple-400 uppercase">Candidates</p>
                             <h3 id="totalCandidates" class="text-2xl font-bold text-slate-900 dark:text-white mt-1">--</h3>
                         </div>
+                    </div>
+
+                    <!-- Turnout Metrics -->
+                    <div class="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase">Voter Turnout</p>
+                            <span id="turnoutPercent" class="text-sm font-bold text-emerald-700 dark:text-emerald-300">--%</span>
+                        </div>
+                        <div class="w-full bg-emerald-200 dark:bg-emerald-900/40 rounded-full h-2">
+                            <div id="turnoutBar" class="bg-emerald-600 dark:bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <p id="turnoutText" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1"></p>
                     </div>
                 </div>
             </div>
@@ -285,6 +343,107 @@
         ];
 
         let provider, signer, contract;
+        let lastVoteCount = 0;
+        let totalRegisteredVoters = 0;
+
+        // --- SYSTEM HEALTH MONITORING ---
+        async function checkSystemHealth() {
+            // Check Backend API
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(3000) });
+                if (res.ok) {
+                    document.getElementById('backendStatusIndicator').className = 'w-2 h-2 rounded-full bg-green-500';
+                    document.getElementById('backendStatus').textContent = 'Online';
+                    document.getElementById('backendStatus').className = 'text-xs font-bold text-green-600 dark:text-green-400';
+                } else {
+                    throw new Error('API Error');
+                }
+            } catch (e) {
+                document.getElementById('backendStatusIndicator').className = 'w-2 h-2 rounded-full bg-red-500';
+                document.getElementById('backendStatus').textContent = 'Offline';
+                document.getElementById('backendStatus').className = 'text-xs font-bold text-red-600 dark:text-red-400';
+            }
+
+            // Check Database via Metrics
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/metrics`, { signal: AbortSignal.timeout(3000) });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('databaseStatusIndicator').className = 'w-2 h-2 rounded-full bg-green-500';
+                    document.getElementById('databaseStatus').textContent = 'Connected';
+                    document.getElementById('databaseStatus').className = 'text-xs font-bold text-green-600 dark:text-green-400';
+                    
+                    // Update turnout metrics
+                    totalRegisteredVoters = data.data.votersMarkedVoted || 0;
+                    updateTurnoutMetrics();
+                } else {
+                    throw new Error('DB Error');
+                }
+            } catch (e) {
+                document.getElementById('databaseStatusIndicator').className = 'w-2 h-2 rounded-full bg-red-500';
+                document.getElementById('databaseStatus').textContent = 'Error';
+                document.getElementById('databaseStatus').className = 'text-xs font-bold text-red-600 dark:text-red-400';
+            }
+
+            // Check Blockchain (via contract if connected)
+            if (contract) {
+                try {
+                    await contract.totalVotes();
+                    document.getElementById('blockchainStatusIndicator').className = 'w-2 h-2 rounded-full bg-green-500';
+                    document.getElementById('blockchainStatus').textContent = 'Synced';
+                    document.getElementById('blockchainStatus').className = 'text-xs font-bold text-green-600 dark:text-green-400';
+                } catch (e) {
+                    document.getElementById('blockchainStatusIndicator').className = 'w-2 h-2 rounded-full bg-amber-500';
+                    document.getElementById('blockchainStatus').textContent = 'Slow';
+                    document.getElementById('blockchainStatus').className = 'text-xs font-bold text-amber-600 dark:text-amber-400';
+                }
+            }
+
+            // Check Kiosk (via poll-commands endpoint)
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/kiosk/poll-commands`, { signal: AbortSignal.timeout(2000) });
+                if (res.ok) {
+                    document.getElementById('kioskStatusIndicator').className = 'w-2 h-2 rounded-full bg-green-500';
+                    document.getElementById('kioskStatus').textContent = 'Active';
+                    document.getElementById('kioskStatus').className = 'text-xs font-bold text-green-600 dark:text-green-400';
+                } else {
+                    throw new Error('Kiosk Error');
+                }
+            } catch (e) {
+                document.getElementById('kioskStatusIndicator').className = 'w-2 h-2 rounded-full bg-amber-500';
+                document.getElementById('kioskStatus').textContent = 'Offline';
+                document.getElementById('kioskStatus').className = 'text-xs font-bold text-amber-600 dark:text-amber-400';
+            }
+        }
+
+        function updateTurnoutMetrics() {
+            if (!contract) return;
+            
+            const totalVotes = parseInt(document.getElementById('totalVotes').textContent) || 0;
+            
+            // Calculate turnout percentage (votes / registered voters who voted)
+            let turnoutPercent = 0;
+            if (totalRegisteredVoters > 0) {
+                turnoutPercent = Math.round((totalVotes / totalRegisteredVoters) * 100);
+            }
+            
+            document.getElementById('turnoutPercent').textContent = turnoutPercent + '%';
+            document.getElementById('turnoutBar').style.width = turnoutPercent + '%';
+            document.getElementById('turnoutText').textContent = `${totalVotes} votes from ${totalRegisteredVoters} registered voters`;
+        }
+
+        async function fetchVoterCount() {
+            try {
+                const response = await fetch('http://localhost:3000/api/metrics');
+                const data = await response.json();
+                if (data.totalRegisteredVoters !== undefined) {
+                    totalRegisteredVoters = data.totalRegisteredVoters;
+                    updateTurnoutMetrics();
+                }
+            } catch (error) {
+                console.error('Failed to fetch voter count:', error);
+            }
+        }
 
         // --- THEME ---
         function toggleTheme() {
@@ -373,8 +532,17 @@
                 document.getElementById("btn-text").innerText = address.substring(0,6) + "...";
                 
                 showToast("Admin Wallet Connected", 'success');
+                
+                // Initial health check and turnout
+                checkSystemHealth();
+                await fetchVoterCount();
+                updateTurnoutMetrics();
+                
+                // Start refresh intervals
                 refreshData();
                 setInterval(refreshData, 5000);
+                setInterval(checkSystemHealth, 10000);
+                setInterval(fetchVoterCount, 15000);
 
             } catch (e) { showToast(e.message, 'error'); }
         }
@@ -404,11 +572,24 @@
                     document.getElementById("btnAddCandidate").classList.remove("opacity-50", "cursor-not-allowed");
                 }
 
-                // Stats
+                // Stats with delta tracking
                 const v = await contract.totalVotes();
                 const c = await contract.totalCandidates();
-                document.getElementById("totalVotes").innerText = v.toString();
+                const voteCount = v.toNumber ? v.toNumber() : Number(v);
+                
+                document.getElementById("totalVotes").innerText = voteCount;
                 document.getElementById("totalCandidates").innerText = c.toString();
+                
+                // Show vote delta
+                if (lastVoteCount > 0 && voteCount > lastVoteCount) {
+                    const delta = voteCount - lastVoteCount;
+                    document.getElementById('voteDelta').textContent = `+${delta} new ${delta === 1 ? 'vote' : 'votes'}`;
+                    setTimeout(() => { document.getElementById('voteDelta').textContent = ''; }, 3000);
+                }
+                lastVoteCount = voteCount;
+                
+                // Update turnout
+                updateTurnoutMetrics();
 
                 // Candidates
                 const list = await contract.getAllCandidates();

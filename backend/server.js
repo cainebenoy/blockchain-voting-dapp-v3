@@ -603,18 +603,28 @@ app.get('/api/metrics', async (_req, res) => {
     try {
         const votesOnChain = await contract.totalVotes();
         const candidatesOnChain = await contract.totalCandidates();
-        const { count, error } = await supabase
+        
+        // Get voters who have voted
+        const { count: votedCount, error: votedError } = await supabase
             .from('voters')
             .select('*', { count: 'exact', head: true })
             .eq('has_voted', true);
-        if (error) throw error;
+        if (votedError) throw votedError;
+        
+        // Get total registered voters
+        const { count: totalCount, error: totalError } = await supabase
+            .from('voters')
+            .select('*', { count: 'exact', head: true });
+        if (totalError) throw totalError;
+        
         res.json({
             status: 'success',
             message: 'Metrics ready',
             data: {
                 totalVotesOnChain: Number(votesOnChain),
                 totalCandidatesOnChain: Number(candidatesOnChain),
-                votersMarkedVoted: count ?? 0,
+                votersMarkedVoted: votedCount ?? 0,
+                totalRegisteredVoters: totalCount ?? 0,
             },
         });
     } catch (e) {
