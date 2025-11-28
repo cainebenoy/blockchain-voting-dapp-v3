@@ -334,6 +334,3 @@ If you'd like, I can:
 
 - create a `systemd` unit and `nginx` reverse proxy example adapted to your project's actual `server.js` path, or
 - generate an Ansible playbook or Dockerfile for arm64 to automate provisioning on multiple RPi devices.
-
-
-
