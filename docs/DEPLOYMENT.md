@@ -601,6 +601,283 @@ if finger.empty_library() == adafruit_fingerprint.OK:
     print("All fingerprints deleted!")
 ```
 
+## Deploying New Elections
+
+### 🎯 Fully Dynamic - No Hardcoded Values!
+
+The system automatically updates contract addresses everywhere when you deploy a new election:
+
+- ✅ Backend reads from `.env` file
+- ✅ Admin/results dashboards fetch from backend API
+- ✅ No manual editing required
+- ✅ Deploy unlimited elections
+
+### Quick Deploy (Automated)
+
+```bash
+cd ~/blockchain-voting-dapp-v3
+./deploy-new-election.sh
+```
+
+This script:
+1. Checks system is running
+2. Opens admin dashboard
+3. Guides you through deployment
+4. Auto-restarts backend service
+5. Verifies new contract loaded
+
+### Manual Deployment Steps
+
+**1. Open Admin Dashboard**
+```bash
+# From another device on same network
+http://RASPBERRY_PI_IP:8000/admin.html
+
+# Or locally with browser
+chromium-browser http://localhost:8000/admin.html
+```
+
+**2. Click "New Election" Button**
+- Deploys new smart contract (~30 seconds)
+- Auto-updates `backend/.env` with new address
+- Resets voter eligibility (all `has_voted = false`)
+- Preserves enrolled fingerprints
+
+**3. Restart Backend Service**
+```bash
+sudo systemctl restart votechain-backend.service
+```
+
+**4. Verify New Contract Loaded**
+```bash
+# Check .env file was updated
+grep VOTING_CONTRACT_ADDRESS ~/blockchain-voting-dapp-v3/backend/.env
+
+# Verify backend API returns new address
+curl http://localhost:3000/api/config | jq '.contractAddress'
+```
+
+### What Happens Automatically
+
+#### 1. Smart Contract Deployment
+```javascript
+// backend/server.js deploys new VotingV2 contract
+const newContract = await ContractFactory.deploy();
+const contractAddress = await newContract.getAddress();
+```
+
+#### 2. Environment Update
+```javascript
+// backend/.env automatically updated with regex replace
+envContent = envContent.replace(
+    /VOTING_CONTRACT_ADDRESS="0x[a-fA-F0-9]{40}"/,
+    `VOTING_CONTRACT_ADDRESS="${contractAddress}"`
+);
+```
+
+#### 3. Database Reset
+```javascript
+// All voters reset to eligible status
+await supabase
+    .from('voters')
+    .update({ has_voted: false })
+    .neq('id', 0);
+```
+
+#### 4. Authorization Setup
+```javascript
+// Backend wallet auto-authorized as official signer
+await ensureAuthorizedSignerFor(contractAddress);
+```
+
+#### 5. Runtime Update
+```javascript
+// Current backend session updated (no restart needed for admin UI)
+process.env.VOTING_CONTRACT_ADDRESS = contractAddress;
+```
+
+### How Dynamic Loading Works
+
+**Backend (`backend/server.js`):**
+```javascript
+// Always loads from environment variable
+const contract = new ethers.Contract(
+    process.env.VOTING_CONTRACT_ADDRESS,  // ← From .env
+    ABI,
+    wallet
+);
+
+// API endpoint provides current configuration
+app.get('/api/config', async (req, res) => {
+    res.json({
+        contractAddress: process.env.VOTING_CONTRACT_ADDRESS
+    });
+});
+```
+
+**Admin Dashboard (`admin.html`):**
+```javascript
+// Fetches contract address from backend API
+const config = await fetch(`${BACKEND_URL}/api/config`).then(r => r.json());
+contractAddress = config.contractAddress;  // ← Dynamic!
+```
+
+**Results Dashboard (`index.html`):**
+```javascript
+// Fetches from backend API
+const config = await fetch(`${API_BASE}/api/config`).then(r => r.json());
+CONTRACT_ADDRESS = config.contractAddress;  // ← Dynamic!
+```
+
+**Kiosk (`kiosk_main.py`):**
+```python
+# Backend API handles all blockchain interaction
+response = requests.post(
+    f"{BACKEND_URL}/api/vote",
+    json={"aadhaar_id": aadhaar_id, "candidate_id": candidate_id}
+)
+```
+
+### No Hardcoding Anywhere
+
+✅ **Contract Address**: `.env` → API → Frontend  
+✅ **RPC URL**: From `.env` (`SEPOLIA_RPC_URL`)  
+✅ **Private Keys**: From `.env` (encrypted in production)  
+✅ **Supabase Config**: From `.env`
+
+### Verification Commands
+
+```bash
+# Check current contract in .env
+grep VOTING_CONTRACT_ADDRESS ~/blockchain-voting-dapp-v3/backend/.env
+
+# Check backend API returns same address
+curl http://localhost:3000/api/config | jq '.contractAddress'
+
+# Check voter reset status
+curl http://localhost:3000/api/config | jq '{total: .totalVoters, voted: .totalVoted}'
+# After deployment, 'voted' should be 0
+```
+
+### Deployment Checklist
+
+**Before Deployment:**
+- [ ] Backup current `.env`: `cp backend/.env backend/.env.backup`
+- [ ] Export results: `curl http://localhost:3000/api/results > backup.json`
+- [ ] Verify backend running: `curl http://localhost:3000/api/health`
+- [ ] Check wallet balance: `curl http://localhost:3000/api/signer-balance`
+
+**During Deployment:**
+- [ ] Click "New Election" in admin dashboard
+- [ ] Wait for confirmation (~30 seconds)
+- [ ] Note new contract address
+
+**After Deployment:**
+- [ ] Verify `.env` updated: `grep VOTING_CONTRACT backend/.env`
+- [ ] Restart backend: `sudo systemctl restart votechain-backend.service`
+- [ ] Check API: `curl http://localhost:3000/api/config`
+- [ ] Test one vote with test voter
+- [ ] Verify dashboards show new contract
+
+### Troubleshooting Deployment
+
+**Old Contract Still Showing**
+
+API returns old address after deployment:
+
+```bash
+# Check .env was updated
+cat ~/blockchain-voting-dapp-v3/backend/.env | grep VOTING_CONTRACT
+
+# Restart backend to reload .env
+sudo systemctl restart votechain-backend.service
+
+# Verify
+curl http://localhost:3000/api/config | jq '.contractAddress'
+```
+
+**Frontend Cached Old Address**
+
+Dashboard shows old contract after refresh:
+
+1. Hard refresh: `Ctrl+Shift+R`
+2. Clear browser cache
+3. Close and reopen browser
+
+**Deployment Transaction Failed**
+
+"New Election" button fails:
+
+```bash
+# Check wallet balance
+curl http://localhost:3000/api/signer-balance
+# Should have >0.01 ETH for gas
+
+# Check backend logs
+sudo journalctl -u votechain-backend.service -n 100 | grep -i deploy
+```
+
+**Voters Still Marked as Voted**
+
+Database not reset:
+
+```bash
+# Check Supabase dashboard or logs
+# Voters table: has_voted should all be false after deployment
+```
+
+### Multi-Election Support
+
+Deploy **unlimited elections** without reconfiguration:
+
+```bash
+# Election 1 (e.g., Student Council)
+./deploy-new-election.sh  # Contract: 0xAAA...
+# Run voting, get results
+
+# Election 2 (e.g., Club President)
+./deploy-new-election.sh  # Contract: 0xBBB...
+# Run voting, get results
+
+# Election 3 (e.g., Sports Captain)
+./deploy-new-election.sh  # Contract: 0xCCC...
+# Run voting, get results
+```
+
+Each election:
+- ✅ Independent smart contract on blockchain
+- ✅ Separate immutable voting records
+- ✅ Reuses voter database (same students)
+- ✅ Keeps fingerprints enrolled
+- ✅ Auto-updates everywhere
+
+### Security Notes
+
+🔒 **Keep `.env` Secure:**
+- Contains private keys and database credentials
+- Never commit to git (already in `.gitignore`)
+- Backup encrypted: `gpg -c backend/.env`
+
+🔒 **Server Wallet:**
+- Keep funded for deployments (~0.01 ETH per deployment)
+- Monitor balance: `curl http://localhost:3000/api/signer-balance`
+- Use dedicated wallet (not personal funds)
+
+### Files Auto-Updated on Deployment
+
+When deploying new election, **only one file changes**:
+
+```
+backend/.env  ← VOTING_CONTRACT_ADDRESS updated automatically
+```
+
+Everything else pulls from API dynamically:
+- ✅ `admin.html` fetches from `/api/config`
+- ✅ `index.html` fetches from `/api/config`
+- ✅ `kiosk_main.py` uses `/api/vote` endpoint
+
+**No manual file editing required!**
+
 ## Support
 
 For additional help:
