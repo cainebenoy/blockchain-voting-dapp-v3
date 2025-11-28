@@ -312,9 +312,9 @@
         // Fetch active contract from backend on page load
         async function loadActiveContract() {
             try {
-                const res = await fetch(`${BACKEND_URL}/api/active-contract`);
+                const res = await fetch(`${BACKEND_URL}/api/config`);
                 const data = await res.json();
-                if (data.status === 'ok' && data.contractAddress) {
+                if (data.contractAddress) {
                     contractAddress = data.contractAddress;
                     updateAddressDisplay();
                     console.log('✅ Loaded contract from backend:', contractAddress);
