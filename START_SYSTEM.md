@@ -1,5 +1,54 @@
 # 🚀 VoteChain V3 - System Startup Guide
 
+## 🎉 Production Mode: Auto-Start on Boot
+
+**The system is now fully configured to auto-start!** All services will launch automatically when you power on the Raspberry Pi.
+
+### Quick Start (After Boot):
+```bash
+# Check everything is running
+./check-system.sh
+
+# Or use master control
+./votechain.sh status
+```
+
+**Expected startup time:** ~20 seconds after power-on
+
+### Using Headless (No Monitor):
+1. Power on Pi
+2. Wait 20 seconds
+3. Press START button on kiosk
+4. Type Aadhaar on keyboard (appears on OLED)
+5. Follow OLED prompts
+
+**Press START button anytime to reset!**
+
+---
+
+## 📋 Manual Control
+
+### Start/Stop All Services:
+```bash
+./votechain.sh start    # Start everything
+./votechain.sh stop     # Stop everything
+./votechain.sh restart  # Restart everything
+./votechain.sh status   # Check status
+```
+
+### View Logs:
+```bash
+./votechain.sh logs backend   # Backend logs
+./votechain.sh logs frontend  # Frontend logs
+./votechain.sh logs kiosk     # Kiosk logs
+```
+
+---
+
+## 🔧 Manual Startup (Development Mode)
+
+If you need to run services manually for testing:
+
 ## ✅ Pre-Flight Checklist
 
 Your system is already configured correctly:

@@ -1,18 +1,18 @@
 [Unit]
-Description=VoteChain V3 - Kiosk Terminal
-After=network.target votechain.service
+Description=VoteChain V3 - Kiosk Terminal (Headless Ready)
+After=multi-user.target votechain.service
 Requires=votechain.service
 
 [Service]
 Type=simple
-User=cainepi
+User=root
 WorkingDirectory=/home/cainepi/Desktop/FInal Year Project/blockchain-voting-dapp-v3
 ExecStartPre=/bin/sleep 10
 ExecStart=/usr/bin/python3 kiosk_main.py
+StandardOutput=journal
+StandardError=journal
 Restart=always
 RestartSec=15
-StandardOutput=append:/home/cainepi/votechain-kiosk.log
-StandardError=append:/home/cainepi/votechain-kiosk.log
 
 [Install]
 WantedBy=multi-user.target
