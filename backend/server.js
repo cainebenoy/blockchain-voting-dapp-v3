@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { exec } from 'child_process';
 
 // Load environment variables
 dotenv.config();
@@ -382,16 +383,30 @@ app.post('/api/admin/deploy-contract', async (req, res) => {
             console.log('[ADMIN] Official signer unchanged:', authz.reason);
         }
         
+        // 6. Schedule automatic backend restart (async, after response sent)
+        setTimeout(() => {
+            console.log('[ADMIN] 🔄 Restarting backend service to load new contract...');
+            exec('sudo systemctl restart votechain-backend.service', (error, stdout, stderr) => {
+                if (error) {
+                    console.error('[ADMIN] ⚠️ Auto-restart failed:', error.message);
+                    console.error('[ADMIN] Please manually run: sudo systemctl restart votechain-backend.service');
+                } else {
+                    console.log('[ADMIN] ✅ Backend service restart initiated');
+                }
+            });
+        }, 2000); // 2 second delay allows response to be sent first
+        
         res.json({
             status: 'success',
-            message: 'New election deployed! Contract address saved to .env',
+            message: 'New election deployed! Backend will restart in 2 seconds...',
             data: {
                 contractAddress: contractAddress,
                 network: 'Sepolia',
                 deployer: wallet.address,
                 votersReset: resetError ? false : true,
                 envUpdated: true,
-                signerAuthorized: !authz.error
+                signerAuthorized: !authz.error,
+                autoRestart: true
             }
         });
         
