@@ -98,14 +98,40 @@ def set_leds(green=False, red=False):
     GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
     GPIO.output(PIN_LED_RED, GPIO.HIGH if red else GPIO.LOW)
 
-def show_msg(line1, line2="", line3=""):
+def show_msg(line1, line2="", line3="", big_text=False):
     print(f"[DISPLAY] {line1} | {line2} | {line3}")
     if device:
         with canvas(device) as draw:
             draw.rectangle(device.bounding_box, outline="white", fill="black")
-            draw.text((5, 5), line1, fill="white")
-            draw.text((5, 25), line2, fill="white")
-            draw.text((5, 45), line3, fill="white")
+            if big_text:
+                # Center large text with shadow effect
+                from PIL import ImageFont
+                try:
+                    # Use a font size that fits the screen width
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+                except:
+                    font = None
+                
+                # Calculate text position to center it
+                if font:
+                    bbox = draw.textbbox((0, 0), line1, font=font)
+                    text_width = bbox[2] - bbox[0]
+                    text_height = bbox[3] - bbox[1]
+                else:
+                    text_width = len(line1) * 10
+                    text_height = 8
+                
+                x = (device.width - text_width) // 2
+                y = (device.height - text_height) // 2
+                
+                # Draw shadow (offset by 2 pixels down and right)
+                draw.text((x + 2, y + 2), line1, fill="white", font=font)
+                # Draw main text
+                draw.text((x, y), line1, fill="white", font=font)
+            else:
+                draw.text((5, 5), line1, fill="white")
+                draw.text((5, 25), line2, fill="white")
+                draw.text((5, 45), line3, fill="white")
 
 def read_aadhaar_on_oled(max_len: int = 12) -> str:
     """Read Aadhaar digits from keyboard, reflecting input on OLED line 3.
@@ -441,7 +467,7 @@ if __name__ == '__main__':
         # 2. VOTING MODE (Idle) - Show idle message once
         if not idle_message_shown:
             set_leds(green=False, red=False)
-            show_msg("   VOTECHAIN   ", "   SECURE EVM   ", "Enter Aadhaar ->")
+            show_msg("VOTECHAIN", big_text=True)
             print("\n⏳ Polling for commands... (Press Ctrl+C to exit)")
             idle_message_shown = True
         
