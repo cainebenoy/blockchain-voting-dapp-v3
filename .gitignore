@@ -23,3 +23,5 @@
 .env
 .env.local
 .env.*.local
+
+Copilot chat history.json
