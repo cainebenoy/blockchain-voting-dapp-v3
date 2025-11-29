@@ -132,7 +132,6 @@ For questions or support, open an issue on GitHub or contact the project maintai
 - **Frontend**: Vanilla HTML/CSS/JavaScript with Tailwind CSS
 - **Kiosk**: Python 3.13 with RPi.GPIO, luma.oled, adafruit-fingerprint
 
-
 ## 📰 Recent Changes
 
 - 2025-11-30 — Short Code Receipt System & Verification
@@ -278,7 +277,6 @@ Access at `http://localhost:3000/admin.html`
 3. Voter scans fingerprint (assigned unique ID)
 4. Database records: Aadhaar ↔ Fingerprint ID mapping
 
-
 ### Voting Flow
 
 1. Voter presses START button on kiosk
@@ -293,7 +291,6 @@ Access at `http://localhost:3000/admin.html`
 10. Success/failure displayed on OLED
 11. **Short code receipt displayed on OLED (e.g., ABC-123)**
 12. Voter writes down short code for later verification
-
 
 ### Results Dashboard (`index.html`)
 
@@ -337,7 +334,6 @@ getAllCandidates()                  // Public: get results
 ```
 
 ## 📡 API Endpoints
-
 
 ### Public Endpoints
 
