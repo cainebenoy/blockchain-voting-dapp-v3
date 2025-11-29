@@ -125,20 +125,27 @@ def set_leds(green=False, red=False):
 
 # On boot, show idle message and set LEDs to idle
 if device:
+    device.contrast(128)  # Set to safe default
     from luma.core.render import canvas
     try:
         from PIL import ImageFont
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-    except:
-        font = None
+    except Exception:
+        try:
+            font = ImageFont.load_default()
+        except Exception:
+            font = None
     with canvas(device) as draw:
         draw.rectangle(device.bounding_box, outline="white", fill="black")
         msg = "VOTECHAIN READY"
         if font:
-            bbox = draw.textbbox((0, 0), msg, font=font)
-            x = (device.width - (bbox[2] - bbox[0])) // 2
-            y = (device.height - (bbox[3] - bbox[1])) // 2
-            draw.text((x, y), msg, fill="white", font=font)
+            try:
+                bbox = draw.textbbox((0, 0), msg, font=font)
+                x = (device.width - (bbox[2] - bbox[0])) // 2
+                y = (device.height - (bbox[3] - bbox[1])) // 2
+                draw.text((x, y), msg, fill="white", font=font)
+            except Exception:
+                draw.text((10, 20), msg, fill="white")
         else:
             draw.text((10, 20), msg, fill="white")
 set_leds(green=False, red=False)
