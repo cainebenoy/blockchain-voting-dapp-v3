@@ -855,23 +855,40 @@ def submit_vote(aadhaar_id, candidate_id):
 
 def tick_animation():
     set_leds(green=True, red=False)
-    # Draw a big tick mark in the center of the OLED
     if device:
         from PIL import ImageDraw
-        for i in range(3):
+        # Progressive draw: first segment, then second
+        x0, y0 = 40, 40  # Start
+        x1, y1 = 55, 55  # Middle
+        x2, y2 = 85, 25  # End
+        steps1 = 8
+        steps2 = 10
+        # Draw first segment progressively
+        for i in range(1, steps1 + 1):
             with canvas(device) as draw:
                 draw.rectangle(device.bounding_box, fill="black")
-                # Draw tick progressively
-                if i == 0:
-                    draw.line((40, 40, 55, 55), fill="white", width=4)
-                elif i == 1:
-                    draw.line((40, 40, 55, 55), fill="white", width=4)
-                    draw.line((55, 55, 85, 25), fill="white", width=4)
-                else:
-                    draw.line((40, 40, 55, 55), fill="white", width=4)
-                    draw.line((55, 55, 85, 25), fill="white", width=4)
-                    draw.ellipse((80, 20, 90, 30), outline="white", fill="white")
-            time.sleep(0.25)
+                # Interpolate point
+                xi = x0 + (x1 - x0) * i / steps1
+                yi = y0 + (y1 - y0) * i / steps1
+                draw.line((x0, y0, xi, yi), fill="white", width=6)
+            time.sleep(0.02)
+        # Draw second segment progressively
+        for i in range(1, steps2 + 1):
+            with canvas(device) as draw:
+                draw.rectangle(device.bounding_box, fill="black")
+                # Draw full first segment
+                draw.line((x0, y0, x1, y1), fill="white", width=6)
+                # Interpolate second segment
+                xi = x1 + (x2 - x1) * i / steps2
+                yi = y1 + (y2 - y1) * i / steps2
+                draw.line((x1, y1, xi, yi), fill="white", width=6)
+            time.sleep(0.02)
+        # Hold final tick
+        with canvas(device) as draw:
+            draw.rectangle(device.bounding_box, fill="black")
+            draw.line((x0, y0, x1, y1), fill="white", width=6)
+            draw.line((x1, y1, x2, y2), fill="white", width=6)
+        time.sleep(0.18)
 
 def run_voting_interface(voter_name):
     show_msg(f"Hi {voter_name}", "Select Candidate:", "A (Btn1) | B (Btn2)")
