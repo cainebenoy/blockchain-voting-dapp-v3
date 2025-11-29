@@ -126,8 +126,6 @@ def set_leds(green=False, red=False):
 # On boot, show idle message and set LEDs to idle
 if device:
     from luma.core.render import canvas
-    with canvas(device) as draw:
-        draw.rectangle(device.bounding_box, outline="white", fill="black")
     try:
         from PIL import ImageFont
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
