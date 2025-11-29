@@ -1,52 +1,18 @@
 <!DOCTYPE html>
-<html lang="en" class="light">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoteChain | Secure. Transparent. Decentralized.</title>
-    
+    <title>VoteChain | Live Election Results</title>
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        brand: {
-                            50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; opacity: 0; transform: translateY(20px); }
-        .delay-100 { animation-delay: 0.1s; }
-        .delay-200 { animation-delay: 0.2s; }
-        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.7);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-        }
-        .dark .glass-card {
-            background: rgba(15, 23, 42, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-    </style>
+    <!-- Tailwind CSS (built) -->
+    <link href="./dist/output.css" rel="stylesheet">
 </head>
-<body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 transition-colors duration-300 min-h-screen flex flex-col">
-
+<body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 min-h-screen flex flex-col transition-colors duration-300">
     <!-- NAVBAR -->
     <nav class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,162 +37,10 @@
             </div>
         </div>
     </nav>
-
     <!-- MAIN CONTENT -->
     <main class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-        
-        <!-- HEADER STATS -->
-        <div class="text-center mb-12">
-            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Official Election Results</h2>
-            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-                Real-time data directly from the Ethereum Blockchain. Verified, immutable, and transparent.
-            </p>
-        </div>
-
-        <!-- SUMMARY CARDS -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <!-- Status Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
-                    <span class="material-symbols-rounded text-3xl">pending_actions</span>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Election Status</p>
-                    <h3 id="electionStatus" class="text-xl font-bold text-slate-900 dark:text-white">Connecting...</h3>
-                </div>
-            </div>
-
-            <!-- Votes Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
-                    <span class="material-symbols-rounded text-3xl">ballot</span>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Votes Cast</p>
-                    <h3 id="totalVotes" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
-                </div>
-            </div>
-
-            <!-- Candidates Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
-                    <span class="material-symbols-rounded text-3xl">groups</span>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Candidates</p>
-                    <h3 id="totalCandidates" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
-                </div>
-            </div>
-        </div>
-
-        <!-- WINNER BANNER (Hidden until election ends) -->
-        <div id="winner-display" class="hidden mb-12 fade-in">
-            <div class="bg-gradient-to-r from-brand-600 to-indigo-800 rounded-2xl p-8 md:p-10 text-white shadow-2xl relative overflow-hidden">
-                <div class="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
-                    <span class="material-symbols-rounded text-[150px]">emoji_events</span>
-                </div>
-                <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div>
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Official Winner</span>
-                            <span class="text-brand-200 text-xs">Election Ended</span>
-                        </div>
-                        <h2 id="winnerName" class="text-4xl md:text-5xl font-extrabold mb-2">--</h2>
-                        <p class="text-brand-100 text-lg">Victory with <span id="winnerVotes" class="font-bold text-white">--</span> confirmed votes.</p>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-center min-w-[120px]">
-                        <span class="material-symbols-rounded text-4xl text-yellow-400 mb-1">trophy</span>
-                        <p class="text-xs font-medium text-brand-100">Verified</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- LIVE TALLY TABLE -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm mb-12">
-            <div class="px-6 py-5 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Candidate Standings</h3>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs text-slate-400 flex items-center gap-1">
-                        <span class="material-symbols-rounded text-sm">sync</span> Auto-refreshing
-                    </span>
-                    <button onclick="exportResults()" class="flex items-center gap-1 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-brand-500/20">
-                        <span class="material-symbols-rounded text-sm">download</span> Export CSV
-                    </button>
-                </div>
-            </div>
-            
-            <div class="p-6">
-                <div id="resultsList" class="space-y-6">
-                    <!-- Results will be injected here -->
-                    <div class="animate-pulse space-y-4">
-                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4"></div>
-                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/2"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ANALYTICS SECTION -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
-            <!-- Vote Distribution Chart -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-rounded text-brand-600">pie_chart</span>
-                        Vote Distribution
-                    </h3>
-                </div>
-                <div class="p-6">
-                    <canvas id="voteDistributionChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Turnout & Stats -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-rounded text-brand-600">bar_chart</span>
-                        Voter Analytics
-                    </h3>
-                </div>
-                <div class="p-6 space-y-6">
-                    <!-- Turnout Percentage -->
-                    <div>
-                        <div class="flex justify-between items-end mb-2">
-                            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Voter Turnout</span>
-                            <span id="turnoutPercentage" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</span>
-                        </div>
-                        <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
-                            <div id="turnoutBar" class="bg-gradient-to-r from-green-600 to-green-500 h-3 rounded-full transition-all duration-1000 turnout-bar-width"></div>
-                        </div>
-                        <p id="turnoutText" class="text-xs text-slate-400 mt-1">-- votes from -- registered voters</p>
-                    </div>
-
-                    <!-- Participation Stats -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Registered Voters</p>
-                            <p id="registeredVoters" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
-                        </div>
-                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Votes/Candidate</p>
-                            <p id="avgVotes" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
-                        </div>
-                    </div>
-
-                    <!-- Winner Margin (if election ended) -->
-                    <div id="winnerMarginSection" class="hidden p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800">
-                        <p class="text-xs text-brand-700 dark:text-brand-400 mb-1 font-medium">Victory Margin</p>
-                        <p id="winnerMargin" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</p>
-                        <p class="text-xs text-brand-600/70 dark:text-brand-400/70 mt-1">votes ahead of 2nd place</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+        <!-- ...dashboard content from index.html... -->
     </main>
-
     <footer class="border-t border-gray-200 dark:border-slate-800 mt-auto py-8 bg-white dark:bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-slate-500 text-sm">
@@ -235,18 +49,13 @@
             </p>
         </div>
     </footer>
-
     <!-- ETHERS.JS v6 -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
     <!-- Chart.js for analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
     <script>
         // --- 1. CONFIGURATION ---
-        // Always use backend API (required for local system)
         const API_BASE = 'http://localhost:3000';
-        
-        // Contract address will be fetched from backend
         let CONTRACT_ADDRESS = null;
         let CONFIG_LOADED = false;
 
@@ -329,28 +138,23 @@
             try {
                 const response = await fetch(`${API_BASE}/api/metrics`);
                 const result = await response.json();
-                
                 if (result.status === 'success') {
                     currentMetrics = result.data;
                     const totalRegistered = currentMetrics.totalRegisteredVoters || 0;
-                    
                     // Update turnout
                     const turnoutPercent = totalRegistered > 0 ? Math.round((totalVotes / totalRegistered) * 100) : 0;
                     document.getElementById('turnoutPercentage').textContent = turnoutPercent + '%';
                     document.getElementById('turnoutBar').style.width = turnoutPercent + '%';
                     document.getElementById('turnoutText').textContent = `${totalVotes} votes from ${totalRegistered} registered voters`;
-                    
                     // Update registered voters
                     document.getElementById('registeredVoters').textContent = totalRegistered;
                 }
             } catch (e) {
                 console.error('Failed to fetch metrics:', e);
             }
-
             // Average votes per candidate
             const avgVotes = candidates.length > 0 ? (totalVotes / candidates.length).toFixed(1) : '0';
             document.getElementById('avgVotes').textContent = avgVotes;
-
             // Winner margin (if election ended and multiple candidates)
             const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
             if (sorted.length >= 2 && sorted[0].voteCount > 0) {
@@ -360,7 +164,6 @@
             } else {
                 document.getElementById('winnerMarginSection').classList.add('hidden');
             }
-
             // Update chart
             updateVoteChart(candidates);
         }
@@ -370,19 +173,15 @@
                 alert('No data to export yet!');
                 return;
             }
-
             // Sort by votes
             const sorted = [...currentCandidates].sort((a, b) => b.voteCount - a.voteCount);
-            
             // Create CSV content
             let csv = 'Rank,Candidate ID,Candidate Name,Votes,Percentage\n';
             const totalVotes = sorted.reduce((sum, c) => sum + c.voteCount, 0);
-            
             sorted.forEach((candidate, index) => {
                 const percentage = totalVotes > 0 ? ((candidate.voteCount / totalVotes) * 100).toFixed(2) : '0.00';
                 csv += `${index + 1},${candidate.id},"${candidate.name}",${candidate.voteCount},${percentage}%\n`;
             });
-
             // Add summary
             csv += '\n--- Summary ---\n';
             csv += `Total Votes,${totalVotes}\n`;
@@ -391,7 +190,6 @@
             csv += `Turnout,${currentMetrics.totalRegisteredVoters > 0 ? ((totalVotes / currentMetrics.totalRegisteredVoters) * 100).toFixed(2) : '0.00'}%\n`;
             csv += `Contract Address,${CONTRACT_ADDRESS || 'N/A'}\n`;
             csv += `Export Date,${new Date().toISOString()}\n`;
-
             // Download file
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
@@ -402,7 +200,6 @@
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-
             console.log('✅ Results exported to CSV');
         }
 
@@ -411,17 +208,13 @@
             try {
                 const configRes = await fetch(`${API_BASE}/api/active-contract`);
                 const config = await configRes.json();
-                
                 if (config.status === 'ok' && config.contractAddress) {
                     CONTRACT_ADDRESS = config.contractAddress;
                     CONFIG_LOADED = true;
-                    
                     console.log(`📄 Contract: ${CONTRACT_ADDRESS}`);
-                    
                     // Update Etherscan link
                     const etherscanLink = document.getElementById('etherscan-link');
                     etherscanLink.href = `https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`;
-                    
                     return true;
                 } else {
                     throw new Error('Invalid config response');
@@ -435,13 +228,10 @@
         async function init() {
             try {
                 console.log('🔗 Connecting to VoteChain backend...');
-                
                 // Load contract config first
                 await loadConfig();
-                
                 // Fetch initial data
                 await refreshData();
-                
                 // Auto-refresh every 5 seconds
                 refreshInterval = setInterval(refreshData, 5000);
                 console.log("✅ Dashboard initialized. Auto-refresh every 5s.");
@@ -461,42 +251,30 @@
                 if (!CONFIG_LOADED) {
                     await loadConfig();
                 }
-
                 // Fetch results from backend API
                 const response = await fetch(`${API_BASE}/api/results`);
-                
                 if (!response.ok) {
                     throw new Error(`Backend returned ${response.status}`);
                 }
-                
                 const result = await response.json();
-                
                 if (result.status !== 'ok') {
                     throw new Error(result.message || 'API error');
                 }
-
                 const { electionActive, totalVotes, totalCandidates, candidates } = result.data;
-
                 // Update status badge
                 const statusEl = document.getElementById('electionStatus');
                 statusEl.innerText = electionActive ? "Active & Voting" : "Election Ended";
                 statusEl.className = `text-xl font-bold ${electionActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`;
-                
                 // Update stats
                 document.getElementById('totalVotes').innerText = totalVotes.toString();
                 document.getElementById('totalCandidates').innerText = totalCandidates.toString();
-
                 console.log(`📊 ${candidates.length} candidates, ${totalVotes} votes total`);
-                
                 // Save for export
                 currentCandidates = candidates;
-                
                 // Render candidate results
                 renderResults(candidates, totalVotes, electionActive);
-                
                 // Update analytics
                 await updateAnalytics(candidates, totalVotes);
-
             } catch (e) { 
                 console.error("❌ Refresh failed:", e);
                 document.getElementById('electionStatus').innerText = "Connection Error";
@@ -507,27 +285,22 @@
         function renderResults(candidates, totalVotes, electionActive) {
             const container = document.getElementById('resultsList');
             container.innerHTML = '';
-
             if (candidates.length === 0) {
                 container.innerHTML = '<p class="text-slate-400 text-center py-8">No candidates registered yet. Start an election from the admin dashboard.</p>';
                 document.getElementById('winner-display').classList.add('hidden');
                 return;
             }
-
             // Sort by vote count (descending)
             const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
             const maxVotes = sorted[0].voteCount || 1; // At least 1 to avoid division by zero
-
             // Render each candidate
             sorted.forEach((c, index) => {
                 // Calculate bar percentage (use maxVotes as 100% for visual scaling)
                 const percent = maxVotes > 0 ? (c.voteCount / maxVotes) * 100 : 0;
-                
                 // Winner badge for top candidate (if votes > 0)
                 const isLeader = index === 0 && c.voteCount > 0;
                 const leaderBadge = isLeader ? 
                     '<span class="ml-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-0.5 rounded">Leading</span>' : '';
-                
                 const html = `
                     <div class="relative">
                         <div class="flex justify-between items-end mb-2">
@@ -543,14 +316,12 @@
                                 <span class="text-xs text-slate-500 font-medium uppercase ml-1">Vote${c.voteCount !== 1 ? 's' : ''}</span>
                             </div>
                         </div>
-                        
                         <!-- Progress Bar Background -->
                         <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
                             <!-- Animated Bar -->
                             <div class="bg-gradient-to-r from-brand-600 to-brand-500 h-3 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(79,70,229,0.4)]" 
                                  style="width: ${percent}%"></div>
                         </div>
-                        
                         <!-- Percentage label -->
                         <div class="text-right mt-1">
                             <span class="text-xs text-slate-400">${totalVotes > 0 ? ((c.voteCount / totalVotes) * 100).toFixed(1) : '0.0'}%</span>
@@ -559,7 +330,6 @@
                 `;
                 container.innerHTML += html;
             });
-
             // Winner Display (if election ended and votes exist)
             const winnerDisplay = document.getElementById('winner-display');
             if (!electionActive && totalVotes > 0 && sorted.length > 0) {
@@ -596,7 +366,6 @@
 
         // Start the dashboard
         init();
-
     </script>
 </body>
 </html>

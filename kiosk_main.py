@@ -804,18 +804,17 @@ def submit_vote(aadhaar_id, candidate_id):
         spinner_thread.join(timeout=1)
 
         if response.status_code == 200:
-            tx_hash = response.json().get('data', {}).get('transaction_hash')
+            data = response.json().get('data', {})
+            tx_hash = data.get('transaction_hash')
+            short_code = data.get('short_code')
             # Show confirmed screen and animation
             show_msg("Vote Confirmed!", "Success", "", big_text=True)
             tick_animation()
             set_leds(green=True, red=False)
             print(f"TX: {tx_hash}")
             beep_success()
-            # Show vote receipt
-            if tx_hash:
-                receipt_code = tx_hash[-5:]
-            else:
-                receipt_code = "------"
+            # Show vote receipt with short code
+            receipt_code = short_code if short_code else "------"
             cand_name = "CANDIDATE A" if candidate_id == 1 else "CANDIDATE B"
             show_msg("Vote Receipt:", f"Code: {receipt_code}", f"{cand_name}")
             # Wait for admin/start button to be pressed before continuing

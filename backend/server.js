@@ -61,14 +61,42 @@ app.use((req, res, next) => {
 });
 
 // --- 0. FRONTEND SERVING (Public Results Dashboard) ---
-// Serve the public results dashboard from the project root
+// Serve the public results dashboard and landing page from the project root
 const frontendPath = path.join(__dirname, '..');
 app.use(express.static(frontendPath));
+
+// Serve results.html directly for /results or /results.html
+app.get(['/results', '/results.html'], (req, res) => {
+    res.sendFile(path.join(frontendPath, 'results.html'));
+});
+
+// Fallback: serve index.html for non-API routes (SPA support)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    if (req.method === 'GET') {
+        // If requesting /results or /results.html, serve results.html
+        if (req.path === '/results' || req.path === '/results.html') {
+            return res.sendFile(path.join(frontendPath, 'results.html'));
+        }
+        // Otherwise, serve index.html (landing)
+        return res.sendFile(path.join(frontendPath, 'index.html'));
+    }
+    next();
+});
 
 // --- 1. SETUP DATABASE CONNECTION ---
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // --- 2. SETUP BLOCKCHAIN CONNECTION ---
+// --- HELPER: Generate Short Code (e.g. "A7B-29X") ---
+function generateShortCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, 1, O, 0 to avoid confusion
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code.substring(0, 3) + '-' + code.substring(3, 6);
+}
 const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL, null, {
     staticNetwork: true,
     batchMaxCount: 1
@@ -183,15 +211,6 @@ app.get('/api/results', async (req, res) => {
     }
 });
 
-// Fallback: serve index.html for non-API routes (SPA support)
-app.use((req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    if (req.method === 'GET') {
-        return res.sendFile(path.join(frontendPath, 'index.html'));
-    }
-    next();
-});
-
 // STAGE 1: CHECK-IN (Front Desk)
 const RL_CHECKIN_MAX = parseInt(process.env.RL_CHECKIN_MAX || '30', 10);
 const RL_VOTE_MAX = parseInt(process.env.RL_VOTE_MAX || '20', 10);
@@ -271,9 +290,9 @@ app.post('/api/vote', voteLimiter, async (req, res) => {
             setTimeout(() => reject(new Error('RPC_TIMEOUT')), 60000) // 60 second timeout
         );
         
-        let receipt;
+            // let receipt; // Removed unused variable
         try {
-            receipt = await Promise.race([receiptPromise, timeoutPromise]);
+            await Promise.race([receiptPromise, timeoutPromise]);
             console.log("Transaction confirmed on-chain.");
         } catch (err) {
             if (err.message === 'RPC_TIMEOUT') {
@@ -436,83 +455,82 @@ app.post('/api/admin/add-voter', async (req, res) => {
     console.log(`[ADMIN] Registering voter: ${name} (${aadhaar_id})`);
 
     try {
-        // 1. Check if already exists
-        const { data: existing } = await supabase
-            .from('voters')
-            .select('id')
-            .eq('aadhaar_id', aadhaar_id)
-            .single();
+        try {
+            console.log(`[VOTE] Processing vote for ${aadhaar_id}...`);
 
-        if (existing) {
-            return res.status(400).json({ status: 'error', message: 'Voter already registered.' });
+            // 1. Double-check eligibility
+            const { data: voter } = await supabase
+                .from('voters')
+                .select('has_voted')
+                .eq('aadhaar_id', aadhaar_id)
+                .single();
+            if (voter?.has_voted) {
+                return res.status(403).json({ status: 'error', message: 'Double voting detected!', data: null });
+            }
+
+            // 2. Submit to Blockchain
+            console.log("Submitting to blockchain...");
+            const tx = await contract.vote(cidNum, aadhaar_id);
+            console.log("Transaction sent:", tx.hash);
+            await tx.wait(1);
+            console.log("Transaction confirmed on-chain.");
+
+            // 3. Mark Voter as Voted
+            await supabase.from('voters').update({ has_voted: true }).eq('aadhaar_id', aadhaar_id);
+
+            // 4. Generate & Save Receipt Code
+            const shortCode = generateShortCode();
+            const { error: receiptError } = await supabase
+                .from('receipts')
+                .insert([{ code: shortCode, tx_hash: tx.hash }]);
+            if (receiptError) console.error("Receipt Error:", receiptError);
+
+            // 5. Write audit log (hash Aadhaar ID for privacy)
+            try {
+                const aadhaarHash = crypto.createHash('sha256').update(aadhaar_id).digest('hex');
+                const auditEntry = {
+                    ts: new Date().toISOString(),
+                    reqId: req.id,
+                    aadhaarHash,
+                    candidateId: cidNum,
+                    txHash: tx.hash,
+                };
+                fs.appendFile(path.join(__dirname, 'logs', 'vote-audit.log'), JSON.stringify(auditEntry) + '\n', () => {
+                    // Audit log written
+                });
+            } catch {
+                // Audit logging failed, but vote succeeded
+            }
+
+            // 6. Return Code to Kiosk
+            res.json({
+                status: 'success',
+                message: 'Vote officially recorded on-chain.',
+                transaction_hash: tx.hash,
+                receipt_code: shortCode
+            });
+
+        } catch (err) {
+            console.error("Voting Error:", err);
+            const errorMessage = err.reason || err.message || "Blockchain transaction failed.";
+            res.status(500).json({ status: 'error', message: errorMessage, data: null });
         }
-
-        // 2. Insert new voter 
-        // Note: fingerprint_id is null initially. Enroll at kiosk later.
-        const { data, error } = await supabase
-            .from('voters')
-            .insert([{ 
-                aadhaar_id, 
-                name, 
-                constituency: constituency || null,
-                fingerprint_id: null, // Pending enrollment
-                has_voted: false 
-            }])
-            .select();
-
-        if (error) throw error;
-
-        res.json({ 
-            status: 'success', 
-            message: 'Voter added to registry successfully.', 
-            data: data[0] 
-        });
-
-    } catch (err) {
-        console.error('[ADMIN] Add Voter Error:', err);
-        res.status(500).json({ status: 'error', message: err.message });
-    }
-});
-
-// ---------------------------------------------------------
-// REMOTE ENROLLMENT ENDPOINTS (Kiosk Integration)
-// ---------------------------------------------------------
-
-// 1. Initiate Remote Enrollment (Called by Admin Dashboard)
-app.post('/api/admin/initiate-enrollment', async (req, res) => {
-    const { aadhaar_id, name, constituency } = req.body;
-    
-    // Validate input
-    if (!aadhaar_id || !name) {
-        return res.status(400).json({ status: 'error', message: 'Aadhaar ID and name are required.' });
-    }
-    
-    if (!/^\d{12}$/.test(aadhaar_id)) {
-        return res.status(400).json({ status: 'error', message: 'Invalid Aadhaar ID format (must be 12 digits).' });
-    }
-    
-    try {
-        // Check if already exists
-        const { data: existing } = await supabase
-            .from('voters')
-            .select('id')
-            .eq('aadhaar_id', aadhaar_id)
-            .single();
-
-        if (existing) {
-            return res.status(400).json({ status: 'error', message: 'Voter already registered.' });
-        }
-
-        // Get the next available Fingerprint ID
-        // We check the highest ID currently in the DB and add 1
-        const { data: lastVoter } = await supabase
-            .from('voters')
-            .select('fingerprint_id')
-            .order('fingerprint_id', { ascending: false })
-            .limit(1)
-            .single();
-            
         const nextId = (lastVoter?.fingerprint_id || 0) + 1;
+        // --- NEW: LOOKUP RECEIPT ---
+        app.post('/api/verify-code', async (req, res) => {
+            const { code } = req.body;
+            try {
+                const { data, error } = await supabase
+                    .from('receipts')
+                    .select('tx_hash')
+                    .eq('code', code)
+                    .single();
+                if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
+                res.json({ status: 'success', tx_hash: data.tx_hash });
+            } catch (e) {
+                res.status(500).json({ status: 'error' });
+            }
+        });
         
         // Queue the enrollment command in server memory
         pendingEnrollment = {
