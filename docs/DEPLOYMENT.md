@@ -769,18 +769,18 @@ curl http://localhost:3000/api/config | jq '{total: .totalVoters, voted: .totalV
 
 ### Deployment Checklist
 
-**Before Deployment:**
+### Before Deployment
 - [ ] Backup current `.env`: `cp backend/.env backend/.env.backup`
 - [ ] Export results: `curl http://localhost:3000/api/results > backup.json`
 - [ ] Verify backend running: `curl http://localhost:3000/api/health`
 - [ ] Check wallet balance: `curl http://localhost:3000/api/signer-balance`
 
-**During Deployment:**
+### During Deployment
 - [ ] Click "New Election" in admin dashboard
 - [ ] Wait for confirmation (~30 seconds)
 - [ ] Note new contract address
 
-**After Deployment:**
+### After Deployment
 - [ ] Verify `.env` updated: `grep VOTING_CONTRACT backend/.env`
 - [ ] Restart backend: `sudo systemctl restart votechain-backend.service`
 - [ ] Check API: `curl http://localhost:3000/api/config`
@@ -789,7 +789,7 @@ curl http://localhost:3000/api/config | jq '{total: .totalVoters, voted: .totalV
 
 ### Troubleshooting Deployment
 
-**Old Contract Still Showing**
+### Old Contract Still Showing
 
 API returns old address after deployment:
 
@@ -804,7 +804,7 @@ sudo systemctl restart votechain-backend.service
 curl http://localhost:3000/api/config | jq '.contractAddress'
 ```
 
-**Frontend Cached Old Address**
+### Frontend Cached Old Address
 
 Dashboard shows old contract after refresh:
 
@@ -812,7 +812,7 @@ Dashboard shows old contract after refresh:
 2. Clear browser cache
 3. Close and reopen browser
 
-**Deployment Transaction Failed**
+### Deployment Transaction Failed
 
 "New Election" button fails:
 
@@ -825,7 +825,7 @@ curl http://localhost:3000/api/signer-balance
 sudo journalctl -u votechain-backend.service -n 100 | grep -i deploy
 ```
 
-**Voters Still Marked as Voted**
+### Voters Still Marked as Voted
 
 Database not reset:
 
@@ -861,12 +861,12 @@ Each election:
 
 ### Security Notes
 
-🔒 **Keep `.env` Secure:**
+🔒 ### Keep `.env` Secure
 - Contains private keys and database credentials
 - Never commit to git (already in `.gitignore`)
 - Backup encrypted: `gpg -c backend/.env`
 
-🔒 **Server Wallet:**
+🔒 ### Server Wallet
 - Keep funded for deployments (~0.01 ETH per deployment)
 - Monitor balance: `curl http://localhost:3000/api/signer-balance`
 - Use dedicated wallet (not personal funds)
@@ -875,7 +875,7 @@ Each election:
 
 When deploying new election, **only one file changes**:
 
-```
+```text
 backend/.env  ← VOTING_CONTRACT_ADDRESS updated automatically
 ```
 
