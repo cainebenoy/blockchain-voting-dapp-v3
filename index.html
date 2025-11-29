@@ -530,13 +530,36 @@
             });
 
             // Winner Display (if election ended and votes exist)
+            const winnerDisplay = document.getElementById('winner-display');
             if (!electionActive && totalVotes > 0 && sorted.length > 0) {
-                const winner = sorted[0];
-                document.getElementById('winner-display').classList.remove('hidden');
-                document.getElementById('winnerName').innerText = winner.name;
-                document.getElementById('winnerVotes').innerText = winner.voteCount.toString();
+                // Find all candidates with maxVotes
+                const winners = sorted.filter(c => c.voteCount === maxVotes && maxVotes > 0);
+                winnerDisplay.classList.remove('hidden');
+                // Render stacked banners for each winner
+                winnerDisplay.innerHTML = winners.map(winner => `
+                    <div class="bg-gradient-to-r from-brand-600 to-indigo-800 rounded-2xl p-8 md:p-10 text-white shadow-2xl relative overflow-hidden mb-4">
+                        <div class="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
+                            <span class="material-symbols-rounded text-[150px]">emoji_events</span>
+                        </div>
+                        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Official Winner</span>
+                                    <span class="text-brand-200 text-xs">Election Ended</span>
+                                </div>
+                                <h2 class="text-4xl md:text-5xl font-extrabold mb-2">${winner.name}</h2>
+                                <p class="text-brand-100 text-lg">Victory with <span class="font-bold text-white">${winner.voteCount}</span> confirmed votes.</p>
+                            </div>
+                            <div class="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-center min-w-[120px]">
+                                <span class="material-symbols-rounded text-4xl text-yellow-400 mb-1">trophy</span>
+                                <p class="text-xs font-medium text-brand-100">Verified</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
             } else {
-                document.getElementById('winner-display').classList.add('hidden');
+                winnerDisplay.classList.add('hidden');
+                winnerDisplay.innerHTML = '';
             }
         }
 

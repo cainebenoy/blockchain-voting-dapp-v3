@@ -812,7 +812,10 @@ def submit_vote(aadhaar_id, candidate_id):
             print(f"TX: {tx_hash}")
             beep_success()
             # Show vote receipt
-            receipt_code = str(aadhaar_id)[-6:]  # Last 6 digits as code
+            if tx_hash:
+                receipt_code = tx_hash[-5:]
+            else:
+                receipt_code = "------"
             cand_name = "CANDIDATE A" if candidate_id == 1 else "CANDIDATE B"
             show_msg("Vote Receipt:", f"Code: {receipt_code}", f"{cand_name}")
             time.sleep(4)
