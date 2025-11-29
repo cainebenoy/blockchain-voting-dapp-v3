@@ -1,4 +1,4 @@
-## Troubleshooting & FAQ
+# Troubleshooting & FAQ
 
 This page collects common issues and how to resolve them quickly.
 

@@ -232,6 +232,7 @@ Below is a concise reference for the environment variables used by the project. 
 | `VOTING_CONTRACT_ADDRESS` | `0x...` | Deployed VotingV2 contract address | No |
 
 Notes:
+
 - Use `backend/.env.example` as the authoritative template and copy it to `backend/.env` during setup.
 - Mark any secret values as environment-only and never commit them. For production, use a secrets manager (Vault, AWS Secrets Manager, Dotenvx, etc.).
 
@@ -240,22 +241,21 @@ Notes:
 After deploying the contract, the backend wallet must be authorized as the `officialSigner` on the `VotingV2` contract so it can submit votes on behalf of kiosks.
 
 1. Ensure `VOTING_CONTRACT_ADDRESS` and `SERVER_PRIVATE_KEY` are set in your `backend/.env`.
-2. From the repo root run:
+1. From the repo root run:
 
-```bash
-npx hardhat run scripts/authorize-signer.ts --network sepolia
-```
+  ```bash
+  npx hardhat run scripts/authorize-signer.ts --network sepolia
+  ```
 
-3. Verify on-chain: visit Etherscan for the deployed contract and check `officialSigner` (public view) or call the contract getter:
+1. Verify on-chain: visit Etherscan for the deployed contract and check `officialSigner` (public view) or call the contract getter:
 
-```bash
-npx hardhat console --network sepolia
-> const v = await ethers.getContractAt('VotingV2', process.env.VOTING_CONTRACT_ADDRESS)
-> await v.officialSigner()
-```
+  ```bash
+  npx hardhat console --network sepolia
+  > const v = await ethers.getContractAt('VotingV2', process.env.VOTING_CONTRACT_ADDRESS)
+  > await v.officialSigner()
+  ```
 
 Troubleshooting: if authorization fails, check that the wallet used has sufficient ETH to pay for the transaction, and ensure `SEPOLIA_RPC_URL` is reachable. If auto-authorization in `backend/server.js` reports an error, inspect `backend/server.log` for details.
-
 
 ## 📖 Usage Guide
 
