@@ -1,4 +1,4 @@
-## Privacy & Biometric Data Handling
+# Privacy & Biometric Data Handling
 
 This document describes how VoteChain handles biometric data and voter information. It is intentionally concise — for legal compliance, please consult your organisation's counsel.
 
