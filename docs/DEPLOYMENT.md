@@ -4,29 +4,21 @@ Complete guide for deploying VoteChain V3 on Raspberry Pi 5.
 
 ## Recent Changes (Nov 29 2025)
 
-- Kiosk display & robustness updates (commit `c464e3d`): added boot-time hardware health checks, fixed OLED rendering and font fallbacks, removed border outlines from screen clears, added `show_idle()` and `wait_for_reset()`, and made persistent OLED error messaging on hardware faults. See `CHANGELOG.md` for details.
+- Kiosk display & robustness updates (commit `c464e3d`): added boot-time hardware
+    health checks, fixed OLED rendering and font fallbacks, removed border outlines
+    from screen clears, added `show_idle()` and `wait_for_reset()`, and made
+    persistent OLED error messaging on hardware faults. See `CHANGELOG.md` for
+    details.
 
 ## Hardware Requirements
 
 ### Required Components
 
 - **Raspberry Pi 5** (4GB or 8GB RAM recommended)
-- **R307 Fingerprint Sensor** (UART)
-- **OLED Display** (SH1106 or SSD1306, 128x64, SPI)
-- **GPIO Buttons** (x3 for voting interface)
-- **MicroSD Card** (32GB minimum, Class 10 recommended)
 - **Power Supply** (Official Raspberry Pi 5 USB-C power adapter)
 - **Internet Connection** (Ethernet recommended for stability)
-
-### Optional Components
-
 - **LEDs** (Green/Red for status indicators)
 - **Buzzer** (Audio feedback)
-- **Enclosure** (3D-printed or commercial case)
-
-## Pin Connections (BCM Mode)
-
-### GPIO Buttons
 
 ```text
 START Button    → BCM 4  (Physical Pin 7)
@@ -76,150 +68,7 @@ RX (Green)   → TX / GPIO 14 (Pin 8)
 sudo apt update && sudo apt upgrade -y
 
 # Set timezone
-sudo timedatectl set-timezone Asia/Kolkata
 
-# Enable SPI interface
-sudo raspi-config
-# Interface Options → SPI → Enable
-
-# Enable Serial Port (for fingerprint sensor)
-sudo raspi-config
-# Interface Options → Serial Port
-# - Login shell over serial: NO
-# - Serial hardware: YES
-
-# Reboot
-sudo reboot
-```
-
-### 3. Install Dependencies
-
-```bash
-# System packages
-sudo apt install -y python3 python3-pip python3-venv nodejs npm git
-
-# Python libraries
-pip3 install --break-system-packages RPi.GPIO luma.oled adafruit-circuitpython-fingerprint requests pyserial
-
-# Verify installations
-python3 --version    # Should be 3.11+
-node --version       # Should be 18+
-npm --version        # Should be 9+
-```
-
-## Application Installation
-
-### 1. Clone Repository
-
-```bash
-cd ~
-git clone https://github.com/YOUR_USERNAME/blockchain-voting-dapp-v3.git
-cd blockchain-voting-dapp-v3
-```
-
-### 2. Install Node Dependencies
-
-```bash
-# Root dependencies (Hardhat, TypeScript)
-npm install
-
-# Backend dependencies
-cd backend
-npm install
-cd ..
-```
-
-### 3. Configure Environment Variables
-
-```bash
-# Create root .env
-cat > .env << 'EOF'
-# Blockchain Configuration
-SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY"
-SEPOLIA_PRIVATE_KEY="YOUR_ADMIN_WALLET_PRIVATE_KEY"
-
-# Backend Server Configuration
-SERVER_PRIVATE_KEY="YOUR_BACKEND_WALLET_PRIVATE_KEY"
-VOTING_CONTRACT_ADDRESS="0xYourDeployedContractAddress"
-
-# Database Configuration
-SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
-SUPABASE_KEY="YOUR_SUPABASE_SERVICE_ROLE_KEY"
-EOF
-
-# Copy to backend directory
-cp .env backend/.env
-```
-
-**Security Note:** Never commit `.env` files to version control. Add to `.gitignore`.
-
-### 4. Deploy Smart Contract (First Time Only)
-
-```bash
-# From project root
-npx hardhat run scripts/deployV2.ts --network sepolia
-```
-
-Copy the deployed contract address to both `.env` files under `VOTING_CONTRACT_ADDRESS`.
-
-## Running the System
-
-### Manual Start (Development)
-
-```bash
-# Terminal 1: Start backend server
-cd backend
-node server.js
-
-# Terminal 2: Start kiosk (requires sudo for GPIO)
-cd ..
-sudo -E python3 kiosk_main.py
-```
-
-### Systemd Services (Production)
-
-#### 1. Create Backend Service
-
-```bash
-sudo nano /etc/systemd/system/votechain-backend.service
-```
-
-```ini
-[Unit]
-Description=VoteChain Backend Server
-After=network.target
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/blockchain-voting-dapp-v3/backend
-EnvironmentFile=/home/pi/blockchain-voting-dapp-v3/backend/.env
-ExecStart=/usr/bin/node server.js
-Restart=on-failure
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-#### 2. Create Kiosk Service
-
-```bash
-sudo nano /etc/systemd/system/votechain-kiosk.service
-```
-
-```ini
-[Unit]
-Description=VoteChain Kiosk Application
-After=network.target votechain-backend.service
-Requires=votechain-backend.service
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/home/pi/blockchain-voting-dapp-v3
 EnvironmentFile=/home/pi/blockchain-voting-dapp-v3/.env
 ExecStart=/usr/bin/python3 kiosk_main.py
 Restart=on-failure
@@ -229,76 +78,93 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-```
+
+```bash
 
 #### 3. Enable and Start Services
 
 ```bash
-# Reload systemd
+
+## Reload systemd
+
 sudo systemctl daemon-reload
 
-# Enable services (start on boot)
+## Enable services (start on boot)
+
 sudo systemctl enable votechain-backend.service
 sudo systemctl enable votechain-kiosk.service
 
-# Start services
+## Start services
+
 sudo systemctl start votechain-backend.service
 sudo systemctl start votechain-kiosk.service
 
-# Check status
+## Check status
+
 sudo systemctl status votechain-backend.service
 sudo systemctl status votechain-kiosk.service
 
-# View logs
+## View logs
+
 sudo journalctl -u votechain-backend.service -f
 sudo journalctl -u votechain-kiosk.service -f
-```
+
+```python
 
 ## Testing Hardware
 
 ### Test OLED Display
 
 ```python
+
 from luma.core.interface.serial import spi
 from luma.oled.device import sh1106
 from luma.core.render import canvas
 from PIL import ImageFont
 import RPi.GPIO as GPIO
 
-# Initialize display
+## Initialize display
+
 serial = spi(device=0, port=0, gpio_DC=24, gpio_RST=25)
 device = sh1106(serial)
 
-# Draw test text
+## Draw test text
+
 with canvas(device) as draw:
     draw.text((0, 0), "VoteChain V3", fill="white")
     draw.text((0, 16), "Display Test", fill="white")
     draw.text((0, 32), "Success!", fill="white")
 
 print("If you see text on OLED, display is working!")
-```
+
+```python
 
 ### Test Fingerprint Sensor
 
 ```python
+
 import serial
 import adafruit_fingerprint
 
-# Initialize sensor
+## Initialize sensor
+
 uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1)
 finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
 
-# Test connection
+## Test connection
+
 if finger.read_templates() != adafruit_fingerprint.OK:
     print("Failed to communicate with fingerprint sensor!")
 else:
     print(f"Fingerprint sensor detected! Templates: {finger.template_count}")
     print(f"Library capacity: {finger.library_size}")
-```
+
+```python
 
 ### Test GPIO Buttons
 
 ```python
+
 import RPi.GPIO as GPIO
 import time
 
@@ -321,7 +187,8 @@ try:
             time.sleep(0.3)
 except KeyboardInterrupt:
     GPIO.cleanup()
-```
+
+```bash
 
 ## Troubleshooting
 
@@ -332,19 +199,26 @@ except KeyboardInterrupt:
 **Solutions:**
 
 ```bash
-# Check if serial port is enabled
+
+## Check if serial port is enabled
+
 ls -la /dev/ttyAMA0
 
-# Verify in boot config
-grep "enable_uart" /boot/firmware/config.txt
-# Should show: enable_uart=1
+## Verify in boot config
 
-# Add user to dialout group (if not using sudo)
+grep "enable_uart" /boot/firmware/config.txt
+
+## Should show: enable_uart=1
+
+## Add user to dialout group (if not using sudo)
+
 sudo usermod -aG dialout pi
 
-# Reboot and test again
+## Reboot and test again
+
 sudo reboot
-```
+
+```python
 
 ### OLED Display Not Working
 
@@ -353,20 +227,28 @@ sudo reboot
 **Solutions:**
 
 ```bash
-# Verify SPI is enabled
+
+## Verify SPI is enabled
+
 lsmod | grep spi
-# Should show: spi_bcm2835
 
-# Check wiring:
-# - DC pin must be GPIO 24 (Physical Pin 18)
-# - RST pin must be GPIO 25 (Physical Pin 22)
-# - Check all connections are secure
+## Should show: spi_bcm2835
 
-# Test with luma.oled examples
+## Check wiring:
+
+## - DC pin must be GPIO 24 (Physical Pin 18)
+
+## - RST pin must be GPIO 25 (Physical Pin 22)
+
+## - Check all connections are secure
+
+## Test with luma.oled examples
+
 pip3 install --break-system-packages luma.examples
 cd $(python3 -c "import luma.examples; print(luma.examples.__path__[0])")
 python3 ../examples/sys_info.py -d sh1106
-```
+
+```bash
 
 ### GPIO Permission Denied
 
@@ -375,12 +257,16 @@ python3 ../examples/sys_info.py -d sh1106
 **Solution:**
 
 ```bash
-# Run with sudo (required for GPIO access)
+
+## Run with sudo (required for GPIO access)
+
 sudo -E python3 kiosk_main.py
 
-# Or add user to gpio group (may not work on all Pi OS versions)
+## Or add user to gpio group (may not work on all Pi OS versions)
+
 sudo usermod -aG gpio pi
-```
+
+```bash
 
 ### Backend Server Won't Start
 
@@ -389,8 +275,10 @@ sudo usermod -aG gpio pi
 **Check logs:**
 
 ```bash
+
 sudo journalctl -u votechain-backend.service -n 50
-```
+
+```python
 
 - **Common issues:**
 
@@ -403,8 +291,10 @@ sudo journalctl -u votechain-backend.service -n 50
 **Check logs:**
 
 ```bash
+
 sudo journalctl -u votechain-kiosk.service -n 50
-```
+
+```bash
 
 - **Common issues:**
 
@@ -417,30 +307,40 @@ sudo journalctl -u votechain-kiosk.service -n 50
 ### Reduce Boot Time
 
 ```bash
-# Disable unnecessary services
+
+## Disable unnecessary services
+
 sudo systemctl disable bluetooth.service
 sudo systemctl disable avahi-daemon.service
 
-# Enable faster boot
+## Enable faster boot
+
 sudo nano /boot/firmware/cmdline.txt
-# Add: quiet splash plymouth.ignore-serial-consoles
-```
+
+## Add: quiet splash plymouth.ignore-serial-consoles
+
+```bash
 
 ### Network Optimization
 
 ```bash
-# Use static IP (faster than DHCP)
+
+## Use static IP (faster than DHCP)
+
 sudo nano /etc/dhcpcd.conf
-```
+
+```conf
 
 Add at end:
 
 ```text
+
 interface eth0
 static ip_address=192.168.1.100/24
 static routers=192.168.1.1
 static domain_name_servers=8.8.8.8 8.8.4.4
-```
+
+```conf
 
 ### Increase RPC Timeout
 
@@ -449,88 +349,115 @@ If experiencing vote submission failures due to slow blockchain confirmation:
 Edit `backend/server.js` line ~230:
 
 ```javascript
+
 const timeoutPromise = new Promise((_, reject) => 
     setTimeout(() => reject(new Error('RPC_TIMEOUT')), 90000) // Increase to 90s
 );
-```
+
+```python
 
 ## Security Hardening
 
 ### 1. Firewall Configuration
 
 ```bash
-# Install ufw
+
+## Install ufw
+
 sudo apt install -y ufw
 
-# Allow SSH (if needed)
+## Allow SSH (if needed)
+
 sudo ufw allow 22/tcp
 
-# Allow backend (only from localhost)
+## Allow backend (only from localhost)
+
 sudo ufw allow from 127.0.0.1 to any port 3000
 
-# Enable firewall
+## Enable firewall
+
 sudo ufw enable
-```
+
+```bash
 
 ### 2. Disable Unused Services
 
 ```bash
+
 sudo systemctl disable bluetooth.service
 sudo systemctl disable cups.service
 sudo systemctl disable triggerhappy.service
-```
+
+```bash
 
 ### 3. Auto-update Security Patches
 
 ```bash
+
 sudo apt install -y unattended-upgrades
 sudo dpkg-reconfigure --priority=low unattended-upgrades
-```
+
+```bash
 
 ### 4. Lock Down SSH
 
 ```bash
+
 sudo nano /etc/ssh/sshd_config
-```
+
+```conf
 
 Set:
 
 ```text
+
 PermitRootLogin no
 PasswordAuthentication no  # Use SSH keys only
 X11Forwarding no
-```
 
 ```bash
+
+```bash
+
 sudo systemctl restart ssh
-```
+
+```bash
 
 ## Monitoring
 
 ### System Health Check
 
 ```bash
-# CPU temperature (should be < 70°C under load)
+
+## CPU temperature (should be < 70°C under load)
+
 vcgencmd measure_temp
 
-# Memory usage
+## Memory usage
+
 free -h
 
-# Disk space
+## Disk space
+
 df -h
 
-# Service status
+## Service status
+
 sudo systemctl status votechain-backend.service
 sudo systemctl status votechain-kiosk.service
-```
+
+```bash
 
 ### Log Rotation
 
 ```bash
+
 sudo nano /etc/logrotate.d/votechain
-```
+
+```text
 
 ```conf
+
 /var/log/votechain/*.log {
     daily
     rotate 7
@@ -540,76 +467,93 @@ sudo nano /etc/logrotate.d/votechain
     notifempty
     create 0644 pi pi
 }
-```
+
+```bash
 
 ## Backup Strategy
 
 ### Daily Backup Script
 
 ```bash
+
 #!/bin/bash
-# /home/pi/backup.sh
+
+## /home/pi/backup.sh
 
 BACKUP_DIR="/home/pi/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 mkdir -p $BACKUP_DIR
 
-# Backup database export
+## Backup database export
+
 pg_dump -h YOUR_SUPABASE_HOST -U postgres votechain > $BACKUP_DIR/db_$DATE.sql
 
-# Backup .env files
+## Backup .env files
+
 cp /home/pi/blockchain-voting-dapp-v3/.env $BACKUP_DIR/env_$DATE
 
-# Remove backups older than 7 days
+## Remove backups older than 7 days
+
 find $BACKUP_DIR -name "*.sql" -mtime +7 -delete
 find $BACKUP_DIR -name "env_*" -mtime +7 -delete
-```
+
+```bash
 
 Make executable and add to cron:
 
 ```bash
+
 chmod +x /home/pi/backup.sh
 crontab -e
-# Add: 0 2 * * * /home/pi/backup.sh
-```
+
+## Add: 0 2 * * * /home/pi/backup.sh
+
+```bash
 
 ## Maintenance
 
 ### Update Application
 
 ```bash
+
 cd ~/blockchain-voting-dapp-v3
 git pull origin main
 npm install
 cd backend && npm install && cd ..
 
-# Restart services
+## Restart services
+
 sudo systemctl restart votechain-backend.service
 sudo systemctl restart votechain-kiosk.service
-```
+
+```python
 
 ### Clean Fingerprint Database
 
 If sensor runs out of template slots:
 
 ```python
+
 import serial
 import adafruit_fingerprint
 
 uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1)
 finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
 
-# Clear all templates
+## Clear all templates
+
 if finger.empty_library() == adafruit_fingerprint.OK:
     print("All fingerprints deleted!")
-```
+
+```python
 
 ## Deploying New Elections
 
 ### 🎯 Fully Dynamic - No Hardcoded Values
 
-The system automatically updates contract addresses everywhere when you deploy a new election:
+The system automatically updates contract addresses everywhere when you deploy
+a new election:
 
 - ✅ Backend reads from `.env` file
 - ✅ Admin/results dashboards fetch from backend API
@@ -619,9 +563,11 @@ The system automatically updates contract addresses everywhere when you deploy a
 ### Quick Deploy (Automated)
 
 ```bash
+
 cd ~/blockchain-voting-dapp-v3
 ./deploy-new-election.sh
-```
+
+```python
 
 This script:
 1. Checks system is running
@@ -635,12 +581,16 @@ This script:
 #### 1. Open Admin Dashboard
 
 ```bash
-# From another device on same network
+
+## From another device on same network
+
 http://RASPBERRY_PI_IP:8000/admin.html
 
-# Or locally with browser
+## Or locally with browser
+
 chromium-browser http://localhost:8000/admin.html
-```
+
+```bash
 
 #### 2. Click "New Election" Button
 
@@ -652,62 +602,79 @@ chromium-browser http://localhost:8000/admin.html
 #### 3. Restart Backend Service
 
 ```bash
+
 sudo systemctl restart votechain-backend.service
-```
+
+```bash
 
 #### 4. Verify New Contract Loaded
 
 ```bash
-# Check .env file was updated
+
+## Check .env file was updated
+
 grep VOTING_CONTRACT_ADDRESS ~/blockchain-voting-dapp-v3/backend/.env
 
-# Verify backend API returns new address
+## Verify backend API returns new address
+
 curl http://localhost:3000/api/config | jq '.contractAddress'
-```
+
+```python
 
 ### What Happens Automatically
 
 #### 1. Smart Contract Deployment
 ```javascript
+
 // backend/server.js deploys new VotingV2 contract
 const newContract = await ContractFactory.deploy();
 const contractAddress = await newContract.getAddress();
-```
+
+```conf
 
 #### 2. Environment Update
 ```javascript
+
 // backend/.env automatically updated with regex replace
 envContent = envContent.replace(
     /VOTING_CONTRACT_ADDRESS="0x[a-fA-F0-9]{40}"/,
     `VOTING_CONTRACT_ADDRESS="${contractAddress}"`
 );
-```
+
+```python
 
 #### 3. Database Reset
 ```javascript
+
 // All voters reset to eligible status
 await supabase
     .from('voters')
     .update({ has_voted: false })
     .neq('id', 0);
-```
+
+```python
 
 #### 4. Authorization Setup
 ```javascript
+
 // Backend wallet auto-authorized as official signer
 await ensureAuthorizedSignerFor(contractAddress);
-```
+
+```conf
 
 #### 5. Runtime Update
 ```javascript
+
 // Current backend session updated (no restart needed for admin UI)
 process.env.VOTING_CONTRACT_ADDRESS = contractAddress;
-```
+
+```python
 
 ### How Dynamic Loading Works
 
 **Backend (`backend/server.js`):**
 ```javascript
+
 // Always loads from environment variable
 const contract = new ethers.Contract(
     process.env.VOTING_CONTRACT_ADDRESS,  // ← From .env
@@ -721,30 +688,38 @@ app.get('/api/config', async (req, res) => {
         contractAddress: process.env.VOTING_CONTRACT_ADDRESS
     });
 });
-```
+
+```python
 
 **Admin Dashboard (`admin.html`):**
 ```javascript
+
 // Fetches contract address from backend API
 const config = await fetch(`${BACKEND_URL}/api/config`).then(r => r.json());
 contractAddress = config.contractAddress;  // ← Dynamic!
-```
+
+```python
 
 **Results Dashboard (`index.html`):**
 ```javascript
+
 // Fetches from backend API
 const config = await fetch(`${API_BASE}/api/config`).then(r => r.json());
 CONTRACT_ADDRESS = config.contractAddress;  // ← Dynamic!
-```
+
+```python
 
 **Kiosk (`kiosk_main.py`):**
 ```python
-# Backend API handles all blockchain interaction
+
+## Backend API handles all blockchain interaction
+
 response = requests.post(
     f"{BACKEND_URL}/api/vote",
     json={"aadhaar_id": aadhaar_id, "candidate_id": candidate_id}
 )
-```
+
+```python
 
 ### No Hardcoding Anywhere
 
@@ -756,16 +731,22 @@ response = requests.post(
 ### Verification Commands
 
 ```bash
-# Check current contract in .env
+
+## Check current contract in .env
+
 grep VOTING_CONTRACT_ADDRESS ~/blockchain-voting-dapp-v3/backend/.env
 
-# Check backend API returns same address
+## Check backend API returns same address
+
 curl http://localhost:3000/api/config | jq '.contractAddress'
 
-# Check voter reset status
+## Check voter reset status
+
 curl http://localhost:3000/api/config | jq '{total: .totalVoters, voted: .totalVoted}'
-# After deployment, 'voted' should be 0
-```
+
+## After deployment, 'voted' should be 0
+
+```bash
 
 ### Deployment Checklist
 
@@ -794,15 +775,20 @@ curl http://localhost:3000/api/config | jq '{total: .totalVoters, voted: .totalV
 API returns old address after deployment:
 
 ```bash
-# Check .env was updated
+
+## Check .env was updated
+
 cat ~/blockchain-voting-dapp-v3/backend/.env | grep VOTING_CONTRACT
 
-# Restart backend to reload .env
+## Restart backend to reload .env
+
 sudo systemctl restart votechain-backend.service
 
-# Verify
+## Verify
+
 curl http://localhost:3000/api/config | jq '.contractAddress'
-```
+
+```bash
 
 ### Frontend Cached Old Address
 
@@ -817,40 +803,56 @@ Dashboard shows old contract after refresh:
 "New Election" button fails:
 
 ```bash
-# Check wallet balance
-curl http://localhost:3000/api/signer-balance
-# Should have >0.01 ETH for gas
 
-# Check backend logs
+## Check wallet balance
+
+curl http://localhost:3000/api/signer-balance
+
+## Should have >0.01 ETH for gas
+
+## Check backend logs
+
 sudo journalctl -u votechain-backend.service -n 100 | grep -i deploy
-```
+
+```bash
 
 ### Voters Still Marked as Voted
 
 Database not reset:
 
 ```bash
-# Check Supabase dashboard or logs
-# Voters table: has_voted should all be false after deployment
-```
+
+## Check Supabase dashboard or logs
+
+## Voters table: has_voted should all be false after deployment
+
+```bash
 
 ### Multi-Election Support
 
 Deploy **unlimited elections** without reconfiguration:
 
 ```bash
-# Election 1 (e.g., Student Council)
+
+## Election 1 (e.g., Student Council)
+
 ./deploy-new-election.sh  # Contract: 0xAAA...
-# Run voting, get results
 
-# Election 2 (e.g., Club President)
+## Run voting, get results
+
+## Election 2 (e.g., Club President)
+
 ./deploy-new-election.sh  # Contract: 0xBBB...
-# Run voting, get results
 
-# Election 3 (e.g., Sports Captain)
+## Run voting, get results
+
+## Election 3 (e.g., Sports Captain)
+
 ./deploy-new-election.sh  # Contract: 0xCCC...
-# Run voting, get results
-```
+
+## Run voting, get results
+
+```bash
 
 Each election:
 - ✅ Independent smart contract on blockchain
@@ -876,8 +878,10 @@ Each election:
 When deploying new election, **only one file changes**:
 
 ```text
+
 backend/.env  ← VOTING_CONTRACT_ADDRESS updated automatically
-```
+
+```python
 
 Everything else pulls from API dynamically:
 - ✅ `admin.html` fetches from `/api/config`

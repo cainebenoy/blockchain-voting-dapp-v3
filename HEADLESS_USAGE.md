@@ -3,6 +3,7 @@
 ## How It Works
 
 The kiosk terminal uses **direct keyboard device capture (evdev)**, which means:
+
 - ✅ Works **completely headless** (no monitor needed)
 - ✅ Keyboard input captured directly from hardware
 - ✅ Aadhaar input displays on **OLED screen** in real-time
@@ -47,6 +48,7 @@ All services start automatically when Pi boots - no manual intervention needed!
 ## Viewing with Monitor (Optional)
 
 If you connect a monitor:
+
 - Desktop will show normally
 - Kiosk runs in background (headless mode)
 - Check status: `./check-system.sh`
@@ -85,20 +87,24 @@ sudo journalctl -u votechain-kiosk -f
 ## Troubleshooting
 
 **No keyboard response?**
+
 - Ensure keyboard is plugged into Pi USB port
 - Check service running: `sudo systemctl status votechain-kiosk`
 - Restart: `sudo systemctl restart votechain-kiosk`
 - Check logs: `sudo journalctl -u votechain-kiosk -n 50`
 
 **Stuck on a screen?**
+
 - Press the **START button** to reset to idle
 
 **Can't see what's happening?**
+
 - OLED shows all status messages
 - Check logs: `sudo journalctl -u votechain-kiosk -f`
 - Or run manually: `sudo python3 kiosk_main.py`
 
-**Services not starting on boot?**
+### Services not starting on boot
+
 ```bash
 # Check if services are enabled
 sudo systemctl is-enabled votechain votechain-frontend votechain-kiosk

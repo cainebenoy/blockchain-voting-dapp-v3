@@ -1,44 +1,128 @@
-# VoteChain V3 - Blockchain Voting System
 
-A secure, biometric-authenticated blockchain voting system built for Raspberry Pi with Ethereum smart contracts, fingerprint verification, and real-time results dashboard.
+# VoteChain V3 – Blockchain Voting DApp
 
-## 🎯 Overview
+## Overview
 
-VoteChain V3 is a complete end-to-end voting solution that combines:
-- **Blockchain Integrity**: Immutable vote records on Ethereum Sepolia testnet
-- **Biometric Security**: R307 fingerprint scanner for voter authentication
-- **Physical Interface**: Raspberry Pi kiosk with OLED display and GPIO buttons
-- **Backend Trust Layer**: Node.js server with authorized signer model
-- **Real-time Transparency**: Public results dashboard with live blockchain data
+VoteChain V3 is a secure, cyber-physical voting system that combines biometric authentication, blockchain transparency, and a user-friendly kiosk interface. Designed for real-world elections, it ensures privacy, auditability, and ease of use for both voters and administrators.
 
-## 🏗️ Architecture
+## Features
 
-```text
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Raspberry Pi   │────▶│  Node.js Backend │────▶│  Ethereum       │
-│  Kiosk          │     │  (Trust Layer)   │     │  Smart Contract │
-│  - OLED Display │     │  - Vote Signing  │     │  (Sepolia)      │
-│  - Fingerprint  │     │  - Supabase DB   │     │                 │
-│  - GPIO Buttons │     │  - RPC Timeout   │     │                 │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-         │                       │                         │
-         │                       │                         │
-         └───────────────────────┴─────────────────────────┘
-                                 │
-                         ┌───────▼────────┐
-                         │ Results Portal │
-                         │  (index.html)  │
-                         └────────────────┘
+- Biometric voter authentication (fingerprint)
+- Immutable blockchain vote ledger
+- Real-time public dashboard
+- Server-signed transactions (no wallet required)
+- API endpoints for results, health, and configuration
+- Modular architecture: Kiosk, Backend, Database, Blockchain
+- Security: double-vote prevention, rate limiting, CORS, audit logging
+
+## System Architecture
+
+1. **Smart Kiosk (Edge Layer):** Raspberry Pi 5, fingerprint scanner, OLED display, physical buttons
+2. **Backend Server (Trust Layer):** Node.js, Express, Ethers.js, API, transaction signing
+3. **Voter Database (Data Layer):** Supabase (PostgreSQL), biometric data, voter status
+4. **Blockchain Ledger (Verification Layer):** Ethereum Sepolia, VotingV2 smart contract
+
+## Quick Start
+
+### System Prerequisites
+
+- Node.js (v18+)
+- npm
+- Raspberry Pi 5 (for kiosk)
+- Supabase account
+- Ethereum Sepolia testnet access
+
+### Installation (Quick Start)
+
+```bash
+# Clone the repository
+git clone https://github.com/cainebenoy/blockchain-voting-dapp-v3.git
+cd blockchain-voting-dapp-v3
+
+# Install backend dependencies
+cd backend
+npm install
 ```
 
-## 📦 Tech Stack
+### Configuration
 
-### Hardware
+- Copy `backend/.env.example` to `.env` and fill in your Supabase and blockchain credentials.
+- Deploy the smart contract using Hardhat:
 
-- Raspberry Pi 5 (8GB RAM)
-- SH1106/SSD1306 OLED Display (128x64, SPI)
-- R307 Fingerprint Sensor (UART)
-- GPIO Buttons (BCM pins 4, 22, 23)
+```bash
+npm run deploy:sepolia
+```
+
+### Running the System
+
+```bash
+# Start backend server
+cd backend
+node server.js
+
+# View dashboard
+Open browser to http://localhost:3000
+```
+
+## API Endpoints
+
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/` | GET | Public results dashboard |
+| `/api/health` | GET | System health check |
+| `/api/results` | GET | Live election data |
+| `/api/config` | GET | Contract configuration |
+| `/api/metrics` | GET | Blockchain metrics |
+| `/api/voter/check-in` | POST | Voter eligibility check |
+| `/api/vote` | POST | Submit vote (kiosk model) |
+
+## Project Structure
+
+```text
+blockchain-voting-dapp-v3/
+├── contracts/
+│   └── VotingV2.sol
+├── backend/
+│   ├── server.js
+│   ├── VotingV2.json
+│   └── .env.example
+├── test/
+│   └── AdvancedVoting.test.js
+├── scripts/
+│   ├── deploy.ts
+│   └── authorize-signer.ts
+├── index.html
+├── hardhat.config.ts
+├── package.json
+└── README.md
+```
+
+## Security
+
+- Biometric authentication
+- Blockchain immutability
+- Server-signed transactions
+- Double-vote prevention
+- Voter identity separation
+- Rate limiting
+- CORS protection
+- Audit logging (SHA-256)
+
+## Support & Resources
+
+- [Etherscan](https://sepolia.etherscan.io/address/0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c)
+- [Hardhat Docs](https://hardhat.org/)
+- [Ethers.js Docs](https://docs.ethers.org/v6/)
+- [Supabase Docs](https://supabase.com/docs)
+
+## License
+
+MIT
+
+## Contact
+
+For questions or support, open an issue on GitHub or contact the project maintainer.
+
 - LEDs and Buzzer for feedback
 
 ### Software
@@ -51,11 +135,11 @@ VoteChain V3 is a complete end-to-end voting solution that combines:
 ## 📰 Recent Changes
 
 - 2025-11-29 — Kiosk display & robustness updates (commit `c464e3d`)
-        - Boot-time hardware health checks for the kiosk (LEDs / Buttons / OLED).
-        - Fixed OLED rendering issues and added font fallbacks; removed border outlines from screen clears.
-        - Added `show_idle()` idle screen (title font adjusted to 17pt) and `wait_for_reset()` reset helper.
-        - Improved fingerprint scan and check-in flows; persistent OLED error messages on hardware faults.
-        - See `CHANGELOG.md` for full details.
+  - Boot-time hardware health checks for the kiosk (LEDs / Buttons / OLED).
+  - Fixed OLED rendering issues and added font fallbacks; removed border outlines from screen clears.
+  - Added `show_idle()` idle screen (title font adjusted to 17pt) and `wait_for_reset()` reset helper.
+  - Improved fingerprint scan and check-in flows; persistent OLED error messages on hardware faults.
+  - See `CHANGELOG.md` for full details.
 
 - **Database**: Supabase (PostgreSQL)
 - **Blockchain**: Ethereum Sepolia Testnet
@@ -82,6 +166,7 @@ sudo raspi-config
 ### Installation
 
 1. **Clone and Install Dependencies**
+
 ```bash
 cd "~/Desktop/FInal Year Project/blockchain-voting-dapp-v3"
 
@@ -94,7 +179,8 @@ npm install
 cd ..
 ```
 
-2. **Configure Environment Variables**
+1. **Configure Environment Variables**
+
 ```bash
 # Root .env (for contract deployment)
 cat > .env << EOF
@@ -110,13 +196,15 @@ EOF
 cp .env backend/.env
 ```
 
-3. **Deploy Smart Contract** (First time only)
+1. **Deploy Smart Contract** (First time only)
+
 ```bash
 npx hardhat run scripts/deployV2.ts --network sepolia
 # Copy the deployed contract address to .env files
 ```
 
-4. **Start the System**
+1. **Start the System**
+
 ```bash
 # Terminal 1: Start backend server
 cd backend
@@ -263,6 +351,7 @@ KIOSK_POLL_INTERVAL = 500ms  // Enrollment command polling
 ### Backend shows "Not authorized kiosk signer"
 
 **Solution**: Auto-authorization runs on startup, but if needed:
+
 ```bash
 npx hardhat run scripts/authorize-signer.ts --network sepolia
 ```
@@ -276,6 +365,7 @@ npx hardhat run scripts/authorize-signer.ts --network sepolia
 ### Fingerprint sensor not responding
 
 **Check**:
+
 ```bash
 ls -la /dev/ttyAMA0  # Should exist
 sudo usermod -aG dialout $USER  # Add user to serial group
@@ -338,35 +428,26 @@ blockchain-voting-dapp-v3/
 ## 🔄 Workflow: New Election Cycle
 
 1. **Deploy New Contract** (via admin dashboard or CLI)
-```bash
-# Option A: Admin Dashboard
-# Click "Deploy New Election" button
 
-# Option B: CLI
-npx hardhat run scripts/deployV2.ts --network sepolia
-```
+  ```bash
+  # Option A: Admin Dashboard
+  # Click "Deploy New Election" button
 
-2. **Backend Auto-authorizes** (automatic on startup/deploy)
-- Server detects new contract
-- Calls `setOfficialSigner(backendWallet)`
+  # Option B: CLI
+  npx hardhat run scripts/deployV2.ts --network sepolia
+  ```
 
-3. **Add Candidates** (via admin dashboard)
-- Must be done before starting election
+1. **Backend Auto-authorizes** (automatic on startup/deploy) — Server detects new contract and calls `setOfficialSigner(backendWallet)`.
 
-4. **Register Voters** (via admin dashboard)
-- Triggers remote fingerprint enrollment on kiosk
-- Voters scan fingerprint at physical location
+1. **Add Candidates** (via admin dashboard) — Must be done before starting election.
 
-5. **Start Election** (admin dashboard)
-- Locks candidate list
-- Enables voting
+1. **Register Voters** (via admin dashboard) — Triggers remote fingerprint enrollment on kiosk; voters scan fingerprint at physical location.
 
-6. **Voting Period** (kiosk)
-- Voters authenticate and cast votes
+1. **Start Election** (admin dashboard) — Locks candidate list and enables voting.
 
-7. **End Election** (admin dashboard)
-- Finalizes results
-- Winner displayed on results page
+1. **Voting Period** (kiosk) — Voters authenticate and cast votes.
+
+1. **End Election** (admin dashboard) — Finalizes results; winner displayed on results page.
 
 ## 🌐 Deployment
 
@@ -416,9 +497,10 @@ Built as a Final Year Project demonstrating blockchain integration with embedded
 ## 📞 Support
 
 For issues or questions, check:
+
 1. Troubleshooting section above
-2. `docs/` folder for detailed guides
-3. Blockchain explorer: [Sepolia Etherscan](https://sepolia.etherscan.io/)
+1. `docs/` folder for detailed guides
+1. Blockchain explorer: [Sepolia Etherscan](https://sepolia.etherscan.io/)
 
 ---
 

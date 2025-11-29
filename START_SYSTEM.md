@@ -1,10 +1,12 @@
+
 # 🚀 VoteChain V3 - System Startup Guide
 
-## 🎉 Production Mode: Auto-Start on Boot
+## 🎉 Production Mode — Auto start on boot
 
 **The system is now fully configured to auto-start!** All services will launch automatically when you power on the Raspberry Pi.
 
-### Quick Start (After Boot):
+### Quick start (after boot)
+
 ```bash
 # Check everything is running
 ./check-system.sh
@@ -15,7 +17,8 @@
 
 **Expected startup time:** ~20 seconds after power-on
 
-### Using Headless (No Monitor):
+### Using headless (no monitor)
+
 1. Power on Pi
 2. Wait 20 seconds
 3. Press START button on kiosk
@@ -26,9 +29,10 @@
 
 ---
 
-## 📋 Manual Control
+## 📋 Manual control
 
-### Start/Stop All Services:
+### Start/stop all services
+
 ```bash
 ./votechain.sh start    # Start everything
 ./votechain.sh stop     # Stop everything
@@ -36,7 +40,8 @@
 ./votechain.sh status   # Check status
 ```
 
-### View Logs:
+### View logs
+
 ```bash
 ./votechain.sh logs backend   # Backend logs
 ./votechain.sh logs frontend  # Frontend logs
@@ -45,44 +50,44 @@
 
 ---
 
-## 🔧 Manual Startup (Development Mode)
+## 🔧 Manual startup (development mode)
 
-If you need to run services manually for testing:
+If you need to run services manually for testing, follow these steps.
 
-## ✅ Pre-Flight Checklist
+## ✅ Pre-flight checklist
 
 Your system is already configured correctly:
 
-- ✅ `kiosk_main.py` → BACKEND_URL = `http://127.0.0.1:3000`
-- ✅ `admin.html` → BACKEND_URL = `http://127.0.0.1:3000`
+- ✅ `kiosk_main.py` → `BACKEND_URL = http://127.0.0.1:3000`
+- ✅ `admin.html` → `BACKEND_URL = http://127.0.0.1:3000`
 - ✅ Backend has all enrollment endpoints ready
-- ✅ All files are on the same Pi (no network setup needed!)
+- ✅ All files are on the same Pi (no network setup needed)
 
 ---
 
-## 🎯 Step-by-Step Startup
+## 🎯 Step-by-step startup
 
-### 1️⃣ Start the Backend Server
+### 1️⃣ Start the backend server
 
-Open a terminal in VS Code (or press `` Ctrl+` ``):
+Open a terminal in VS Code (or press ``Ctrl+` ``):
 
 ```bash
 cd backend
 node server.js
 ```
 
-**Expected Output:**
+**Expected output:**
 
 ```text
 🔌 Connected to Supabase
 🤖 VoteChain V3 Backend API listening on http://localhost:3000
 ```
 
-> ⚠️ Leave this terminal running! Don't close it.
+> ⚠️ Leave this terminal running — do not close it.
 
 ---
 
-### 2️⃣ Start the Kiosk Script
+### 2️⃣ Start the kiosk script
 
 Open a **second terminal** in VS Code (click the `+` button):
 
@@ -90,7 +95,7 @@ Open a **second terminal** in VS Code (click the `+` button):
 python3 kiosk_main.py
 ```
 
-**Expected Output:**
+**Expected output:**
 
 ```text
 🔌 OLED Connected
@@ -98,20 +103,20 @@ python3 kiosk_main.py
 ⏳ Polling backend for commands...
 ```
 
-> ⚠️ Leave this terminal running too! The OLED should light up.
+> ⚠️ Leave this terminal running too — the OLED should light up.
 
 ---
 
-### 3️⃣ Open the Admin Dashboard
+### 3️⃣ Open the admin dashboard
 
-#### Option A: Quick Open (Recommended)
+#### Option A: Quick open (recommended)
 
 1. Press `Ctrl+O` in Chromium Browser
 2. Navigate to your project folder
 3. Select `admin.html`
 4. Press Open
 
-#### Option B: Direct Path
+#### Option B: Direct path
 
 Open Chromium and type in the address bar:
 
@@ -121,18 +126,18 @@ file:///home/cainepi/Desktop/FInal%20Year%20Project/blockchain-voting-dapp-v3/ad
 
 ---
 
-## 🧪 Test the Remote Enrollment
+## 🧪 Test the remote enrollment
 
-### In the Admin Dashboard
+### In the admin dashboard
 
-1. **Fill in the Registration Form:**
+1. **Fill in the registration form:**
    - Aadhaar Number: `999999999999` (12 digits)
    - Name: `Test Pi User`
    - Constituency: `District 1` (optional)
 
 2. **Click "Register Eligible Voter"**
 
-3. **Watch the Magic Happen:**
+3. **Watch the flow:**
    - 🔵 Browser shows "Waiting for Kiosk Scan..."
    - 💡 OLED wakes up and displays "PLACE FINGER ON SCANNER"
    - 🖐️ Place your finger on the R307 scanner
@@ -142,7 +147,7 @@ file:///home/cainepi/Desktop/FInal%20Year%20Project/blockchain-voting-dapp-v3/ad
 
 ## 🔍 Troubleshooting
 
-### Backend won't start?
+### Backend won't start
 
 ```bash
 # Check if port 3000 is already in use
@@ -155,7 +160,7 @@ sudo kill -9 <PID>
 cd backend && node server.js
 ```
 
-### Kiosk script errors?
+### Kiosk script errors
 
 ```bash
 # Check if fingerprint scanner is connected
@@ -165,15 +170,15 @@ ls /dev/ttyAMA0
 # Make sure SPI is enabled: sudo raspi-config → Interface Options → SPI → Enable
 ```
 
-### Admin page not connecting?
+### Admin page not connecting
 
 - Make sure backend is running (check terminal #1)
 - Check browser console for errors (F12)
-- Verify BACKEND_URL is `http://127.0.0.1:3000` in the script
+- Verify `BACKEND_URL` is `http://127.0.0.1:3000` in the script
 
 ---
 
-## 📊 View Results
+## 📊 View results
 
 After testing enrollment, open the public results dashboard:
 
@@ -187,14 +192,14 @@ file:///home/cainepi/Desktop/FInal%20Year%20Project/blockchain-voting-dapp-v3/in
 
 ---
 
-## 🎉 Success Indicators
+## 🎉 Success indicators
 
 When everything works, you should see:
 
-✅ Terminal 1: `🤖 Backend listening...`  
-✅ Terminal 2: `⏳ Polling backend...`  
-✅ OLED: Displaying messages  
-✅ Browser: "✅ Voter Enrolled & Saved!"  
+- ✅ Terminal 1: `🤖 Backend listening...`
+- ✅ Terminal 2: `⏳ Polling backend...`
+- ✅ OLED: Displaying messages
+- ✅ Browser: "✅ Voter Enrolled & Saved!"
 
 ---
 
@@ -207,7 +212,7 @@ When everything works, you should see:
 
 ---
 
-## 🚦 Next Steps After Successful Test
+## 🚦 Next steps after successful test
 
 1. Add real voters with actual fingerprints
 2. Test the full voting flow (check-in → scan → vote)

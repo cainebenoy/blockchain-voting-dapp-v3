@@ -1,87 +1,91 @@
+
 # 🗳️ VoteChain V3 - Project Summary
 
 ## ✅ SYSTEM STATUS: FULLY OPERATIONAL
 
----
-
 ## 📋 Quick Access
 
-- **Public Dashboard:** <http://localhost:3000>
-- **Backend API:** <http://localhost:3000/api/*>
+- **Public Dashboard:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:3000/api/](http://localhost:3000/api/)
 - **Contract Address:** `0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c` (Sepolia)
 - **Network:** Ethereum Sepolia Testnet
 
----
-
-## 🎯 Current Election Status
-
-```text
+🎯 Current Election Status
 Status: Active & Voting ✓
 Total Votes: 3 (Confirmed on Blockchain)
 Candidates: 2
 
 Current Standings:
   🥇 Candidate A: 3 votes
-     Candidate B: 0 votes
-```
+  Candidate B: 0 votes
 
----
+🏗️ System Architecture
+Tier 1: Smart Kiosk (Edge Layer)
 
-## 🏗️ System Architecture
+Hardware: Raspberry Pi 5, Fingerprint Scanner, OLED Display, Physical Buttons
 
-### Tier 1: Smart Kiosk (Edge Layer)
+Status: ✅ Operational
 
-- **Hardware:** Raspberry Pi 5, Fingerprint Scanner, OLED Display, Physical Buttons
-- **Status:** ✅ Operational
-- **Function:** Voter interface with biometric authentication
+Function: Voter interface with biometric authentication
 
-### Tier 2: Backend Server (Trust Layer)
+Tier 2: Backend Server (Trust Layer)
 
-- **Technology:** Node.js + Express + Ethers.js v6
-- **Status:** ✅ Running on port 3000
-- **Function:** API server, transaction signing, database sync
+Technology: Node.js + Express + Ethers.js v6
 
-### Tier 3: Voter Database (Data Layer)
+Status: ✅ Running on port 3000
 
-- **Technology:** Supabase (PostgreSQL)
-- **Status:** ✅ Connected
-- **Function:** Electoral roll, biometric data, voter status
+Function: API server, transaction signing, database sync
 
-### Tier 4: Blockchain Ledger (Verification Layer)
+Tier 3: Voter Database (Data Layer)
 
-- **Network:** Ethereum Sepolia
-- **Contract:** VotingV2.sol
-- **Status:** ✅ Deployed & Verified
-- **Function:** Immutable vote ledger, public audit trail
+Technology: Supabase (PostgreSQL)
 
----
+Status: ✅ Connected
 
-## 🔄 Operational Workflow
+Function: Electoral roll, biometric data, voter status
 
-1. **Check-In** → Official enters Aadhaar number
-2. **Biometric Auth** → Fingerprint scan verification
-3. **Vote Casting** → Physical button selection
-4. **Blockchain Commit** → Backend signs & submits transaction
-5. **Confirmation** → Dashboard updates in real-time
+Tier 4: Blockchain Ledger (Verification Layer)
 
----
+Network: Ethereum Sepolia
 
-## 🌐 Public Dashboard Features
+Contract: VotingV2.sol
 
-✅ Real-time election results  
-✅ Auto-refresh every 5 seconds  
-✅ Dark mode by default  
-✅ No wallet required  
-✅ Mobile responsive  
-✅ Live candidate standings  
-✅ Winner banner (when election ends)  
+Status: ✅ Deployed & Verified
 
----
+Function: Immutable vote ledger, public audit trail
 
-## 🔌 API Endpoints
+🔄 Operational Workflow
+
+Check-In → Official enters Aadhaar number
+
+Biometric Auth → Fingerprint scan verification
+
+Vote Casting → Physical button selection
+
+Blockchain Commit → Backend signs & submits transaction
+
+Confirmation → Dashboard updates in real-time
+
+🌐 Public Dashboard Features
+
+✅ Real-time election results
+
+✅ Auto-refresh every 5 seconds
+
+✅ Dark mode by default
+
+✅ No wallet required
+
+✅ Mobile responsive
+
+✅ Live candidate standings
+
+✅ Winner banner (when election ends)
+
+🔌 API Endpoints
 
 | Endpoint | Method | Purpose |
-|----------|--------|---------|
+| --- | ---: | --- |
 | `/` | GET | Public results dashboard |
 | `/api/health` | GET | System health check |
 | `/api/results` | GET | Live election data |
@@ -90,56 +94,67 @@ Current Standings:
 | `/api/voter/check-in` | POST | Voter eligibility check |
 | `/api/vote` | POST | Submit vote (kiosk model) |
 
----
+📊 Technical Stack
 
-## 📊 Technical Stack
+Frontend:
 
-**Frontend:**
+HTML5 + Tailwind CSS (CDN)
 
-- HTML5 + Tailwind CSS (CDN)
-- Vanilla JavaScript
-- Fetch API for backend communication
+Vanilla JavaScript
 
-**Backend:**
+Fetch API for backend communication
 
-- Node.js (ESM)
-- Express.js v5
-- Ethers.js v6
-- Supabase JS Client v2
+Backend:
 
-**Blockchain:**
+Node.js (ESM)
 
-- Solidity ^0.8.28
-- Hardhat 3
-- VotingV2 Smart Contract
+Express.js v5
 
-**Database:**
+Ethers.js v6
 
-- Supabase (PostgreSQL)
-- Row Level Security (RLS)
+Supabase JS Client v2
 
-**Testing:**
+Blockchain:
 
-- Mocha + Chai
-- 19 passing tests
-- 11 pending (legacy)
+Solidity ^0.8.28
 
----
+Hardhat 3
 
-## 🔐 Security Features
+VotingV2 Smart Contract
 
-✅ Biometric voter authentication  
-✅ Blockchain immutability  
-✅ Server-signed transactions  
-✅ Double-vote prevention  
-✅ Voter identity separation  
-✅ Rate limiting on API endpoints  
-✅ CORS protection  
-✅ Audit logging (SHA-256 hashed IDs)  
+Database:
 
----
+Supabase (PostgreSQL)
 
-## 📁 Project Structure
+Row Level Security (RLS)
+
+Testing:
+
+Mocha + Chai
+
+19 passing tests
+
+11 pending (legacy)
+
+🔐 Security Features
+
+✅ Biometric voter authentication
+
+✅ Blockchain immutability
+
+✅ Server-signed transactions
+
+✅ Double-vote prevention
+
+✅ Voter identity separation
+
+✅ Rate limiting on API endpoints
+
+✅ CORS protection
+
+✅ Audit logging (SHA-256 hashed IDs)
+
+📁 Project Structure
 
 ```text
 my-voting-dapp/
@@ -160,149 +175,161 @@ my-voting-dapp/
 └── README.md               # Full documentation
 ```
 
----
-
-## 🚀 Quick Start Commands
-
-### Start Backend
-
-```powershell
+🚀 Quick Start Commands
+Start Backend
 cd backend
 node server.js
-```
 
-### Run Tests
-
-```powershell
+Run Tests
 npm test
-```
 
-### Deploy Contract
-
-```powershell
+Deploy Contract
 npm run deploy:sepolia
-```
 
-### View Dashboard
+View Dashboard
 
-Open browser to: <http://localhost:3000>
+Open browser to: [http://localhost:3000](http://localhost:3000)
 
----
+🎓 Key Innovations
 
-## 🎓 Key Innovations
+Cyber-Physical Design
 
-1. **Cyber-Physical Design**
-   - Combines physical kiosk security with blockchain transparency
-   - Familiar voting booth experience for users
+Combines physical kiosk security with blockchain transparency
 
-2. **Privacy + Transparency**
-   - Voter identity verified off-chain (private)
-   - Vote records stored on-chain (public)
-   - Separation ensures anonymity
+Familiar voting booth experience for users
 
-3. **Server-Signer Model**
-   - Backend signs transactions on behalf of voters
-   - Voters don't need wallets or crypto knowledge
-   - Reduces user complexity while maintaining security
+Privacy + Transparency
 
-4. **Real-Time Results**
-   - Public dashboard shows live blockchain data
-   - Auto-refreshing every 5 seconds
-   - No special software required
+Voter identity verified off-chain (private)
 
----
+Vote records stored on-chain (public)
 
-## 🔮 Future Enhancements
+Separation ensures anonymity
 
-### Phase 1: Admin Tools
+Server-Signer Model
 
-- [ ] Web-based admin dashboard
-- [ ] Dynamic candidate management
-- [ ] Kiosk monitoring panel
+Backend signs transactions on behalf of voters
 
-### Phase 2: Security Hardening
+Voters don't need wallets or crypto knowledge
 
-- [ ] Face recognition (multi-factor biometrics)
-- [ ] Hardware Security Module (HSM)
-- [ ] End-to-end encryption
+Reduces user complexity while maintaining security
 
-### Phase 3: Production Ready
+Real-Time Results
 
-- [ ] Physical kiosk enclosure (3D printed)
-- [ ] Multiple kiosk support
-- [ ] Load balancing
-- [ ] Mainnet deployment
+Public dashboard shows live blockchain data
 
-### Phase 4: Advanced Features
+Auto-refreshing every 5 seconds
 
-- [ ] Vote history timeline
-- [ ] Turnout analytics
-- [ ] Multi-language support
-- [ ] Accessibility features
+No special software required
 
----
+🔮 Future Enhancements
+Phase 1: Admin Tools
 
-## 📝 Documentation
+ Web-based admin dashboard
 
-- **README.md** - Complete system documentation
-- **docs/FRONTEND_DESIGN_SPEC.md** - Kiosk frontend specifications
-- **backend/.env.example** - Environment variables template
+ Dynamic candidate management
 
-## 📰 Recent Changes
+ Kiosk monitoring panel
 
-- 2025-11-29 — Display & kiosk robustness fixes (commit `c464e3d`)
-   - Hardened the kiosk (`kiosk_main.py`) against hardware errors: boot-time hardware health checks, guarded device access, and persistent OLED error messages.
-   - Fixed OLED rendering & font fallback issues; removed white borders from screen clears; fixed `show_msg()` rendering bug.
-   - Added `show_idle()` idle screen, `wait_for_reset()` helper, improved fingerprint/check-in flow.
-   - Changes committed and pushed to `main` on Nov 29 2025. See `CHANGELOG.md` for details.
+Phase 2: Security Hardening
 
----
+ Face recognition (multi-factor biometrics)
 
-## 🏆 Achievement Summary
+ Hardware Security Module (HSM)
 
-✅ 4-tier architecture fully implemented  
-✅ Smart contract deployed and verified on Sepolia  
-✅ Backend API operational with 7 endpoints  
-✅ Public dashboard live with auto-refresh  
-✅ Database connected with RLS enabled  
-✅ 19 passing tests  
-✅ Zero npm vulnerabilities  
-✅ ESM module system configured  
-✅ Dark mode UI implemented  
-✅ Real-time blockchain integration  
+ End-to-end encryption
 
----
+Phase 3: Production Ready
 
-## 🎯 Demo Metrics
+ Physical kiosk enclosure (3D printed)
 
-**Live Data (as of last check):**
+ Multiple kiosk support
 
-- ✅ Backend: Healthy
-- ✅ Election: Active & Voting
-- ✅ Votes Cast: 3
-- ✅ Blockchain Confirmations: 100%
-- ✅ Dashboard: Operational
-- ✅ API Response Time: <100ms
+ Load balancing
 
----
+ Mainnet deployment
 
-## 📞 Support & Resources
+Phase 4: Advanced Features
 
-- **Etherscan:** <https://sepolia.etherscan.io/address/0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c>
-- **Hardhat Docs:** <https://hardhat.org/>
-- **Ethers.js Docs:** <https://docs.ethers.org/v6/>
-- **Supabase Docs:** <https://supabase.com/docs>
+ Vote history timeline
 
----
+ Turnout analytics
 
-## 🎉 Conclusion
+ Multi-language support
 
-**VoteChain V3 is fully operational and ready for demonstration!**
+ Accessibility features
+
+📝 Documentation
+
+README.md - Complete system documentation
+
+docs/FRONTEND_DESIGN_SPEC.md - Kiosk frontend specifications
+
+backend/.env.example - Environment variables template
+
+📰 Recent Changes
+
+2025-11-29 — Display & kiosk robustness fixes (commit c464e3d)
+
+Hardened the kiosk (kiosk_main.py) against hardware errors: boot-time hardware health checks, guarded device access, and persistent OLED error messages.
+
+Fixed OLED rendering & font fallback issues; removed white borders from screen clears; fixed show_msg() rendering bug.
+
+Added show_idle() idle screen, wait_for_reset() helper, improved fingerprint/check-in flow.
+
+Changes committed and pushed to main on Nov 29 2025. See CHANGELOG.md for details.
+
+🏆 Achievement Summary
+
+✅ 4-tier architecture fully implemented
+
+✅ Smart contract deployed and verified on Sepolia
+
+✅ Backend API operational with 7 endpoints
+
+✅ Public dashboard live with auto-refresh
+
+✅ Database connected with RLS enabled
+
+✅ 19 passing tests
+
+✅ Zero npm vulnerabilities
+
+✅ ESM module system configured
+
+✅ Dark mode UI implemented
+
+✅ Real-time blockchain integration
+
+🎯 Demo Metrics
+
+Live Data (as of last check):
+
+✅ Backend: Healthy
+
+✅ Election: Active & Voting
+
+✅ Votes Cast: 3
+
+✅ Blockchain Confirmations: 100%
+
+✅ Dashboard: Operational
+
+✅ API Response Time: <100ms
+
+📞 Support & Resources
+
+- **Etherscan:** [Sepolia contract on Etherscan](https://sepolia.etherscan.io/address/0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c)
+- **Hardhat Docs:** [https://hardhat.org/](https://hardhat.org/)
+- **Ethers.js Docs:** [https://docs.ethers.org/v6/](https://docs.ethers.org/v6/)
+- **Supabase Docs:** [https://supabase.com/docs](https://supabase.com/docs)
+
+🎉 Conclusion
+
+VoteChain V3 is fully operational and ready for demonstration!
 
 The system successfully bridges the gap between traditional polling booth security and modern blockchain transparency. By abstracting technical complexity from the voter while maintaining cryptographic verification, VoteChain provides a practical solution to the "trust gap" in electronic voting systems.
 
----
-
-**System Status:** ✅ READY FOR DEMO  
-**Last Updated:** November 29, 2025  
-**Version:** 3.0.1
+System Status: ✅ READY FOR DEMO
+Last Updated: November 29, 2025
+Version: 3.0.1
