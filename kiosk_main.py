@@ -332,12 +332,14 @@ def show_idle():
             x1 = max(0, (device.width - tw1) // 2)
             x2 = max(0, (device.width - tw2) // 2)
 
-            # Draw subtle shadow slightly above and to the right for visual depth
-            shadow_off = (1, -1)
-            draw.text((x1 + shadow_off[0], y_start + shadow_off[1]), line1, fill="gray", font=font)
-            draw.text((x2 + shadow_off[0], y_start + th1 + 4 + shadow_off[1]), line2, fill="gray", font=font)
+            # Draw a more prominent layered shadow for visual depth
+            # Two layered offsets: a larger darker shadow, then a lighter one closer to the text
+            shadow_layers = [ (2, -2, "dimgray"), (1, -1, "gray") ]
+            for ox, oy, col in shadow_layers:
+                draw.text((x1 + ox, y_start + oy), line1, fill=col, font=font)
+                draw.text((x2 + ox, y_start + th1 + 4 + oy), line2, fill=col, font=font)
 
-            # Draw main text
+            # Draw main (foreground) text on top
             draw.text((x1, y_start), line1, fill="white", font=font)
             draw.text((x2, y_start + th1 + 4), line2, fill="white", font=font)
     except Exception as e:
