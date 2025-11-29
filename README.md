@@ -33,7 +33,7 @@ VoteChain V3 is a complete end-to-end voting solution that combines:
 
 ## 📦 Tech Stack
 
--### Hardware
+### Hardware
 
 - Raspberry Pi 5 (8GB RAM)
 - SH1106/SSD1306 OLED Display (128x64, SPI)
@@ -41,7 +41,7 @@ VoteChain V3 is a complete end-to-end voting solution that combines:
 - GPIO Buttons (BCM pins 4, 22, 23)
 - LEDs and Buzzer for feedback
 
--### Software
+### Software
 
 - **Smart Contract**: Solidity (VotingV2.sol)
 - **Backend**: Node.js 20+ with Express.js, Ethers.js v6
@@ -198,24 +198,24 @@ getAllCandidates()                  // Public: get results
 
 ## 📡 API Endpoints
 
--### Public Endpoints
+### Public Endpoints
 
 - `GET /api/health` - Health check
 - `GET /api/results` - Live election results
 - `GET /api/active-contract` - Current contract address
 
--### Voting Endpoints
+### Voting Endpoints
 
 - `POST /api/voter/check-in` - Verify voter eligibility
 - `POST /api/vote` - Submit vote (signs and sends to blockchain)
 
--### Admin Endpoints
+### Admin Endpoints
 
 - `POST /api/admin/deploy-contract` - Deploy new election
 - `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment
 - `GET /api/admin/enrollment-status` - Check enrollment status
 
--### Kiosk Endpoints
+### Kiosk Endpoints
 
 - `GET /api/kiosk/poll-commands` - Check for pending enrollments
 - `POST /api/kiosk/enrollment-complete` - Report enrollment result
@@ -298,7 +298,7 @@ sudo usermod -aG dialout $USER  # Add user to serial group
 npx hardhat test
 ```
 
--### Manual Testing Checklist
+### Manual Testing Checklist
 
 - [ ] Deploy contract and verify on Etherscan
 - [ ] Add 2+ candidates via admin dashboard

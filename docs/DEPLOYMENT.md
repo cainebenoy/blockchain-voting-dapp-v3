@@ -607,7 +607,7 @@ if finger.empty_library() == adafruit_fingerprint.OK:
 
 ## Deploying New Elections
 
-### 🎯 Fully Dynamic - No Hardcoded Values!
+### 🎯 Fully Dynamic - No Hardcoded Values
 
 The system automatically updates contract addresses everywhere when you deploy a new election:
 
@@ -632,7 +632,8 @@ This script:
 
 ### Manual Deployment Steps
 
-**1. Open Admin Dashboard**
+#### 1. Open Admin Dashboard
+
 ```bash
 # From another device on same network
 http://RASPBERRY_PI_IP:8000/admin.html
@@ -641,18 +642,21 @@ http://RASPBERRY_PI_IP:8000/admin.html
 chromium-browser http://localhost:8000/admin.html
 ```
 
-**2. Click "New Election" Button**
+#### 2. Click "New Election" Button
+
 - Deploys new smart contract (~30 seconds)
 - Auto-updates `backend/.env` with new address
 - Resets voter eligibility (all `has_voted = false`)
 - Preserves enrolled fingerprints
 
-**3. Restart Backend Service**
+#### 3. Restart Backend Service
+
 ```bash
 sudo systemctl restart votechain-backend.service
 ```
 
-**4. Verify New Contract Loaded**
+#### 4. Verify New Contract Loaded
+
 ```bash
 # Check .env file was updated
 grep VOTING_CONTRACT_ADDRESS ~/blockchain-voting-dapp-v3/backend/.env
