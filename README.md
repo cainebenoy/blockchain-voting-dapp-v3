@@ -13,7 +13,7 @@ VoteChain V3 is a complete end-to-end voting solution that combines:
 
 ## 🏗️ Architecture
 
-```
+```text
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │  Raspberry Pi   │────▶│  Node.js Backend │────▶│  Ethereum       │
 │  Kiosk          │     │  (Trust Layer)   │     │  Smart Contract │
@@ -33,18 +33,21 @@ VoteChain V3 is a complete end-to-end voting solution that combines:
 
 ## 📦 Tech Stack
 
-### Hardware
+-### Hardware
+
 - Raspberry Pi 5 (8GB RAM)
 - SH1106/SSD1306 OLED Display (128x64, SPI)
 - R307 Fingerprint Sensor (UART)
 - GPIO Buttons (BCM pins 4, 22, 23)
 - LEDs and Buzzer for feedback
 
-### Software
+-### Software
+
 - **Smart Contract**: Solidity (VotingV2.sol)
 - **Backend**: Node.js 20+ with Express.js, Ethers.js v6
 - **Frontend**: Vanilla HTML/CSS/JavaScript with Tailwind CSS
 - **Kiosk**: Python 3.13 with RPi.GPIO, luma.oled, adafruit-fingerprint
+
 ## 📰 Recent Changes
 
 - 2025-11-29 — Kiosk display & robustness updates (commit `c464e3d`)
@@ -61,6 +64,7 @@ VoteChain V3 is a complete end-to-end voting solution that combines:
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 ```bash
 # System dependencies (Raspberry Pi OS)
 sudo apt update
@@ -129,6 +133,7 @@ sudo -E python3 kiosk_main.py
 ## 📖 Usage Guide
 
 ### Admin Dashboard (`admin.html`)
+
 Access at `http://localhost:3000/admin.html`
 
 - **Connect Wallet**: MetaMask required, auto-switches to Sepolia
@@ -139,12 +144,14 @@ Access at `http://localhost:3000/admin.html`
 - **Deploy New Election**: Fresh contract for new election cycle
 
 ### Voter Registration Flow
+
 1. Admin enters voter details in dashboard
 2. Kiosk automatically prompts for fingerprint scan
 3. Voter scans fingerprint (assigned unique ID)
 4. Database records: Aadhaar ↔ Fingerprint ID mapping
 
 ### Voting Flow
+
 1. Voter presses START button on kiosk
 2. Types 12-digit Aadhaar number (displayed on OLED)
 3. Presses Enter
@@ -157,6 +164,7 @@ Access at `http://localhost:3000/admin.html`
 10. Success/failure displayed on OLED
 
 ### Results Dashboard (`index.html`)
+
 Access at `http://localhost:3000`
 
 - **Live Stats**: Total votes, candidates, election status
@@ -190,27 +198,32 @@ getAllCandidates()                  // Public: get results
 
 ## 📡 API Endpoints
 
-### Public Endpoints
+-### Public Endpoints
+
 - `GET /api/health` - Health check
 - `GET /api/results` - Live election results
 - `GET /api/active-contract` - Current contract address
 
-### Voting Endpoints
+-### Voting Endpoints
+
 - `POST /api/voter/check-in` - Verify voter eligibility
 - `POST /api/vote` - Submit vote (signs and sends to blockchain)
 
-### Admin Endpoints
+-### Admin Endpoints
+
 - `POST /api/admin/deploy-contract` - Deploy new election
 - `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment
 - `GET /api/admin/enrollment-status` - Check enrollment status
 
-### Kiosk Endpoints
+-### Kiosk Endpoints
+
 - `GET /api/kiosk/poll-commands` - Check for pending enrollments
 - `POST /api/kiosk/enrollment-complete` - Report enrollment result
 
 ## 🔧 Configuration
 
 ### Hardware Pin Mapping (BCM Mode)
+
 ```python
 # GPIO Buttons
 PIN_START = 4           # Start voting
@@ -232,6 +245,7 @@ BAUD_RATE = 57600
 ```
 
 ### Backend Configuration
+
 ```javascript
 // RPC Timeout Settings
 VOTE_TIMEOUT = 60000ms  // 60 seconds for slow RPCs
@@ -247,17 +261,20 @@ KIOSK_POLL_INTERVAL = 500ms  // Enrollment command polling
 ## 🐛 Troubleshooting
 
 ### Backend shows "Not authorized kiosk signer"
+
 **Solution**: Auto-authorization runs on startup, but if needed:
 ```bash
 npx hardhat run scripts/authorize-signer.ts --network sepolia
 ```
 
 ### Kiosk shows "Connection Fail, Retry" but vote succeeds
+
 **Cause**: RPC timeout during `tx.wait()`  
 **Impact**: Vote IS recorded on blockchain, just confirmation timed out  
 **Solution**: Already implemented 60s timeout with graceful handling
 
 ### Fingerprint sensor not responding
+
 **Check**:
 ```bash
 ls -la /dev/ttyAMA0  # Should exist
@@ -265,20 +282,24 @@ sudo usermod -aG dialout $USER  # Add user to serial group
 ```
 
 ### GPIO "not allocated" error
+
 **Solution**: Use `initial=GPIO.LOW` in setup calls (already implemented)
 
 ### Admin dashboard continuous reload
+
 **Cause**: Browser cache conflict with 304 responses  
 **Solution**: Hard refresh (Ctrl+Shift+R) or use incognito mode
 
 ## 📊 Testing
 
 ### Unit Tests (Smart Contract)
+
 ```bash
 npx hardhat test
 ```
 
-### Manual Testing Checklist
+-### Manual Testing Checklist
+
 - [ ] Deploy contract and verify on Etherscan
 - [ ] Add 2+ candidates via admin dashboard
 - [ ] Start election
@@ -291,7 +312,7 @@ npx hardhat test
 
 ## 📁 Project Structure
 
-```
+```text
 blockchain-voting-dapp-v3/
 ├── contracts/
 │   └── VotingV2.sol           # Smart contract
@@ -350,6 +371,7 @@ npx hardhat run scripts/deployV2.ts --network sepolia
 ## 🌐 Deployment
 
 ### Production Considerations
+
 1. **Use Mainnet**: Update RPC URLs and private keys for Ethereum mainnet
 2. **Systemd Services**: Auto-start backend and kiosk on boot
 3. **SSL/TLS**: Enable HTTPS for backend server
@@ -358,6 +380,7 @@ npx hardhat run scripts/deployV2.ts --network sepolia
 6. **Backup**: Regular database exports and private key backups
 
 ### Systemd Service Example
+
 ```ini
 [Unit]
 Description=VoteChain Backend Server
