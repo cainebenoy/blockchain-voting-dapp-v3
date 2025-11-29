@@ -108,6 +108,11 @@ try:
 except:
     device = None
 
+# --- HELPER FUNCTIONS ---
+def set_leds(green=False, red=False):
+    GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
+    GPIO.output(PIN_LED_RED, GPIO.HIGH if red else GPIO.LOW)
+
 # Run hardware health check, then reset to idle
 hardware_health_check(device)
 if device:
@@ -131,16 +136,43 @@ if device:
         else:
             draw.text((10, 20), msg, fill="white")
 set_leds(green=False, red=False)
+
 # --- 1. SENSOR SETUP ---
+finger = None
+finger_error = None
 try:
-    uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1) 
+    uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1)
     finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
     print("✓ Fingerprint sensor initialized")
 except Exception as e:
+    finger_error = str(e)
     print(f"❌ FATAL: Fingerprint sensor unavailable: {e}")
     print("❌ Please check the wiring and connections.")
     print("❌ Cannot start kiosk without fingerprint scanner.")
-    sys.exit(1)
+    if device:
+        from luma.core.render import canvas
+        from PIL import ImageFont
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+        except:
+            font = None
+        with canvas(device) as draw:
+            draw.rectangle(device.bounding_box, outline="white", fill="black")
+            msg1 = "FINGERPRINT ERROR"
+            msg2 = "Check wiring & restart"
+            msg3 = f"{finger_error}" if finger_error else ""
+            if font:
+                draw.text((10, 10), msg1, fill="white", font=font)
+                draw.text((10, 32), msg2, fill="white", font=font)
+                draw.text((10, 54), msg3[:device.width//8], fill="white", font=font)
+            else:
+                draw.text((10, 10), msg1, fill="white")
+                draw.text((10, 32), msg2, fill="white")
+                draw.text((10, 54), msg3[:device.width//8], fill="white")
+    set_leds(green=False, red=True)
+    # Do not exit, just wait for manual intervention
+    while True:
+        time.sleep(10)
 
 # --- 2. GPIO & OLED SETUP ---
 GPIO.setmode(GPIO.BCM)
