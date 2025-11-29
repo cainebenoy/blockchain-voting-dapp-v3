@@ -132,13 +132,14 @@ For questions or support, open an issue on GitHub or contact the project maintai
 - **Frontend**: Vanilla HTML/CSS/JavaScript with Tailwind CSS
 - **Kiosk**: Python 3.13 with RPi.GPIO, luma.oled, adafruit-fingerprint
 
+
 ## 📰 Recent Changes
 
-- 2025-11-29 — Kiosk display & robustness updates (commit `c464e3d`)
-  - Boot-time hardware health checks for the kiosk (LEDs / Buttons / OLED).
-  - Fixed OLED rendering issues and added font fallbacks; removed border outlines from screen clears.
-  - Added `show_idle()` idle screen (title font adjusted to 17pt) and `wait_for_reset()` reset helper.
-  - Improved fingerprint scan and check-in flows; persistent OLED error messages on hardware faults.
+- 2025-11-30 — Short Code Receipt System & Verification
+  - After voting, the kiosk displays a unique short code (e.g., ABC-123) as a vote receipt.
+  - Voters can use this code on the verify page (`verify.html`) to confirm their vote on the blockchain.
+  - Backend maps short codes to transaction hashes and provides a `/api/verify-code` endpoint for verification.
+  - `verify.html` now accepts both short codes and transaction hashes for verification.
   - See `CHANGELOG.md` for full details.
 
 - **Database**: Supabase (PostgreSQL)
@@ -277,6 +278,7 @@ Access at `http://localhost:3000/admin.html`
 3. Voter scans fingerprint (assigned unique ID)
 4. Database records: Aadhaar ↔ Fingerprint ID mapping
 
+
 ### Voting Flow
 
 1. Voter presses START button on kiosk
@@ -289,6 +291,9 @@ Access at `http://localhost:3000/admin.html`
 8. Press candidate button twice to confirm
 9. Backend signs and submits vote to blockchain
 10. Success/failure displayed on OLED
+11. **Short code receipt displayed on OLED (e.g., ABC-123)**
+12. Voter writes down short code for later verification
+
 
 ### Results Dashboard (`index.html`)
 
@@ -299,6 +304,14 @@ Access at `http://localhost:3000`
 - **Visual Progress Bars**: Vote distribution
 - **Winner Display**: Shows winner after election ends
 - **Blockchain Verification**: Direct link to Etherscan
+
+### Vote Verification Page (`verify.html`)
+
+Access at `http://localhost:3000/verify.html`
+
+- **Enter Short Code or Transaction Hash**: Voters can enter the short code receipt from the kiosk or the full transaction hash.
+- **Backend Lookup**: If a short code is entered, the backend resolves it to the corresponding transaction hash.
+- **Blockchain Confirmation**: The page displays Ethereum block details and a green confirmation card if the vote is found.
 
 ## 🔐 Security Features
 
@@ -325,6 +338,7 @@ getAllCandidates()                  // Public: get results
 
 ## 📡 API Endpoints
 
+
 ### Public Endpoints
 
 - `GET /api/health` - Health check
@@ -335,6 +349,7 @@ getAllCandidates()                  // Public: get results
 
 - `POST /api/voter/check-in` - Verify voter eligibility
 - `POST /api/vote` - Submit vote (signs and sends to blockchain)
+- `POST /api/verify-code` - Resolve short code to transaction hash for verification
 
 ### Admin Endpoints
 
