@@ -1,3 +1,10 @@
+def beep_success():
+    beep(2, 0.08)
+
+def beep_error():
+    beep(1, 0.5)
+    time.sleep(0.1)
+    beep(1, 0.2)
 import time
 import sys
 import tty
@@ -39,28 +46,9 @@ OLED_RST = 25
 
 
 # --- HARDWARE HEALTH CHECK ---
-def hardware_health_check():
+
+def hardware_health_check(device):
     status = {}
-    # Test Fingerprint
-    try:
-        uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1)
-        finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
-        status['Fingerprint'] = 'OK'
-    except Exception as e:
-        status['Fingerprint'] = f"FAIL: {e}"
-    # Test OLED
-    try:
-        serial_conn = spi(device=0, port=0, gpio_DC=OLED_DC, gpio_RST=OLED_RST)
-        try:
-            test_device = sh1106(serial_conn)
-        except:
-            test_device = ssd1306(serial_conn)
-        with canvas(test_device) as draw:
-            draw.rectangle(test_device.bounding_box, outline="white", fill="black")
-            draw.text((10, 10), "OLED OK", fill="white")
-        status['OLED'] = 'OK'
-    except Exception as e:
-        status['OLED'] = f"FAIL: {e}"
     # Test LEDs
     try:
         GPIO.setmode(GPIO.BCM)
@@ -83,23 +71,66 @@ def hardware_health_check():
         status['Buttons'] = 'OK' if all(x in [0,1] for x in btns) else 'FAIL: Bad read'
     except Exception as e:
         status['Buttons'] = f"FAIL: {e}"
+    # Test OLED
+    try:
+        if device:
+            with canvas(device) as draw:
+                draw.rectangle(device.bounding_box, outline="white", fill="black")
+                draw.text((10, 10), "OLED OK", fill="white")
+            status['OLED'] = 'OK'
+        else:
+            status['OLED'] = 'FAIL: Not initialized'
+    except Exception as e:
+        status['OLED'] = f"FAIL: {e}"
+    print("Hardware Health Check:")
+    for k,v in status.items():
+        print(f"  {k}: {v}")
     # Show status on OLED
     try:
         lines = [f"{k}: {v}" for k,v in status.items()]
-        if 'test_device' in locals():
-            with canvas(test_device) as draw:
-                draw.rectangle(test_device.bounding_box, outline="white", fill="black")
+        if device:
+            with canvas(device) as draw:
+                draw.rectangle(device.bounding_box, outline="white", fill="black")
                 for i, line in enumerate(lines):
                     draw.text((5, 8 + i*14), line, fill="white")
             time.sleep(2)
     except Exception:
         pass
-    print("Hardware Health Check:")
-    for k,v in status.items():
-        print(f"  {k}: {v}")
     return status
 
-hardware_health_check()
+# Initialize OLED once
+try:
+    serial_conn = spi(device=0, port=0, gpio_DC=OLED_DC, gpio_RST=OLED_RST)
+    try:
+        device = sh1106(serial_conn)
+    except:
+        device = ssd1306(serial_conn)
+except:
+    device = None
+
+# Run hardware health check, then reset to idle
+hardware_health_check(device)
+if device:
+    from luma.core.render import canvas
+    with canvas(device) as draw:
+        draw.rectangle(device.bounding_box, outline="white", fill="black")
+    # Show idle message
+    try:
+        from PIL import ImageFont
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+    except:
+        font = None
+    with canvas(device) as draw:
+        draw.rectangle(device.bounding_box, outline="white", fill="black")
+        msg = "VOTECHAIN READY"
+        if font:
+            bbox = draw.textbbox((0, 0), msg, font=font)
+            x = (device.width - (bbox[2] - bbox[0])) // 2
+            y = (device.height - (bbox[3] - bbox[1])) // 2
+            draw.text((x, y), msg, fill="white", font=font)
+        else:
+            draw.text((10, 20), msg, fill="white")
+set_leds(green=False, red=False)
 # --- 1. SENSOR SETUP ---
 try:
     uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1) 
@@ -176,6 +207,9 @@ def set_leds(green=False, red=False):
 def show_msg(line1, line2="", line3="", big_text=False):
     print(f"[DISPLAY] {line1} | {line2} | {line3}")
     # LED status for common screens
+    def beep_success(): beep(2, 0.08)
+    def beep_error(): beep(1, 0.5); time.sleep(0.1); beep(1, 0.2)
+    def beep_prompt(): beep(1, 0.05)
     if "idle" in line1.lower() or "VOTECHAIN" in line1 or "enter aadhaar" in line1.lower():
         set_leds(green=True, red=False)
         beep_prompt()
@@ -239,14 +273,13 @@ def show_msg(line1, line2="", line3="", big_text=False):
                                 tw3 = len(line3) * 10
                             x3 = (device.width - tw3) // 2
                             draw.text((x3, y + text_height + 36), line3, fill="white", font=font)
-    This is the most reliable method for headless operation.
-    """
+def read_aadhaar_simple(max_len: int = 12) -> str:
+    """This is the most reliable method for headless operation."""
     digits = ""
     show_msg("Manual Mode", "Enter Aadhaar:", "_")
     print("\n" + "="*40)
     print("ENTER AADHAAR NUMBER (press Enter when done):")
     print("="*40)
-    
     while len(digits) < max_len:
         try:
             # Read one character at a time
@@ -297,7 +330,8 @@ def show_msg(line1, line2="", line3="", big_text=False):
     return digits
 
 def read_aadhaar_on_oled(max_len: int = 12) -> str:
-    """Read Aadhaar digits from keyboard, reflecting input on OLED line 3.
+    """
+    Read Aadhaar digits from keyboard, reflecting input on OLED line 3.
     Character-by-character input with instant OLED updates.
     """
     digits = ""
@@ -739,7 +773,7 @@ def submit_vote(aadhaar_id, candidate_id):
         return False
 
 def tick_animation():
-        set_leds(green=True, red=False)
+    set_leds(green=True, red=False)
     # Draw a big tick mark in the center of the OLED
     if device:
         from PIL import ImageDraw
@@ -764,33 +798,30 @@ def run_voting_interface(voter_name):
     beep(count=1)
     
     selected_candidate = None
-        start_time = time.time()
-    
+    start_time = time.time()
     while True:
-            if time.time() - start_time > 60:
-                show_msg("Session timed out", "Returning to idle", "")
-                time.sleep(2)
-                return "RESET"
+        if time.time() - start_time > 60:
+            show_msg("Session timed out", "Returning to idle", "")
+            time.sleep(2)
+            return "RESET"
         # Check for reset button
         if GPIO.input(PIN_BTN_START) == GPIO.LOW:
             time.sleep(0.2)
             print("\n⚠️ Vote cancelled by reset")
             return "RESET"
-            
         # 1. Wait for input
         if GPIO.input(PIN_BTN_A) == GPIO.LOW:
             new_selection = 1
             beep(count=1, duration=0.05)
-                start_time = time.time()  # Reset the timer on input
+            start_time = time.time()  # Reset the timer on input
             time.sleep(0.3)
         elif GPIO.input(PIN_BTN_B) == GPIO.LOW:
             new_selection = 2
             beep(count=1, duration=0.05)
-                start_time = time.time()  # Reset the timer on input
+            start_time = time.time()  # Reset the timer on input
             time.sleep(0.3)
         else:
             new_selection = None
-
         # 2. Handle Selection logic
         if new_selection is not None:
             if selected_candidate == new_selection:
@@ -799,7 +830,6 @@ def run_voting_interface(voter_name):
                 selected_candidate = new_selection
                 cand_name = "CANDIDATE A" if selected_candidate == 1 else "CANDIDATE B"
                 show_msg("CONFIRM VOTE:", cand_name, "Press Again ->")
-
         time.sleep(0.05)
 
 # --- MAIN APP LOOP ---
@@ -921,7 +951,7 @@ if __name__ == '__main__':
                 else:
                     # No voter found but not a reset signal, just go back to idle
                     idle_message_shown = False
-            
+        
         except KeyboardInterrupt:
             GPIO.cleanup()
             break
