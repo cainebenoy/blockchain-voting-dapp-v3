@@ -1,3 +1,10 @@
+def wait_for_reset():
+    """Wait for the START button to be pressed, then return 'RESET'."""
+    while True:
+        if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+            time.sleep(0.2)
+            return "RESET"
+        time.sleep(0.1)
 def beep_success():
     beep(2, 0.08)
 
@@ -27,6 +34,28 @@ import RPi.GPIO as GPIO
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
 from luma.oled.device import sh1106, ssd1306 
+
+# Pre-declare globals to satisfy static analysis (will be initialized later)
+device = None
+
+# Lightweight stubs to avoid 'used before assignment' warnings in Pylance.
+def set_leds(green=False, red=False):
+    try:
+        GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
+        GPIO.output(PIN_LED_RED, GPIO.HIGH if red else GPIO.LOW)
+    except Exception:
+        pass
+
+def beep(count=1, duration=0.1):
+    # Real implementation defined later; stub to keep early callers quiet.
+    try:
+        for _ in range(count):
+            GPIO.output(PIN_BUZZER, GPIO.HIGH)
+            time.sleep(duration)
+            GPIO.output(PIN_BUZZER, GPIO.LOW)
+            time.sleep(0.05)
+    except Exception:
+        pass
 
 # --- CONFIGURATION ---
 # ⚠️ UPDATE THIS IP IF YOUR LAPTOP IP CHANGES ⚠️
@@ -73,9 +102,9 @@ def hardware_health_check(device):
         status['Buttons'] = f"FAIL: {e}"
     # Test OLED
     try:
-        if device:
+        if 'device' in globals() and device:
             with canvas(device) as draw:
-                draw.rectangle(device.bounding_box, outline="white", fill="black")
+                draw.rectangle(device.bounding_box, fill="black")
                 draw.text((10, 10), "OLED OK", fill="white")
             status['OLED'] = 'OK'
         else:
@@ -88,9 +117,9 @@ def hardware_health_check(device):
     # Show status on OLED
     try:
         lines = [f"{k}: {v}" for k,v in status.items()]
-        if device:
+        if 'device' in globals() and device:
             with canvas(device) as draw:
-                draw.rectangle(device.bounding_box, outline="white", fill="black")
+                draw.rectangle(device.bounding_box, fill="black")
                 for i, line in enumerate(lines):
                     draw.text((5, 8 + i*14), line, fill="white")
             time.sleep(2)
@@ -99,56 +128,7 @@ def hardware_health_check(device):
     return status
 
 # Initialize OLED once
-try:
-    serial_conn = spi(device=0, port=0, gpio_DC=OLED_DC, gpio_RST=OLED_RST)
-    try:
-        device = sh1106(serial_conn)
-    except:
-        device = ssd1306(serial_conn)
-except:
-    device = None
 
-# --- GPIO & OLED SETUP (MOVED UP) ---
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(PIN_LED_GREEN, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(PIN_LED_RED, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(PIN_BUZZER, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(PIN_BTN_START, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(PIN_BTN_A, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(PIN_BTN_B, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
-# --- HELPER FUNCTIONS ---
-def set_leds(green=False, red=False):
-    GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
-    GPIO.output(PIN_LED_RED, GPIO.HIGH if red else GPIO.LOW)
-
-# On boot, show idle message and set LEDs to idle
-if device:
-    device.contrast(128)  # Set to safe default
-    from luma.core.render import canvas
-    try:
-        from PIL import ImageFont
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-    except Exception:
-        try:
-            font = ImageFont.load_default()
-        except Exception:
-            font = None
-    with canvas(device) as draw:
-        draw.rectangle(device.bounding_box, outline="white", fill="black")
-        msg = "VOTECHAIN READY"
-        if font:
-            try:
-                bbox = draw.textbbox((0, 0), msg, font=font)
-                x = (device.width - (bbox[2] - bbox[0])) // 2
-                y = (device.height - (bbox[3] - bbox[1])) // 2
-                draw.text((x, y), msg, fill="white", font=font)
-            except Exception:
-                draw.text((10, 20), msg, fill="white")
-        else:
-            draw.text((10, 20), msg, fill="white")
-set_leds(green=False, red=False)
 
 # --- 1. SENSOR SETUP ---
 finger = None
@@ -162,27 +142,30 @@ except Exception as e:
     print(f"❌ FATAL: Fingerprint sensor unavailable: {e}")
     print("❌ Please check the wiring and connections.")
     print("❌ Cannot start kiosk without fingerprint scanner.")
-    if device:
-        from luma.core.render import canvas
-        from PIL import ImageFont
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
-        except:
-            font = None
-        with canvas(device) as draw:
-            draw.rectangle(device.bounding_box, outline="white", fill="black")
-            msg1 = "FINGERPRINT ERROR"
-            msg2 = "Check wiring & restart"
-            msg3 = f"{finger_error}" if finger_error else ""
-            if font:
-                draw.text((10, 10), msg1, fill="white", font=font)
-                draw.text((10, 32), msg2, fill="white", font=font)
-                draw.text((10, 54), msg3[:device.width//8], fill="white", font=font)
-            else:
-                draw.text((10, 10), msg1, fill="white")
-                draw.text((10, 32), msg2, fill="white")
-                draw.text((10, 54), msg3[:device.width//8], fill="white")
-    set_leds(green=False, red=True)
+    try:
+        if 'device' in globals() and device:
+            from luma.core.render import canvas
+            from PIL import ImageFont
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+            except:
+                font = None
+            with canvas(device) as draw:
+                draw.rectangle(device.bounding_box, fill="black")
+                msg1 = "FINGERPRINT ERROR"
+                msg2 = "Check wiring & restart"
+                msg3 = f"{finger_error}" if finger_error else ""
+                if font:
+                    draw.text((10, 10), msg1, fill="white", font=font)
+                    draw.text((10, 32), msg2, fill="white", font=font)
+                    draw.text((10, 54), msg3[:device.width//8], fill="white", font=font)
+                else:
+                    draw.text((10, 10), msg1, fill="white")
+                    draw.text((10, 32), msg2, fill="white")
+                    draw.text((10, 54), msg3[:device.width//8], fill="white")
+        set_leds(green=False, red=True)
+    except Exception as ex:
+        print(f"Error displaying fingerprint error: {ex}")
     # Do not exit, just wait for manual intervention
     while True:
         time.sleep(10)
@@ -225,6 +208,11 @@ try:
 except:
     device = None
 
+if device is None:
+    print("❌ SCREEN INITIALIZATION FAILED: Check SPI wiring!")
+else:
+    print("✅ Screen initialized successfully.")
+
 # --- HELPER FUNCTIONS ---
 
 def beep(count=1, duration=0.1):
@@ -251,73 +239,82 @@ def set_leds(green=False, red=False):
 
 def show_msg(line1, line2="", line3="", big_text=False):
     print(f"[DISPLAY] {line1} | {line2} | {line3}")
-    # LED status for common screens
-    def beep_success(): beep(2, 0.08)
-    def beep_error(): beep(1, 0.5); time.sleep(0.1); beep(1, 0.2)
-    def beep_prompt(): beep(1, 0.05)
-    if "idle" in line1.lower() or "VOTECHAIN" in line1 or "enter aadhaar" in line1.lower():
+    # Try to import ImageFont once; if not available, leave as None and fall back to default rendering
+    try:
+        from PIL import ImageFont
+    except Exception:
+        ImageFont = None
+    # LED Logic
+    l1 = str(line1).lower()
+    l2 = str(line2).lower()
+    if "idle" in l1 or "votechain" in l1 or "enter aadhaar" in l1:
         set_leds(green=True, red=False)
-        beep_prompt()
-    elif "submitting" in line1.lower() or "waiting" in line2.lower():
+    elif "submitting" in l1 or "waiting" in l2:
         set_leds(green=True, red=True)
-        beep_prompt()
-    elif "confirmed" in line1.lower() or "success" in line2.lower():
+    elif "confirmed" in l1 or "success" in l2:
         set_leds(green=True, red=False)
-        beep_success()
-    elif "rejected" in line1.lower() or "fail" in line2.lower() or "error" in line2.lower() or "denied" in line2.lower():
+    elif "rejected" in l1 or "fail" in l2 or "denied" in l2 or "mismatch" in l2:
         set_leds(green=False, red=True)
-        beep_error()
-    elif "scan finger" in line2.lower():
-        set_leds(green=True, red=False)
-        beep_prompt()
-    elif "mismatch" in line2.lower():
-        set_leds(green=False, red=True)
-        beep_error()
+    # Screen Logic
     if device:
+        try:
+            with canvas(device) as draw:
+                draw.rectangle(device.bounding_box, fill="black")
+                if big_text:
+                    try:
+                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+                    except:
+                        font = ImageFont.load_default()
+                    draw.text((5, 20), str(line1), fill="white", font=font)
+                else:
+                    font = ImageFont.load_default()
+                    draw.text((5, 5), str(line1), fill="white", font=font)
+                    draw.text((5, 25), str(line2), fill="white", font=font)
+                    draw.text((5, 45), str(line3), fill="white", font=font)
+        except Exception as e:
+            print(f"⚠️ Screen Draw Error: {e}")
+    else:
+        print("⚠️ Screen not initialized (device is None)")
+
+
+def show_idle():
+    """Display the idle screen: big centered "VOTECHAIN" with shadow and subtitle."""
+    # If device not ready, fall back to basic message
+    if not ('device' in globals() and device):
+        show_idle()
+        return
+
+    try:
+        from PIL import ImageFont
+    except Exception:
+        ImageFont = None
+
+    try:
         with canvas(device) as draw:
-            draw.rectangle(device.bounding_box, outline="white", fill="black")
-            if big_text:
-                # Center large text with shadow effect
-                from PIL import ImageFont
-                if device:
-                    with canvas(device) as draw:
-                        draw.rectangle(device.bounding_box, outline="white", fill="black")
-                        from PIL import ImageFont
-                        try:
-                            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-                        except:
-                            font = None
-                        # Center line1
-                        if font:
-                            bbox = draw.textbbox((0, 0), line1, font=font)
-                            text_width = bbox[2] - bbox[0]
-                            text_height = bbox[3] - bbox[1]
-                        else:
-                            text_width = len(line1) * 10
-                            text_height = 8
-                        x = (device.width - text_width) // 2
-                        y = 6
-                        # Draw shadow (offset by 2 pixels down and right)
-                        draw.text((x + 2, y + 2), line1, fill="white", font=font)
-                        # Draw main text
-                        draw.text((x, y), line1, fill="white", font=font)
-                        # Line2 and Line3, also large and bold, spaced below
-                        if line2:
-                            if font:
-                                bbox2 = draw.textbbox((0, 0), line2, font=font)
-                                tw2 = bbox2[2] - bbox2[0]
-                            else:
-                                tw2 = len(line2) * 10
-                            x2 = (device.width - tw2) // 2
-                            draw.text((x2, y + text_height + 8), line2, fill="white", font=font)
-                        if line3:
-                            if font:
-                                bbox3 = draw.textbbox((0, 0), line3, font=font)
-                                tw3 = bbox3[2] - bbox3[0]
-                            else:
-                                tw3 = len(line3) * 10
-                            x3 = (device.width - tw3) // 2
-                            draw.text((x3, y + text_height + 36), line3, fill="white", font=font)
+            draw.rectangle(device.bounding_box, fill="black")
+            title = "VOTECHAIN"
+            # Use a slightly smaller font so the full title fits on-screen
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 17)
+            except Exception:
+                font = ImageFont.load_default() if ImageFont else None
+
+            if font:
+                bbox = draw.textbbox((0, 0), title, font=font)
+                tw = bbox[2] - bbox[0]
+                th = bbox[3] - bbox[1]
+            else:
+                tw = len(title) * 7
+                th = 8
+
+            x = max(0, (device.width - tw) // 2)
+            y = max(0, (device.height - th) // 3)
+
+            # Shadow (offset +1,-1) then main text (subtle upward shadow)
+            draw.text((x + 1, y - 1), title, fill="gray", font=font)
+            draw.text((x, y), title, fill="white", font=font)
+    except Exception as e:
+        print(f"⚠️ Idle Draw Error: {e}")
 def read_aadhaar_simple(max_len: int = 12) -> str:
     """This is the most reliable method for headless operation."""
     digits = ""
@@ -644,20 +641,34 @@ def scan_finger_and_get_id():
         return "RESET"
     if not result:
         finger.set_led(color=1, mode=3) # Red error
-        return None
-        
+        show_msg("Scan Failed", "No finger detected", "Press START to reset")
+        # Wait for reset button press
+        while True:
+            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+                time.sleep(0.2)
+                return "RESET"
+            time.sleep(0.1)
     print("Templating...", end="")
     if finger.image_2_tz(1) != adafruit_fingerprint.OK:
         finger.set_led(color=1, mode=3)
-        return None
-    
+        show_msg("Scan Failed", "Template error", "Press START to reset")
+        while True:
+            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+                time.sleep(0.2)
+                return "RESET"
+            time.sleep(0.1)
     print("Searching...", end="")
     if finger.finger_search() == adafruit_fingerprint.OK:
         finger.set_led(color=2, mode=3) # Green success
         return finger.finger_id
     else:
         finger.set_led(color=1, mode=3) # Red fail
-        return None
+        show_msg("Scan Failed", "Not recognized", "Press START to reset")
+        while True:
+            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+                time.sleep(0.2)
+                return "RESET"
+            time.sleep(0.1)
 
 # --- NEW: ENROLLMENT LOGIC ---
 
@@ -715,20 +726,10 @@ def check_in_voter(aadhaar_id):
         else:
             show_msg("Check-in Failed", "Not Found/Voted", "Press START")
             beep(count=1, duration=0.5)
-            # Wait for reset button press
-            while True:
-                if GPIO.input(PIN_BTN_START) == GPIO.LOW:
-                    time.sleep(0.2)
-                    return "RESET"
-                time.sleep(0.1)
+            return wait_for_reset()
     except:
         show_msg("Network Error", "Check Server", "Press START")
-        # Wait for reset button press
-        while True:
-            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
-                time.sleep(0.2)
-                return "RESET"
-            time.sleep(0.1)
+        return wait_for_reset()
 
 def submit_vote(aadhaar_id, candidate_id):
     show_msg("Submitting...", "Waiting for confirmation", "May take up to 90s")
@@ -750,7 +751,7 @@ def submit_vote(aadhaar_id, candidate_id):
             progress = min(1.0, elapsed / float(max_seconds)) if max_seconds > 0 else 0
             fill_w = int(bar_w * progress)
             with canvas(device) as draw:
-                draw.rectangle(device.bounding_box, outline="white", fill="black")
+                draw.rectangle(device.bounding_box, fill="black")
                 # Title
                 draw.text((5, 8), "Submitting...", fill="white")
                 # Spinner
@@ -824,7 +825,7 @@ def tick_animation():
         from PIL import ImageDraw
         for i in range(3):
             with canvas(device) as draw:
-                draw.rectangle(device.bounding_box, outline="white", fill="black")
+                draw.rectangle(device.bounding_box, fill="black")
                 # Draw tick progressively
                 if i == 0:
                     draw.line((40, 40, 55, 55), fill="white", width=4)
@@ -884,13 +885,12 @@ if __name__ == '__main__':
     if finger.read_sysparam() != adafruit_fingerprint.OK:
         print("❌ Sensor check failed. Please check the wiring.")
         sys.exit(1)
-    
+    # Run hardware health check on boot
+    hardware_health_check(device)
     print("--- VOTECHAIN KIOSK LIVE (V3) ---")
     beep(count=2)
-    
     # Track idle state
     idle_message_shown = False
-    
     while True:
         # 1. POLL FOR ADMIN COMMANDS (Remote Enrollment)
         try:
@@ -915,91 +915,80 @@ if __name__ == '__main__':
         # 2. VOTING MODE (Idle) - Show idle message once
         if not idle_message_shown:
             set_leds(green=False, red=False)
-            show_msg("VOTECHAIN", big_text=True)
+            show_idle()
             print("\n⏳ Polling for commands... (Press Ctrl+C to exit)")
             idle_message_shown = True
-        
         # Small delay to prevent CPU spinning, then poll again
         time.sleep(0.5)
         
         # Check for keyboard input (non-blocking would be better, but this works)
         # For now, we'll use button input instead
-        try:
-            # Check if START button is pressed (replaces keyboard input)
-            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
-                time.sleep(0.2)  # Debounce
-                # Use direct keyboard device reading (works headless, no terminal focus needed)
-                aadhaar = read_aadhaar_from_keyboard_device()
-                
-                # Check for reset during input
-                if aadhaar == "RESET":
-                    print("🔄 Reset during Aadhaar input, returning to idle...")
-                    idle_message_shown = False
-                    continue
-                
-                # Fallback to simple TTY input if evdev fails
-                if not aadhaar:
-                    aadhaar = read_aadhaar_simple()
-                
-                if not aadhaar or aadhaar.strip() == "": 
-                    idle_message_shown = False
-                    continue # Loop back to check for commands
-
-                # 3. VOTER CHECK-IN
-                voter = check_in_voter(aadhaar)
-                
-                # Check for reset signal from check-in
-                if voter == "RESET":
-                    print("🔄 Resetting to idle...")
-                    idle_message_shown = False
-                    continue
-                
-                if voter:
-                    # 4. VERIFY FINGERPRINT
-                    show_msg("Verifying...", "Scan Finger", "Or Press START")
-                    set_leds(green=True, red=False)
-                    
-                    print(f"Expecting Finger ID #{voter['fingerprint_id']}")
-                    scanned_id = scan_finger_and_get_id()
-                    
-                    # Check for reset signal
-                    if scanned_id == "RESET":
-                        print("🔄 Resetting to idle...")
-                        idle_message_shown = False
-                        continue
-                    
-                    if scanned_id == voter['fingerprint_id']:
-                        # 5. VOTE INTERFACE
-                        print("✅ Identity Verified.")
-                        final_choice = run_voting_interface(voter['name'])
-                        
-                        # Check for reset signal
-                        if final_choice == "RESET":
+        # Check if START button is pressed (replaces keyboard input)
+        if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+                try:
+                    # Check if START button is pressed (replaces keyboard input)
+                    if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+                        time.sleep(0.2)  # Debounce
+                        # Use direct keyboard device reading (works headless, no terminal focus needed)
+                        aadhaar = read_aadhaar_from_keyboard_device()
+                        # Check for reset during input
+                        if aadhaar == "RESET" or not aadhaar or aadhaar.strip() == "":
+                            print("🔄 Reset during Aadhaar input or empty, returning to idle...")
+                            idle_message_shown = False
+                            continue
+                        # Fallback to simple TTY input if evdev fails
+                        if not aadhaar:
+                            aadhaar = read_aadhaar_simple()
+                        if not aadhaar or aadhaar.strip() == "":
+                            idle_message_shown = False
+                            continue # Loop back to check for commands
+                        # 3. VOTER CHECK-IN
+                        voter = check_in_voter(aadhaar)
+                        # Check for reset signal from check-in
+                        if voter == "RESET":
                             print("🔄 Resetting to idle...")
                             idle_message_shown = False
                             continue
-                        
-                        # 6. SUBMIT
-                        submit_vote(aadhaar, final_choice)
-                        time.sleep(4)
-                    else:
-                        print("⛔ Mismatch.")
-                        show_msg("Access Denied", "Finger Mismatch", "Press START")
-                        set_leds(green=False, red=True)
-                        beep(count=3, duration=0.2)
-                        # Wait for reset
-                        while GPIO.input(PIN_BTN_START) == GPIO.HIGH:
-                            time.sleep(0.1)
-                        time.sleep(0.2)
-                    
-                    idle_message_shown = False  # Reset for next iteration
-                else:
-                    # No voter found but not a reset signal, just go back to idle
+                        if voter:
+                            # 4. VERIFY FINGERPRINT
+                            show_msg("Verifying...", "Scan Finger", "Or Press START")
+                            set_leds(green=True, red=False)
+                            print(f"Expecting Finger ID #{voter['fingerprint_id']}")
+                            scanned_id = scan_finger_and_get_id()
+                            # Check for reset signal
+                            if scanned_id == "RESET":
+                                print("🔄 Resetting to idle...")
+                                idle_message_shown = False
+                                continue
+                            if scanned_id == voter['fingerprint_id']:
+                                # 5. VOTE INTERFACE
+                                print("✅ Identity Verified.")
+                                final_choice = run_voting_interface(voter['name'])
+                                # Check for reset signal
+                                if final_choice == "RESET":
+                                    print("🔄 Resetting to idle...")
+                                    idle_message_shown = False
+                                    continue
+                                # 6. SUBMIT
+                                submit_vote(aadhaar, final_choice)
+                                time.sleep(4)
+                            else:
+                                print("⛔ Mismatch.")
+                                show_msg("Access Denied", "Finger Mismatch", "Press START")
+                                set_leds(green=False, red=True)
+                                beep(count=3, duration=0.2)
+                                # Wait for reset
+                                while GPIO.input(PIN_BTN_START) == GPIO.HIGH:
+                                    time.sleep(0.1)
+                                time.sleep(0.2)
+                            idle_message_shown = False  # Reset for next iteration
+                        else:
+                            # No voter found but not a reset signal, just go back to idle
+                            idle_message_shown = False
+                except KeyboardInterrupt:
+                    GPIO.cleanup()
+                    break
+                except Exception as e:
+                    print(f"Error: {e}")
                     idle_message_shown = False
-        
-        except KeyboardInterrupt:
-            GPIO.cleanup()
-            break
-        except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(2)
+                    time.sleep(2)
