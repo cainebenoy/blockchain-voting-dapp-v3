@@ -278,10 +278,16 @@ def show_msg(line1, line2="", line3="", big_text=False):
 
 
 def show_idle():
-    """Display the idle screen: big centered "VOTECHAIN" with shadow and subtitle."""
+    """Display the idle screen: two-line centered title "VOTE" / "CHAIN" with larger font and shadow.
+
+    This rendering is only used for the idle screen; other screens still use `show_msg()`.
+    """
     # If device not ready, fall back to basic message
     if not ('device' in globals() and device):
-        show_idle()
+        try:
+            show_msg("VOTE", "CHAIN", "")
+        except Exception:
+            pass
         return
 
     try:
@@ -292,27 +298,48 @@ def show_idle():
     try:
         with canvas(device) as draw:
             draw.rectangle(device.bounding_box, fill="black")
-            title = "VOTECHAIN"
-            # Use a slightly smaller font so the full title fits on-screen
+
+            line1 = "VOTE"
+            line2 = "CHAIN"
+
+            # Preferred larger font for idle title; fallback to default if unavailable
+            preferred_size = 28
             try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 17)
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", preferred_size)
             except Exception:
-                font = ImageFont.load_default() if ImageFont else None
+                try:
+                    font = ImageFont.load_default() if ImageFont else None
+                except Exception:
+                    font = None
 
             if font:
-                bbox = draw.textbbox((0, 0), title, font=font)
-                tw = bbox[2] - bbox[0]
-                th = bbox[3] - bbox[1]
+                bbox1 = draw.textbbox((0, 0), line1, font=font)
+                tw1 = bbox1[2] - bbox1[0]
+                th1 = bbox1[3] - bbox1[1]
+                bbox2 = draw.textbbox((0, 0), line2, font=font)
+                tw2 = bbox2[2] - bbox2[0]
+                th2 = bbox2[3] - bbox2[1]
             else:
-                tw = len(title) * 7
-                th = 8
+                tw1 = len(line1) * 7
+                th1 = 8
+                tw2 = len(line2) * 7
+                th2 = 8
 
-            x = max(0, (device.width - tw) // 2)
-            y = max(0, (device.height - th) // 3)
+            total_h = th1 + th2 + 4  # small spacing between lines
+            y_start = max(0, (device.height - total_h) // 2)
 
-            # Shadow (offset +1,-1) then main text (subtle upward shadow)
-            draw.text((x + 1, y - 1), title, fill="gray", font=font)
-            draw.text((x, y), title, fill="white", font=font)
+            # Center each line horizontally
+            x1 = max(0, (device.width - tw1) // 2)
+            x2 = max(0, (device.width - tw2) // 2)
+
+            # Draw subtle shadow slightly above and to the right for visual depth
+            shadow_off = (1, -1)
+            draw.text((x1 + shadow_off[0], y_start + shadow_off[1]), line1, fill="gray", font=font)
+            draw.text((x2 + shadow_off[0], y_start + th1 + 4 + shadow_off[1]), line2, fill="gray", font=font)
+
+            # Draw main text
+            draw.text((x1, y_start), line1, fill="white", font=font)
+            draw.text((x2, y_start + th1 + 4), line2, fill="white", font=font)
     except Exception as e:
         print(f"⚠️ Idle Draw Error: {e}")
 def read_aadhaar_simple(max_len: int = 12) -> str:
