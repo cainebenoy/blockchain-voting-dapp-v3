@@ -1,12 +1,16 @@
 import { network } from "hardhat";
 
-async function main() {
-  // --- CONFIGURATION ---
-  // Paste your VotingV2 address here if it's missing
-  const VOTING_V2_ADDRESS = "0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA"; 
+/*
+ Usage: prefer env/CLI args. Example:
+   VOTING_CONTRACT_ADDRESS=0x... npx hardhat run scripts/add-candidates.ts --network sepolia
+*/
 
-  if (!VOTING_V2_ADDRESS || VOTING_V2_ADDRESS.includes("PASTE")) {
-      console.error("❌ ERROR: Please check the VotingV2 address at the top of the script.");
+async function main() {
+  // --- CONFIGURATION (override via env if available) ---
+  const VOTING_V2_ADDRESS = process.env.VOTING_CONTRACT_ADDRESS || "0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA";
+
+  if (!VOTING_V2_ADDRESS) {
+      console.error("❌ ERROR: Please set VOTING_CONTRACT_ADDRESS in env or edit the script.");
       process.exit(1);
   }
 

@@ -218,6 +218,45 @@ sudo -E python3 kiosk_main.py
 # Navigate to http://localhost:3000 in browser
 ```
 
+## Environment Variables Reference
+
+Below is a concise reference for the environment variables used by the project. Keep secrets out of version control and prefer a secure secrets manager for production.
+
+| Variable | Example / Format | Purpose | Secret? |
+| --- | --- | --- | --- |
+| `SEPOLIA_RPC_URL` | `https://eth-sepolia.g.alchemy.com/v2/<ALCHEMY_KEY>` | RPC endpoint for Sepolia network | No (endpoint) |
+| `SEPOLIA_PRIVATE_KEY` | `0x...` or `...` | Admin wallet for contract deployment | Yes |
+| `SERVER_PRIVATE_KEY` | `0x...` | Backend signing wallet (official signer) | Yes |
+| `SUPABASE_URL` | `https://<project>.supabase.co` | Supabase project URL | No |
+| `SUPABASE_KEY` | `service_role` key | Supabase service role key used by backend | Yes (do not commit) |
+| `VOTING_CONTRACT_ADDRESS` | `0x...` | Deployed VotingV2 contract address | No |
+
+Notes:
+- Use `backend/.env.example` as the authoritative template and copy it to `backend/.env` during setup.
+- Mark any secret values as environment-only and never commit them. For production, use a secrets manager (Vault, AWS Secrets Manager, Dotenvx, etc.).
+
+## Signer Authorization (Walkthrough)
+
+After deploying the contract, the backend wallet must be authorized as the `officialSigner` on the `VotingV2` contract so it can submit votes on behalf of kiosks.
+
+1. Ensure `VOTING_CONTRACT_ADDRESS` and `SERVER_PRIVATE_KEY` are set in your `backend/.env`.
+2. From the repo root run:
+
+```bash
+npx hardhat run scripts/authorize-signer.ts --network sepolia
+```
+
+3. Verify on-chain: visit Etherscan for the deployed contract and check `officialSigner` (public view) or call the contract getter:
+
+```bash
+npx hardhat console --network sepolia
+> const v = await ethers.getContractAt('VotingV2', process.env.VOTING_CONTRACT_ADDRESS)
+> await v.officialSigner()
+```
+
+Troubleshooting: if authorization fails, check that the wallet used has sufficient ETH to pay for the transaction, and ensure `SEPOLIA_RPC_URL` is reachable. If auto-authorization in `backend/server.js` reports an error, inspect `backend/server.log` for details.
+
+
 ## 📖 Usage Guide
 
 ### Admin Dashboard (`admin.html`)

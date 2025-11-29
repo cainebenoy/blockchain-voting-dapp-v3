@@ -20,6 +20,8 @@ Complete guide for deploying VoteChain V3 on Raspberry Pi 5.
 - **LEDs** (Green/Red for status indicators)
 - **Buzzer** (Audio feedback)
 
+For a step-by-step hardware wiring guide and emulation notes, see `docs/HARDWARE.md`.
+
 ```text
 START Button    → BCM 4  (Physical Pin 7)
 Candidate A     → BCM 22 (Physical Pin 15)
@@ -661,6 +663,41 @@ await supabase
 await ensureAuthorizedSignerFor(contractAddress);
 
 ```conf
+
+#### Expanded Signer Authorization Walkthrough
+
+After a new contract is deployed the backend wallet must be authorized as the contract's `officialSigner` so the backend can submit votes. The backend attempts auto-authorization on deploy, but you can run and verify the steps manually:
+
+1. Ensure the following are set in `backend/.env` (or exported in your shell):
+
+```bash
+export VOTING_CONTRACT_ADDRESS="0x..."
+export SERVER_PRIVATE_KEY="0x..."   # backend signing wallet
+export SEPOLIA_RPC_URL="https://..."
+```
+
+2. Run the helper script (preferred):
+
+```bash
+VOTING_CONTRACT_ADDRESS=$VOTING_CONTRACT_ADDRESS SERVER_WALLET_ADDRESS=$SERVER_WALLET_ADDRESS \
+    npx hardhat run scripts/authorize-signer.ts --network sepolia
+```
+
+3. Verify on-chain (via Hardhat console or Etherscan):
+
+```bash
+npx hardhat console --network sepolia
+> const v = await ethers.getContractAt('VotingV2', process.env.VOTING_CONTRACT_ADDRESS)
+> await v.officialSigner()
+```
+
+The `officialSigner` getter should return the backend wallet address. If it does not:
+
+- Confirm the wallet used has enough ETH to pay gas.
+- Confirm `SEPOLIA_RPC_URL` is reachable from the deployment machine.
+- Inspect backend logs: `sudo journalctl -u votechain-backend.service -n 200` for auto-authorization attempts.
+
+Recovery: if authorization fails and you cannot call `setOfficialSigner` from the admin/deployer wallet, redeploy the contract with a known admin wallet and repeat the authorization steps above.
 
 #### 5. Runtime Update
 ```javascript

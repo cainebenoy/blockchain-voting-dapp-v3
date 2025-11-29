@@ -1,13 +1,20 @@
 import { network } from "hardhat";
 
-async function main() {
-  // --- CONFIGURATION ---
-  const VOTING_V2_ADDRESS = "0xA70C926205c8738E0B8F7e61780189CB114ce267";
-  // Your backend server address (from the previous step 0.1 ETH funding)
-  const SERVER_WALLET_ADDRESS = "0xf0CEfA35A826C17D92FbD7Bf872275d0304B6a1c";
+/*
+ Usage: prefer setting values in `backend/.env` or pass via CLI/env rather than editing this file.
+ Example:
+   VOTING_V2_ADDRESS=0x... SERVER_WALLET_ADDRESS=0x... npx hardhat run scripts/authorize-signer.ts --network sepolia
 
-  if (VOTING_V2_ADDRESS.includes("PASTE") || SERVER_WALLET_ADDRESS.includes("PASTE")) {
-      console.error("❌ ERROR: Please paste your real addresses at the top of the script.");
+ The script still supports the in-file constants for quick local runs, but DO NOT commit secrets.
+*/
+
+async function main() {
+  // --- CONFIGURATION (override via env if available) ---
+  const VOTING_V2_ADDRESS = process.env.VOTING_CONTRACT_ADDRESS || "0xA70C926205c8738E0B8F7e61780189CB114ce267";
+  const SERVER_WALLET_ADDRESS = process.env.SERVER_WALLET_ADDRESS || "0xf0CEfA35A826C17D92FbD7Bf872275d0304B6a1c";
+
+  if (!VOTING_V2_ADDRESS || !SERVER_WALLET_ADDRESS) {
+      console.error("❌ ERROR: Please set VOTING_CONTRACT_ADDRESS and SERVER_WALLET_ADDRESS (env or edit file).");
       process.exit(1);
   }
 
