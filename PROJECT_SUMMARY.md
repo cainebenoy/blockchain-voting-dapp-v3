@@ -248,6 +248,14 @@ Open browser to: <http://localhost:3000>
 - **docs/FRONTEND_DESIGN_SPEC.md** - Kiosk frontend specifications
 - **backend/.env.example** - Environment variables template
 
+## 📰 Recent Changes
+
+- 2025-11-29 — Display & kiosk robustness fixes (commit `c464e3d`)
+   - Hardened the kiosk (`kiosk_main.py`) against hardware errors: boot-time hardware health checks, guarded device access, and persistent OLED error messages.
+   - Fixed OLED rendering & font fallback issues; removed white borders from screen clears; fixed `show_msg()` rendering bug.
+   - Added `show_idle()` idle screen, `wait_for_reset()` helper, improved fingerprint/check-in flow.
+   - Changes committed and pushed to `main` on Nov 29 2025. See `CHANGELOG.md` for details.
+
 ---
 
 ## 🏆 Achievement Summary
@@ -296,5 +304,5 @@ The system successfully bridges the gap between traditional polling booth securi
 ---
 
 **System Status:** ✅ READY FOR DEMO  
-**Last Updated:** November 26, 2025  
-**Version:** 3.0.0
+**Last Updated:** November 29, 2025  
+**Version:** 3.0.1

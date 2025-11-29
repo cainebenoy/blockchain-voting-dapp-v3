@@ -2,6 +2,10 @@
 
 Complete guide for deploying VoteChain V3 on Raspberry Pi 5.
 
+## Recent Changes (Nov 29 2025)
+
+- Kiosk display & robustness updates (commit `c464e3d`): added boot-time hardware health checks, fixed OLED rendering and font fallbacks, removed border outlines from screen clears, added `show_idle()` and `wait_for_reset()`, and made persistent OLED error messaging on hardware faults. See `CHANGELOG.md` for details.
+
 ## Hardware Requirements
 
 ### Required Components
@@ -889,5 +893,5 @@ For additional help:
 
 ---
 
-**Last Updated:** December 2024  
+**Last Updated:** November 29, 2025  
 **Tested On:** Raspberry Pi 5 (8GB) with Raspberry Pi OS Bookworm (64-bit)

@@ -45,6 +45,15 @@ VoteChain V3 is a complete end-to-end voting solution that combines:
 - **Backend**: Node.js 20+ with Express.js, Ethers.js v6
 - **Frontend**: Vanilla HTML/CSS/JavaScript with Tailwind CSS
 - **Kiosk**: Python 3.13 with RPi.GPIO, luma.oled, adafruit-fingerprint
+## 📰 Recent Changes
+
+- 2025-11-29 — Kiosk display & robustness updates (commit `c464e3d`)
+        - Boot-time hardware health checks for the kiosk (LEDs / Buttons / OLED).
+        - Fixed OLED rendering issues and added font fallbacks; removed border outlines from screen clears.
+        - Added `show_idle()` idle screen (title font adjusted to 17pt) and `wait_for_reset()` reset helper.
+        - Improved fingerprint scan and check-in flows; persistent OLED error messages on hardware faults.
+        - See `CHANGELOG.md` for full details.
+
 - **Database**: Supabase (PostgreSQL)
 - **Blockchain**: Ethereum Sepolia Testnet
 - **Development**: Hardhat 3, TypeScript 5
@@ -391,5 +400,5 @@ For issues or questions, check:
 ---
 
 **Status**: Production-ready for testnet deployment  
-**Last Updated**: December 2024  
-**Version**: 3.0
+**Last Updated**: November 29, 2025  
+**Version**: 3.0.1
