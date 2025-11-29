@@ -4,6 +4,7 @@ import tty
 import termios
 import select
 import atexit
+import threading
 
 # Optional global keyboard capture (works without terminal focus)
 try:
@@ -36,6 +37,69 @@ PIN_BTN_B = 23     # Candidate B
 OLED_DC = 24
 OLED_RST = 25
 
+
+# --- HARDWARE HEALTH CHECK ---
+def hardware_health_check():
+    status = {}
+    # Test Fingerprint
+    try:
+        uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1)
+        finger = adafruit_fingerprint.Adafruit_Fingerprint(uart)
+        status['Fingerprint'] = 'OK'
+    except Exception as e:
+        status['Fingerprint'] = f"FAIL: {e}"
+    # Test OLED
+    try:
+        serial_conn = spi(device=0, port=0, gpio_DC=OLED_DC, gpio_RST=OLED_RST)
+        try:
+            test_device = sh1106(serial_conn)
+        except:
+            test_device = ssd1306(serial_conn)
+        with canvas(test_device) as draw:
+            draw.rectangle(test_device.bounding_box, outline="white", fill="black")
+            draw.text((10, 10), "OLED OK", fill="white")
+        status['OLED'] = 'OK'
+    except Exception as e:
+        status['OLED'] = f"FAIL: {e}"
+    # Test LEDs
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(PIN_LED_GREEN, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(PIN_LED_RED, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.output(PIN_LED_GREEN, GPIO.HIGH)
+        GPIO.output(PIN_LED_RED, GPIO.HIGH)
+        time.sleep(0.5)
+        GPIO.output(PIN_LED_GREEN, GPIO.LOW)
+        GPIO.output(PIN_LED_RED, GPIO.LOW)
+        status['LEDs'] = 'OK'
+    except Exception as e:
+        status['LEDs'] = f"FAIL: {e}"
+    # Test Buttons
+    try:
+        GPIO.setup(PIN_BTN_START, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(PIN_BTN_A, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(PIN_BTN_B, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        btns = [GPIO.input(PIN_BTN_START), GPIO.input(PIN_BTN_A), GPIO.input(PIN_BTN_B)]
+        status['Buttons'] = 'OK' if all(x in [0,1] for x in btns) else 'FAIL: Bad read'
+    except Exception as e:
+        status['Buttons'] = f"FAIL: {e}"
+    # Show status on OLED
+    try:
+        lines = [f"{k}: {v}" for k,v in status.items()]
+        if 'test_device' in locals():
+            with canvas(test_device) as draw:
+                draw.rectangle(test_device.bounding_box, outline="white", fill="black")
+                for i, line in enumerate(lines):
+                    draw.text((5, 8 + i*14), line, fill="white")
+            time.sleep(2)
+    except Exception:
+        pass
+    print("Hardware Health Check:")
+    for k,v in status.items():
+        print(f"  {k}: {v}")
+    return status
+
+hardware_health_check()
 # --- 1. SENSOR SETUP ---
 try:
     uart = serial.Serial("/dev/ttyAMA0", baudrate=57600, timeout=1) 
@@ -88,6 +152,17 @@ except:
 # --- HELPER FUNCTIONS ---
 
 def beep(count=1, duration=0.1):
+    def beep_success():
+        beep(2, 0.08)
+
+    def beep_error():
+        beep(1, 0.5)
+        time.sleep(0.1)
+        beep(1, 0.2)
+
+    def beep_prompt():
+        beep(1, 0.05)
+
     for _ in range(count):
         GPIO.output(PIN_BUZZER, GPIO.HIGH)
         time.sleep(duration)
@@ -100,41 +175,70 @@ def set_leds(green=False, red=False):
 
 def show_msg(line1, line2="", line3="", big_text=False):
     print(f"[DISPLAY] {line1} | {line2} | {line3}")
+    # LED status for common screens
+    if "idle" in line1.lower() or "VOTECHAIN" in line1 or "enter aadhaar" in line1.lower():
+        set_leds(green=True, red=False)
+        beep_prompt()
+    elif "submitting" in line1.lower() or "waiting" in line2.lower():
+        set_leds(green=True, red=True)
+        beep_prompt()
+    elif "confirmed" in line1.lower() or "success" in line2.lower():
+        set_leds(green=True, red=False)
+        beep_success()
+    elif "rejected" in line1.lower() or "fail" in line2.lower() or "error" in line2.lower() or "denied" in line2.lower():
+        set_leds(green=False, red=True)
+        beep_error()
+    elif "scan finger" in line2.lower():
+        set_leds(green=True, red=False)
+        beep_prompt()
+    elif "mismatch" in line2.lower():
+        set_leds(green=False, red=True)
+        beep_error()
     if device:
         with canvas(device) as draw:
             draw.rectangle(device.bounding_box, outline="white", fill="black")
             if big_text:
                 # Center large text with shadow effect
                 from PIL import ImageFont
-                try:
-                    # Use a font size that fits the screen width
-                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-                except:
-                    font = None
-                
-                # Calculate text position to center it
-                if font:
-                    bbox = draw.textbbox((0, 0), line1, font=font)
-                    text_width = bbox[2] - bbox[0]
-                    text_height = bbox[3] - bbox[1]
-                else:
-                    text_width = len(line1) * 10
-                    text_height = 8
-                
-                x = (device.width - text_width) // 2
-                y = (device.height - text_height) // 2
-                
-                # Draw shadow (offset by 2 pixels down and right)
-                draw.text((x + 2, y + 2), line1, fill="white", font=font)
-                # Draw main text
-                draw.text((x, y), line1, fill="white", font=font)
-            else:
-                draw.text((5, 5), line1, fill="white")
-                draw.text((5, 25), line2, fill="white")
-                draw.text((5, 45), line3, fill="white")
-
-def read_aadhaar_simple(max_len: int = 12) -> str:
-    """Simple keyboard input that works on TTY - displays on OLED.
+                if device:
+                    with canvas(device) as draw:
+                        draw.rectangle(device.bounding_box, outline="white", fill="black")
+                        from PIL import ImageFont
+                        try:
+                            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+                        except:
+                            font = None
+                        # Center line1
+                        if font:
+                            bbox = draw.textbbox((0, 0), line1, font=font)
+                            text_width = bbox[2] - bbox[0]
+                            text_height = bbox[3] - bbox[1]
+                        else:
+                            text_width = len(line1) * 10
+                            text_height = 8
+                        x = (device.width - text_width) // 2
+                        y = 6
+                        # Draw shadow (offset by 2 pixels down and right)
+                        draw.text((x + 2, y + 2), line1, fill="white", font=font)
+                        # Draw main text
+                        draw.text((x, y), line1, fill="white", font=font)
+                        # Line2 and Line3, also large and bold, spaced below
+                        if line2:
+                            if font:
+                                bbox2 = draw.textbbox((0, 0), line2, font=font)
+                                tw2 = bbox2[2] - bbox2[0]
+                            else:
+                                tw2 = len(line2) * 10
+                            x2 = (device.width - tw2) // 2
+                            draw.text((x2, y + text_height + 8), line2, fill="white", font=font)
+                        if line3:
+                            if font:
+                                bbox3 = draw.textbbox((0, 0), line3, font=font)
+                                tw3 = bbox3[2] - bbox3[0]
+                            else:
+                                tw3 = len(line3) * 10
+                            x3 = (device.width - tw3) // 2
+                            draw.text((x3, y + text_height + 36), line3, fill="white", font=font)
     This is the most reliable method for headless operation.
     """
     digits = ""
@@ -548,26 +652,111 @@ def check_in_voter(aadhaar_id):
             time.sleep(0.1)
 
 def submit_vote(aadhaar_id, candidate_id):
-    show_msg("Submitting...", "Please Wait")
+    show_msg("Submitting...", "Waiting for confirmation", "May take up to 90s")
     set_leds(green=True, red=True)
+
+    stop_event = threading.Event()
+
+    def spinner_animation(stop_evt, max_seconds=90):
+        if not device:
+            return
+        start = time.time()
+        frames = ['|','/','-','\\']
+        idx = 0
+        bar_x = 6
+        bar_y = device.height - 12
+        bar_w = device.width - 12
+        while not stop_evt.is_set():
+            elapsed = time.time() - start
+            progress = min(1.0, elapsed / float(max_seconds)) if max_seconds > 0 else 0
+            fill_w = int(bar_w * progress)
+            with canvas(device) as draw:
+                draw.rectangle(device.bounding_box, outline="white", fill="black")
+                # Title
+                draw.text((5, 8), "Submitting...", fill="white")
+                # Spinner
+                draw.text((device.width - 12, 6), frames[idx % len(frames)], fill="white")
+                # Progress bar outline
+                draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + 6), outline="white", fill=None)
+                # Progress fill
+                if fill_w > 0:
+                    draw.rectangle((bar_x, bar_y, bar_x + fill_w, bar_y + 6), outline="white", fill="white")
+            idx += 1
+            time.sleep(0.12)
+
+    spinner_thread = threading.Thread(target=spinner_animation, args=(stop_event, 90), daemon=True)
+    spinner_thread.start()
+
     try:
         response = requests.post(f"{BACKEND_URL}/api/vote", 
-                                 json={"aadhaar_id": aadhaar_id, "candidate_id": candidate_id}, timeout=30)
+                                 json={"aadhaar_id": aadhaar_id, "candidate_id": candidate_id}, timeout=90)
+        # Stop spinner
+        stop_event.set()
+        spinner_thread.join(timeout=1)
+
         if response.status_code == 200:
-            tx_hash = response.json()['transaction_hash']
+            tx_hash = response.json().get('transaction_hash')
+            # Show confirmed screen and animation
+            show_msg("Vote Confirmed!", "Success", "", big_text=True)
+            tick_animation()
             set_leds(green=True, red=False)
-            show_msg("VOTE CONFIRMED!", "Success", "Thank You")
             print(f"TX: {tx_hash}")
-            beep(count=2, duration=0.1)
+            beep_success()
+            # Show vote receipt
+            receipt_code = str(aadhaar_id)[-6:]  # Last 6 digits as code
+            cand_name = "CANDIDATE A" if candidate_id == 1 else "CANDIDATE B"
+            show_msg("Vote Receipt:", f"Code: {receipt_code}", f"{cand_name}")
+            time.sleep(4)
+            show_msg("Vote Submitted!", "Thank you", "")
+            time.sleep(2)
             return True
         else:
-            show_msg("Vote Rejected", "Error")
+            # Stop spinner already requested
+            try:
+                err = response.json()
+                msg = err.get('message', '')
+                if 'not active' in msg.lower() or 'inactive' in msg.lower() or 'election' in msg.lower():
+                    show_msg("Vote Rejected", "Election Not Active", "Start election in admin")
+                elif 'timeout' in msg.lower():
+                    show_msg("Network Timeout", "Retry", "Blockchain slow")
+                else:
+                    show_msg("Vote Rejected", msg or "Error")
+            except Exception:
+                show_msg("Vote Rejected", "Error")
             set_leds(green=False, red=True)
-            beep(count=1, duration=1.0)
+            beep_error()
             return False
-    except:
+    except Exception as e:
+        # Ensure spinner stops
+        stop_event.set()
+        try:
+            spinner_thread.join(timeout=0.5)
+        except Exception:
+            pass
         show_msg("Connection Fail", "Retry")
+        print(f"Vote error: {e}")
+        beep_error()
         return False
+
+def tick_animation():
+        set_leds(green=True, red=False)
+    # Draw a big tick mark in the center of the OLED
+    if device:
+        from PIL import ImageDraw
+        for i in range(3):
+            with canvas(device) as draw:
+                draw.rectangle(device.bounding_box, outline="white", fill="black")
+                # Draw tick progressively
+                if i == 0:
+                    draw.line((40, 40, 55, 55), fill="white", width=4)
+                elif i == 1:
+                    draw.line((40, 40, 55, 55), fill="white", width=4)
+                    draw.line((55, 55, 85, 25), fill="white", width=4)
+                else:
+                    draw.line((40, 40, 55, 55), fill="white", width=4)
+                    draw.line((55, 55, 85, 25), fill="white", width=4)
+                    draw.ellipse((80, 20, 90, 30), outline="white", fill="white")
+            time.sleep(0.25)
 
 def run_voting_interface(voter_name):
     show_msg(f"Hi {voter_name}", "Select Candidate:", "A (Btn1) | B (Btn2)")
@@ -575,8 +764,13 @@ def run_voting_interface(voter_name):
     beep(count=1)
     
     selected_candidate = None
+        start_time = time.time()
     
     while True:
+            if time.time() - start_time > 60:
+                show_msg("Session timed out", "Returning to idle", "")
+                time.sleep(2)
+                return "RESET"
         # Check for reset button
         if GPIO.input(PIN_BTN_START) == GPIO.LOW:
             time.sleep(0.2)
@@ -587,10 +781,12 @@ def run_voting_interface(voter_name):
         if GPIO.input(PIN_BTN_A) == GPIO.LOW:
             new_selection = 1
             beep(count=1, duration=0.05)
+                start_time = time.time()  # Reset the timer on input
             time.sleep(0.3)
         elif GPIO.input(PIN_BTN_B) == GPIO.LOW:
             new_selection = 2
             beep(count=1, duration=0.05)
+                start_time = time.time()  # Reset the timer on input
             time.sleep(0.3)
         else:
             new_selection = None
@@ -686,7 +882,7 @@ if __name__ == '__main__':
                 if voter:
                     # 4. VERIFY FINGERPRINT
                     show_msg("Verifying...", "Scan Finger", "Or Press START")
-                    set_leds(green=False, red=True) 
+                    set_leds(green=True, red=False)
                     
                     print(f"Expecting Finger ID #{voter['fingerprint_id']}")
                     scanned_id = scan_finger_and_get_id()
