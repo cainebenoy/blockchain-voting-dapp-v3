@@ -113,13 +113,11 @@ def set_leds(green=False, red=False):
     GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
     GPIO.output(PIN_LED_RED, GPIO.HIGH if red else GPIO.LOW)
 
-# Run hardware health check, then reset to idle
-hardware_health_check(device)
+# On boot, show idle message and set LEDs to idle
 if device:
     from luma.core.render import canvas
     with canvas(device) as draw:
         draw.rectangle(device.bounding_box, outline="white", fill="black")
-    # Show idle message
     try:
         from PIL import ImageFont
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
