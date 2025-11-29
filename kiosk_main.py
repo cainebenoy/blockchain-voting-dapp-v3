@@ -108,6 +108,16 @@ try:
 except:
     device = None
 
+# --- GPIO & OLED SETUP (MOVED UP) ---
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(PIN_LED_GREEN, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(PIN_LED_RED, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(PIN_BUZZER, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(PIN_BTN_START, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(PIN_BTN_A, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(PIN_BTN_B, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
 # --- HELPER FUNCTIONS ---
 def set_leds(green=False, red=False):
     GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
