@@ -1,3 +1,7 @@
+/* Utility for turnout bar width, JS will update width dynamically */
+.turnout-bar-width {
+  width: 0%;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
