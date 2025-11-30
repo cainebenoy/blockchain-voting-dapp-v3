@@ -137,7 +137,20 @@ const wallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
 const abiPath = path.join(__dirname, 'VotingV2.json');
 const contractJson = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 const ABI = contractJson.abi;
-const contract = new ethers.Contract(process.env.VOTING_CONTRACT_ADDRESS, ABI, wallet);
+let contract = new ethers.Contract(process.env.VOTING_CONTRACT_ADDRESS, ABI, wallet);
+
+// Helper: check whether a contract has code at the given address
+async function isContractDeployed(address) {
+    if (!address || typeof address !== 'string') return false;
+    try {
+        const code = await provider.getCode(address);
+        // provider.getCode() returns '0x' if no code is present
+        return !!code && code !== '0x' && code !== '0x0' && code !== '0x00';
+    } catch (e) {
+        console.warn('[CHECK] getCode failed for', address, e && e.message ? e.message : e);
+        return false;
+    }
+}
 
 // --- 3. SERVER STATE (Remote Enrollment System) ---
 // This acts as temporary memory to coordinate between Admin Dashboard and Kiosk
@@ -284,6 +297,13 @@ app.get('/api/active-contract', (req, res) => {
 // Live results endpoint (proxy blockchain data)
 app.get('/api/results', async (req, res) => {
     try {
+        const addr = contract.target || contract.address || process.env.VOTING_CONTRACT_ADDRESS;
+        const deployed = await isContractDeployed(addr);
+        if (!deployed) {
+            console.warn('[RESULTS] Contract not deployed at', addr);
+            return res.status(503).json({ status: 'error', message: 'Election contract not deployed at configured address.' });
+        }
+
         const active = await contract.electionActive();
         const vCount = await contract.totalVotes();
         const cCount = await contract.totalCandidates();
@@ -377,6 +397,14 @@ app.post('/api/vote', voteLimiter, async (req, res) => {
 
         // 2. Submit to Blockchain (This might take a few seconds)
         console.log("Submitting to blockchain...");
+        // Verify contract is deployed before attempting to call
+        const addr = contract.target || contract.address || process.env.VOTING_CONTRACT_ADDRESS;
+        const deployed = await isContractDeployed(addr);
+        if (!deployed) {
+            console.warn('[VOTE] Attempt to vote but contract not deployed at', addr);
+            return res.status(503).json({ status: 'error', message: 'Election contract not available yet. Please try again later.' });
+        }
+
         // VotingV2 expects candidate ID and voterId (aadhaar)
         const tx = await contract.vote(cidNum, aadhaar_id);
         console.log("Transaction sent:", tx.hash);
@@ -503,6 +531,14 @@ app.post('/api/admin/deploy-contract', async (req, res) => {
         
         // 4. Update runtime environment variable
         process.env.VOTING_CONTRACT_ADDRESS = contractAddress;
+
+        // 4b. Update in-memory contract instance so runtime uses the new address
+        try {
+            contract = new ethers.Contract(contractAddress, ABI, wallet);
+            console.log('[ADMIN] ✅ Runtime contract instance updated to new address');
+        } catch (e) {
+            console.warn('[ADMIN] ⚠️ Failed to update runtime contract instance:', e && e.message ? e.message : e);
+        }
         
         // 5. Auto-authorize server wallet as official signer on the new contract
         console.log('[ADMIN] Authorizing server wallet as official signer...');
@@ -515,18 +551,33 @@ app.post('/api/admin/deploy-contract', async (req, res) => {
             console.log('[ADMIN] Official signer unchanged:', authz.reason);
         }
         
-        // 6. Schedule automatic backend restart (async, after response sent)
-        setTimeout(() => {
-            console.log('[ADMIN] 🔄 Restarting backend service to load new contract...');
-            exec('sudo systemctl restart votechain-backend.service', (error, stdout, stderr) => {
-                if (error) {
-                    console.error('[ADMIN] ⚠️ Auto-restart failed:', error.message);
-                    console.error('[ADMIN] Please manually run: sudo systemctl restart votechain-backend.service');
+                // 6. Schedule automatic backend restart (async, after response sent)
+                if (process.env.AUTO_RESTART === 'true') {
+                    setTimeout(() => {
+                        console.log('[ADMIN] 🔄 Restarting backend service to load new contract...');
+
+                        // Try a list of candidate service names to be robust across deployments
+                        const candidates = ['votechain', 'votechain.service', 'votechain-backend.service'];
+                        (function tryNext(i) {
+                            if (i >= candidates.length) {
+                                console.error('[ADMIN] ⚠️ Auto-restart failed for all known service names. Please restart manually.');
+                                return;
+                            }
+                            const svc = candidates[i];
+                            exec(`sudo systemctl is-active --quiet ${svc} && sudo systemctl restart ${svc}`, (error, stdout, stderr) => {
+                                if (error) {
+                                    console.warn(`[ADMIN] Service '${svc}' not active or restart failed, trying next...`);
+                                    tryNext(i + 1);
+                                } else {
+                                    console.log(`[ADMIN] ✅ Backend service '${svc}' restarted successfully`);
+                                }
+                            });
+                        })(0);
+
+                    }, 2000); // 2 second delay allows response to be sent first
                 } else {
-                    console.log('[ADMIN] ✅ Backend service restart initiated');
+                    console.log('[ADMIN] AUTO_RESTART disabled; skipping systemd restart. Backend will use updated runtime instance.');
                 }
-            });
-        }, 2000); // 2 second delay allows response to be sent first
         
         res.json({
             status: 'success',

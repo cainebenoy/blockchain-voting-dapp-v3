@@ -75,23 +75,45 @@ echo ""
 echo "🔄 Restarting backend to load new contract..."
 
 # Check if running as systemd service
-if systemctl is-active --quiet votechain; then
-    echo "   Using systemd service..."
-    sudo systemctl restart votechain
-    sleep 3
-    
+AUTO_RESTART=$(grep -E '^AUTO_RESTART' backend/.env 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+
+if [ "$AUTO_RESTART" = "true" ]; then
     if systemctl is-active --quiet votechain; then
-        echo "✅ Backend restarted successfully"
+        echo "   Using systemd service (AUTO_RESTART=true)..."
+        sudo systemctl restart votechain
+        sleep 3
+
+        if systemctl is-active --quiet votechain; then
+            echo "✅ Backend restarted successfully"
+        else
+            echo "❌ Backend failed to restart!"
+            echo "   Check logs: sudo journalctl -u votechain -n 50"
+            exit 1
+        fi
     else
-        echo "❌ Backend failed to restart!"
-        echo "   Check logs: sudo journalctl -u votechain -n 50"
-        exit 1
+        echo "⚠️  Backend not running as systemd service"
+        echo "   Please restart manually:" 
+        echo "   1. Stop current backend process"
+        echo "   2. Run: cd backend && node server.js"
     fi
 else
-    echo "⚠️  Backend not running as systemd service"
-    echo "   Please restart manually:"
-    echo "   1. Stop current backend process"
-    echo "   2. Run: cd backend && node server.js"
+    echo "AUTO_RESTART not enabled; will not restart systemd. Polling backend /api/active-contract for new address..."
+    # Poll the backend for the active contract (timeout 60s)
+    TIMEOUT=60
+    INTERVAL=2
+    ELAPSED=0
+    while [ $ELAPSED -lt $TIMEOUT ]; do
+        NEW_ACTIVE=$(curl -s http://localhost:3000/api/active-contract | python3 -c 'import sys,json;print(json.load(sys.stdin).get("contractAddress",""))' 2>/dev/null)
+        if [ "$NEW_ACTIVE" = "$NEW_ADDR" ]; then
+            echo "✅ Backend now reports the new contract address as active"
+            break
+        fi
+        sleep $INTERVAL
+        ELAPSED=$((ELAPSED + INTERVAL))
+    done
+    if [ $ELAPSED -ge $TIMEOUT ]; then
+        echo "⚠️ Backend did not report the new address within ${TIMEOUT}s. You may need to restart the backend manually or enable AUTO_RESTART=true in backend/.env"
+    fi
 fi
 
 echo ""

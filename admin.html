@@ -37,6 +37,7 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
     </style>
 </head>
 <body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 transition-colors duration-300 min-h-screen flex flex-col">
@@ -236,6 +237,8 @@
                         </div>
                         <span id="statusBadge" class="px-3 py-1 rounded-full bg-slate-200 text-slate-600 text-xs font-bold">Connecting...</span>
                     </div>
+
+                    
 
                     <div class="grid grid-cols-2 gap-4">
                         <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
@@ -747,21 +750,45 @@
                 if(data.status === 'success') {
                     const newAddr = data.data.contractAddress;
                     const votersReset = data.data.votersReset;
-                    
+
                     showToast(`✅ Contract deployed: ${newAddr.substring(0,10)}...`, 'success');
                     if(votersReset) {
                         showToast('✅ Voter database reset successfully', 'success');
                     }
-                    
-                    // Update the contract address in memory
+
+                    // Update the contract address in memory and display
                     contractAddress = newAddr;
                     updateAddressDisplay();
-                    
-                    showToast('✅ Contract updated. Reconnect wallet to use new contract.', 'success');
-                    
+
+                    // Refresh backend config and dashboard data
+                    try {
+                        await loadActiveContract();
+                    } catch (e) {
+                        console.warn('Failed to reload backend config:', e);
+                    }
+
+                    // If admin wallet is connected, reinitialize the contract instance
+                    try {
+                        if (signer) {
+                            contract = new ethers.Contract(contractAddress, contractABI, signer);
+                            // Test call to ensure the new contract responds
+                            await contract.electionActive();
+                        }
+                    } catch (e) {
+                        console.warn('Reinit contract with signer failed:', e);
+                        showToast('Contract deployed but your wallet may need to reconnect.', 'info');
+                    }
+
+                    // Refresh on-page data from contract
+                    try { await refreshData(); } catch (e) { console.warn('refreshData failed:', e); }
+
+                    showToast('✅ Contract updated and dashboard refreshed', 'success');
+
                     // Reset button
                     btn.disabled = false;
                     btn.innerHTML = '<span class="material-symbols-rounded">add_circle</span> Deploy New Election';
+                    
+                    
                 } else {
                     showToast(data.message || 'Deployment failed', 'error');
                     btn.disabled = false;
@@ -798,6 +825,8 @@
         function updateAddressDisplay() {
             document.getElementById("shortAddress").innerText = contractAddress.substring(0,6) + "..." + contractAddress.substring(38);
         }
+
+        
     </script>
 </body>
 </html>
