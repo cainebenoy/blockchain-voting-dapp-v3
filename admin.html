@@ -163,6 +163,7 @@
                         <input type="text" id="voterConst" placeholder="e.g., Mumbai South" 
                                class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all">
                     </div>
+
                     
                     <button onclick="addVoterToDB()" id="btnAddVoter" 
                             class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all active:scale-95 flex justify-center items-center gap-2 mt-2">
@@ -657,20 +658,18 @@
 
             if(!aadhaar || !name) return showToast("Fill required fields", 'error');
 
-            // 1. Send Trigger to Backend
             showToast("🔵 Activating Kiosk Scanner... Please wait.", 'info');
-            
-            // Disable button to prevent double-clicks
             const btn = document.getElementById("btnAddVoter");
             const originalHTML = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = `<span class="material-symbols-rounded animate-spin">sync</span> Waiting for Kiosk Scan...`;
 
             try {
-                const res = await fetch(`${BACKEND_URL}/api/admin/initiate-enrollment`, {
+                const payload = { aadhaar_id: aadhaar, name, constituency };
+                const res = await fetch(`${BACKEND_URL}/api/admin/add-voter`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ aadhaar_id: aadhaar, name, constituency })
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
 
@@ -683,43 +682,32 @@
                 showToast(`⏳ Target ID #${data.target_id} - Waiting for fingerprint scan...`, 'info');
 
                 // 2. Poll for Completion
-                // We check the status every 1 second to see if the Kiosk has finished scanning.
                 const pollInterval = setInterval(async () => {
                     try {
                         const statusRes = await fetch(`${BACKEND_URL}/api/admin/enrollment-status`);
                         const statusData = await statusRes.json();
-                        
                         if(statusData.status === 'COMPLETED') {
                             clearInterval(pollInterval);
                             showToast("✅ Voter Enrolled & Saved Successfully!", 'success');
-                            
-                            // Clear form
                             document.getElementById("voterAadhaar").value = "";
                             document.getElementById("voterName").value = "";
                             document.getElementById("voterConst").value = "";
                             resetBtn();
-                            
                         } else if (statusData.status === 'FAILED') {
                             clearInterval(pollInterval);
                             const errorMsg = statusData.error_message || "Enrollment failed at Kiosk";
                             showToast(`❌ ${errorMsg}. Try again.`, 'error');
                             resetBtn();
-                            
                         } else if (statusData.status === 'IDLE' && !statusData.aadhaar_id) {
-                            // Timeout occurred - should not happen if we just started, but safety check
                             clearInterval(pollInterval);
                             showToast("⏱️ Request timed out. Please try again.", 'error');
                             resetBtn();
                         }
-                        // If status is 'WAITING_FOR_KIOSK', we just keep polling...
-                        
                     } catch(e) {
                         console.error("Polling error:", e);
-                        // Don't clear interval on transient network errors, keep trying
                     }
-                }, 1000); // Poll every 1 second
+                }, 1000);
 
-                // Set a maximum timeout of 60 seconds
                 setTimeout(() => {
                     clearInterval(pollInterval);
                     if(btn.disabled) {

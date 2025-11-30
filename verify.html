@@ -117,13 +117,16 @@
             btn.innerHTML = `<span class="animate-spin material-symbols-rounded">sync</span> Verifying...`;
             btn.disabled = true;
             let hash = input;
+            // Backend base URL (use backend port)
+            const BACKEND_URL = 'http://127.0.0.1:3000';
+
             // If input is a short code (e.g., ABC-123), resolve to tx hash
             if (/^[A-Z2-9]{3}-[A-Z2-9]{3}$/i.test(input)) {
                 try {
-                    const resp = await fetch('/api/verify-code', {
+                    const resp = await fetch(BACKEND_URL + '/api/verify-code', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code: input })
+                        body: JSON.stringify({ code: input.toUpperCase() })
                     });
                     const data = await resp.json();
                     if (data.status === 'success' && data.tx_hash && data.tx_hash.startsWith('0x')) {
@@ -149,7 +152,7 @@
             }
             try {
                 // Fetch transaction details from backend
-                const resp = await fetch('/api/verify-transaction', {
+                const resp = await fetch(BACKEND_URL + '/api/verify-transaction', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tx_hash: hash })

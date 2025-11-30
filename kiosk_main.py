@@ -806,17 +806,51 @@ def submit_vote(aadhaar_id, candidate_id):
         if response.status_code == 200:
             data = response.json().get('data', {})
             tx_hash = data.get('transaction_hash')
-            short_code = data.get('short_code')
-            # Show confirmed screen and animation
-            show_msg("Vote Confirmed!", "Success", "", big_text=True)
+            # backend may return 'receipt_code' or 'short_code' depending on implementation
+            short_code = data.get('receipt_code') or data.get('short_code')
+
+            # Show confirmed screen and animation (we wait for code before final receipt)
+            show_msg("Vote Confirmed!", "Finalizing...", "", big_text=True)
             tick_animation()
             set_leds(green=True, red=False)
             print(f"TX: {tx_hash}")
             beep_success()
-            # Show vote receipt with short code
-            receipt_code = short_code if short_code else "------"
-            cand_name = "CANDIDATE A" if candidate_id == 1 else "CANDIDATE B"
-            show_msg("Vote Receipt:", f"Code: {receipt_code}", f"{cand_name}")
+
+            # If backend already returned a short code, display immediately
+            if short_code:
+                receipt_code = short_code
+            else:
+                # Poll backend lookup endpoint for receipt code (gives backend time to insert)
+                receipt_code = None
+                poll_start = time.time()
+                poll_timeout = 60  # seconds
+                poll_interval = 1.0
+                show_msg("Finalizing...", "Waiting for receipt code", "")
+                while time.time() - poll_start < poll_timeout:
+                    try:
+                        r = requests.post(f"{BACKEND_URL}/api/lookup-receipt", json={"tx_hash": tx_hash}, timeout=5)
+                        if r.status_code == 200:
+                            j = r.json()
+                            receipt_code = j.get('code')
+                            if receipt_code:
+                                break
+                    except Exception:
+                        pass
+                    time.sleep(poll_interval)
+
+            # If we still don't have a receipt code, fall back to placeholder and instruct manual verify
+            if not receipt_code:
+                receipt_display = "------"
+                # Show fallback screen with tx hash for manual verification
+                cand_name = "CANDIDATE A" if candidate_id == 1 else "CANDIDATE B"
+                show_msg("Vote Receipt:", f"Code: {receipt_display}", f"{cand_name}")
+                # Also show instruction to verify via tx hash
+                show_msg("Verify Manually:", tx_hash[:12] + "...", "Use verify.html")
+            else:
+                receipt_display = receipt_code
+                cand_name = "CANDIDATE A" if candidate_id == 1 else "CANDIDATE B"
+                show_msg("Vote Receipt:", f"Code: {receipt_display}", f"{cand_name}")
+
             # Wait for admin/start button to be pressed before continuing
             while GPIO.input(PIN_BTN_START) != GPIO.LOW:
                 time.sleep(0.1)

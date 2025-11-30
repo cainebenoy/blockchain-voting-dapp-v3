@@ -1,29 +1,8 @@
-// Verify transaction details for frontend (used by verify.html)
-app.post('/api/verify-transaction', async (req, res) => {
-    const { tx_hash } = req.body;
-    if (!tx_hash || typeof tx_hash !== 'string' || !tx_hash.startsWith('0x') || tx_hash.length !== 66) {
-        return res.status(400).json({ status: 'error', message: 'Invalid transaction hash.' });
-    }
-    try {
-        // Use ethers.js to fetch transaction and receipt
-        const tx = await provider.getTransaction(tx_hash);
-        const receipt = await provider.getTransactionReceipt(tx_hash);
-        if (tx && receipt && receipt.status === 1) {
-            res.json({
-                status: 'success',
-                tx: {
-                    blockNumber: receipt.blockNumber,
-                    from: tx.from,
-                    to: tx.to,
-                }
-            });
-        } else {
-            res.status(404).json({ status: 'error', message: 'Transaction not found or not confirmed.' });
-        }
-    } catch (e) {
-        res.status(500).json({ status: 'error', message: 'Failed to fetch transaction.' });
-    }
-});
+// Diagnostic test endpoint to check route registration
+// Diagnostic test endpoint to check route registration
+// ...existing imports and app initialization...
+
+// (Moved) Verify transaction details endpoint is defined after app initialization.
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
@@ -66,6 +45,24 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
+
+// Register /api/verify-code as the first API endpoint
+app.post('/api/verify-code', async (req, res) => {
+    const code = (req.body && req.body.code ? String(req.body.code).toUpperCase() : '');
+    try {
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('tx_hash')
+            .eq('code', code)
+            .single();
+        if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
+        res.json({ status: 'success', tx_hash: data.tx_hash });
+    } catch (e) {
+        res.status(500).json({ status: 'error' });
+    }
+});
+
+
 // Request ID + basic structured logging
 app.use((req, res, next) => {
     const id = crypto.randomUUID();
@@ -87,7 +84,12 @@ app.use((req, res, next) => {
 });
 
 // --- 0. FRONTEND SERVING (Public Results Dashboard) ---
-// Serve the public results dashboard and landing page from the project root
+// --- API ENDPOINTS ---
+// (All API routes are defined below)
+
+// ...existing API endpoints...
+
+// --- 0. FRONTEND SERVING (Public Results Dashboard) ---
 const frontendPath = path.join(__dirname, '..');
 app.use(express.static(frontendPath));
 
@@ -194,6 +196,90 @@ app.get('/api/config', (req, res) => {
         rpcUrl: process.env.SEPOLIA_RPC_URL,
         network: 'sepolia'
     });
+});
+
+// Simple test POST endpoint to confirm POST routing works
+
+// Verify transaction details for frontend (used by verify.html)
+app.post('/api/verify-transaction', async (req, res) => {
+    const { tx_hash } = req.body;
+    if (!tx_hash || typeof tx_hash !== 'string' || !tx_hash.startsWith('0x') || tx_hash.length !== 66) {
+        return res.status(400).json({ status: 'error', message: 'Invalid transaction hash.' });
+    }
+    try {
+        // Use ethers.js to fetch transaction and receipt
+        const tx = await provider.getTransaction(tx_hash);
+        const receipt = await provider.getTransactionReceipt(tx_hash);
+        if (tx && receipt && receipt.status === 1) {
+            res.json({
+                status: 'success',
+                tx: {
+                    blockNumber: receipt.blockNumber,
+                    from: tx.from,
+                    to: tx.to,
+                }
+            });
+        } else {
+            res.status(404).json({ status: 'error', message: 'Transaction not found or not confirmed.' });
+        }
+    } catch (e) {
+        console.error('Verify transaction error:', e);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch transaction.' });
+    }
+});
+
+// Lookup receipt code by transaction hash (used by kiosk to wait for short code)
+app.post('/api/lookup-receipt', async (req, res) => {
+    const tx_hash = req.body && req.body.tx_hash ? String(req.body.tx_hash) : '';
+    if (!tx_hash || !tx_hash.startsWith('0x') || tx_hash.length !== 66) {
+        return res.status(400).json({ status: 'error', message: 'Invalid transaction hash.' });
+    }
+    try {
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('code')
+            .eq('tx_hash', tx_hash)
+            .single();
+        if (error || !data) return res.status(404).json({ status: 'error', message: 'Receipt not found.' });
+        res.json({ status: 'success', code: data.code });
+    } catch (e) {
+        console.error('Lookup receipt error:', e);
+        res.status(500).json({ status: 'error', message: 'Lookup failed.' });
+    }
+});
+
+// Top-level /api/verify-code endpoint
+app.post('/api/verify-code', async (req, res) => {
+    const code = (req.body && req.body.code ? String(req.body.code).toUpperCase() : '');
+    try {
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('tx_hash')
+            .eq('code', code)
+            .single();
+        if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
+        res.json({ status: 'success', tx_hash: data.tx_hash });
+    } catch (e) {
+        res.status(500).json({ status: 'error' });
+    }
+});
+
+// Top-level /api/verify-code endpoint
+
+// Top-level /api/verify-code endpoint
+app.post('/api/verify-code', async (req, res) => {
+    const code = (req.body && req.body.code ? String(req.body.code).toUpperCase() : '');
+    try {
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('tx_hash')
+            .eq('code', code)
+            .single();
+        if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
+        res.json({ status: 'success', tx_hash: data.tx_hash });
+    } catch (e) {
+        res.status(500).json({ status: 'error' });
+    }
 });
 
 // Get current active contract (returns runtime contract, useful after deployments)
@@ -339,7 +425,6 @@ app.post('/api/vote', voteLimiter, async (req, res) => {
         if (dbError) {
             console.error("Database update failed AFTER blockchain success. Manual sync needed for:", aadhaar_id);
         }
-
         // Write audit log (hash Aadhaar ID for privacy)
         try {
             const aadhaarHash = crypto.createHash('sha256').update(aadhaar_id).digest('hex');
@@ -357,10 +442,26 @@ app.post('/api/vote', voteLimiter, async (req, res) => {
             // Audit logging failed, but vote succeeded
         }
 
+        // 4. Generate a short receipt code and save mapping to tx_hash in Supabase
+        let shortCode = null;
+        try {
+            shortCode = generateShortCode();
+            const { error: receiptError } = await supabase
+                .from('receipts')
+                .insert([{ code: shortCode, tx_hash: tx.hash }]);
+            if (receiptError) {
+                console.error('Failed to save receipt code to DB:', receiptError);
+                shortCode = null; // don't return invalid code
+            }
+        } catch (e) {
+            console.error('Receipt save error:', e);
+            shortCode = null;
+        }
+
         res.json({
             status: 'success',
             message: 'Vote officially recorded on-chain.',
-            data: { transaction_hash: tx.hash }
+            data: { transaction_hash: tx.hash, receipt_code: shortCode }
         });
 
     } catch (err) {
@@ -387,6 +488,7 @@ app.post('/api/admin/deploy-contract', async (req, res) => {
         const contractAddress = await newContract.getAddress();
         console.log(`[ADMIN] ✅ New contract deployed at: ${contractAddress}`);
         
+// Removed verify transaction details endpoint
         // 2. Reset voter database for new election (keep fingerprints)
         console.log('[ADMIN] Resetting voter voting status...');
         const { error: resetError } = await supabase
@@ -481,83 +583,17 @@ app.post('/api/admin/add-voter', async (req, res) => {
     console.log(`[ADMIN] Registering voter: ${name} (${aadhaar_id})`);
 
     try {
-        try {
-            console.log(`[VOTE] Processing vote for ${aadhaar_id}...`);
+        // Only queue the enrollment command for the kiosk, do not process vote or require candidate_id
+        // Find last fingerprint_id for next assignment
+        const { data: lastVoter } = await supabase
+            .from('voters')
+            .select('fingerprint_id')
+            .order('fingerprint_id', { ascending: false })
+            .limit(1)
+            .single();
 
-            // 1. Double-check eligibility
-            const { data: voter } = await supabase
-                .from('voters')
-                .select('has_voted')
-                .eq('aadhaar_id', aadhaar_id)
-                .single();
-            if (voter?.has_voted) {
-                return res.status(403).json({ status: 'error', message: 'Double voting detected!', data: null });
-            }
-
-            // 2. Submit to Blockchain
-            console.log("Submitting to blockchain...");
-            const tx = await contract.vote(cidNum, aadhaar_id);
-            console.log("Transaction sent:", tx.hash);
-            await tx.wait(1);
-            console.log("Transaction confirmed on-chain.");
-
-            // 3. Mark Voter as Voted
-            await supabase.from('voters').update({ has_voted: true }).eq('aadhaar_id', aadhaar_id);
-
-            // 4. Generate & Save Receipt Code
-            const shortCode = generateShortCode();
-            const { error: receiptError } = await supabase
-                .from('receipts')
-                .insert([{ code: shortCode, tx_hash: tx.hash }]);
-            if (receiptError) console.error("Receipt Error:", receiptError);
-
-            // 5. Write audit log (hash Aadhaar ID for privacy)
-            try {
-                const aadhaarHash = crypto.createHash('sha256').update(aadhaar_id).digest('hex');
-                const auditEntry = {
-                    ts: new Date().toISOString(),
-                    reqId: req.id,
-                    aadhaarHash,
-                    candidateId: cidNum,
-                    txHash: tx.hash,
-                };
-                fs.appendFile(path.join(__dirname, 'logs', 'vote-audit.log'), JSON.stringify(auditEntry) + '\n', () => {
-                    // Audit log written
-                });
-            } catch {
-                // Audit logging failed, but vote succeeded
-            }
-
-            // 6. Return Code to Kiosk
-            res.json({
-                status: 'success',
-                message: 'Vote officially recorded on-chain.',
-                transaction_hash: tx.hash,
-                receipt_code: shortCode
-            });
-
-        } catch (err) {
-            console.error("Voting Error:", err);
-            const errorMessage = err.reason || err.message || "Blockchain transaction failed.";
-            res.status(500).json({ status: 'error', message: errorMessage, data: null });
-        }
         const nextId = (lastVoter?.fingerprint_id || 0) + 1;
-        // --- NEW: LOOKUP RECEIPT ---
-        app.post('/api/verify-code', async (req, res) => {
-            const { code } = req.body;
-            try {
-                const { data, error } = await supabase
-                    .from('receipts')
-                    .select('tx_hash')
-                    .eq('code', code)
-                    .single();
-                if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
-                res.json({ status: 'success', tx_hash: data.tx_hash });
-            } catch (e) {
-                res.status(500).json({ status: 'error' });
-            }
-        });
-        
+
         // Queue the enrollment command in server memory
         pendingEnrollment = {
             status: 'WAITING_FOR_KIOSK',
@@ -567,7 +603,7 @@ app.post('/api/admin/add-voter', async (req, res) => {
             target_finger_id: nextId,
             timestamp: Date.now()
         };
-        
+
         console.log(`[REMOTE ENROLL] Command queued for ${name} -> Target ID #${nextId}`);
         res.json({ 
             status: 'success', 
@@ -576,8 +612,8 @@ app.post('/api/admin/add-voter', async (req, res) => {
         });
 
     } catch (err) {
-        console.error('[REMOTE ENROLL] Init Error:', err);
-        res.status(500).json({ status: 'error', message: err.message });
+        console.error('[REMOTE ENROLL] Init Error:', err && err.stack ? err.stack : err);
+        res.status(500).json({ status: 'error', message: err && err.message ? err.message : String(err), data: null });
     }
 });
 
