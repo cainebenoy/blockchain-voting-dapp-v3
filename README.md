@@ -187,10 +187,6 @@ WantedBy=multi-user.target
 
 - 2025-11-30 — Added short-code receipt system, `/api/verify-code`, `/api/lookup-receipt`, kiosk polling improvements, and verify UI updates.
 
-## License
-
-MIT
-
 ## Contact
 
 Open an issue on GitHub or contact the project owner for questions or deployment guidance.
