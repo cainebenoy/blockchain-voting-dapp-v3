@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="light">
 <head>
@@ -33,6 +34,7 @@
         .delay-100 { animation-delay: 0.1s; }
         .delay-200 { animation-delay: 0.2s; }
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+        
         .glass-card {
             background: rgba(255, 255, 255, 0.7);
             -webkit-backdrop-filter: blur(10px);
@@ -41,6 +43,8 @@
         }
         .dark .glass-card {
             background: rgba(15, 23, 42, 0.7);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
     </style>
@@ -48,555 +52,201 @@
 <body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 transition-colors duration-300 min-h-screen flex flex-col">
 
     <!-- NAVBAR -->
-    <nav class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800">
+    <nav class="fixed w-full z-50 transition-all duration-300" id="navbar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+            <div class="flex justify-between h-20 items-center">
+                <!-- Logo -->
+                <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-600/20">
                         <span class="material-symbols-rounded text-2xl">how_to_vote</span>
                     </div>
-                    <div>
-                        <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">VoteChain</h1>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Public Ledger Interface</p>
-                    </div>
+                    <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">VoteChain</span>
                 </div>
+
+                <!-- Actions -->
                 <div class="flex items-center gap-4">
-                    <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-800">
-                        <span class="live-indicator"></span> Live Data: Sepolia
-                    </div>
-                    <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
-                        <span id="theme-icon" class="material-symbols-rounded text-xl">light_mode</span>
+                    <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                        <span id="theme-icon" class="material-symbols-rounded text-xl">dark_mode</span>
                     </button>
+                    <a href="admin.html" class="hidden md:flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-white transition-colors">
+                        <span class="material-symbols-rounded text-lg">lock</span> Admin Login
+                    </a>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-        
-        <!-- HEADER STATS -->
-        <div class="text-center mb-12">
-            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Official Election Results</h2>
-            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-                Real-time data directly from the Ethereum Blockchain. Verified, immutable, and transparent.
-            </p>
+    <!-- HERO SECTION -->
+    <section class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+        <!-- Background Blobs -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full z-0 pointer-events-none">
+            <div class="absolute top-20 left-10 w-72 h-72 bg-brand-500/20 rounded-full blur-[100px]"></div>
+            <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-[100px]"></div>
         </div>
 
-        <!-- SUMMARY CARDS -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <!-- Status Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
-                    <span class="material-symbols-rounded text-3xl">pending_actions</span>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Election Status</p>
-                    <h3 id="electionStatus" class="text-xl font-bold text-slate-900 dark:text-white">Connecting...</h3>
-                </div>
-            </div>
-
-            <!-- Votes Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
-                    <span class="material-symbols-rounded text-3xl">ballot</span>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Votes Cast</p>
-                    <h3 id="totalVotes" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
-                </div>
-            </div>
-
-            <!-- Candidates Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
-                <div class="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
-                    <span class="material-symbols-rounded text-3xl">groups</span>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Candidates</p>
-                    <h3 id="totalCandidates" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
-                </div>
-            </div>
-        </div>
-
-        <!-- WINNER BANNER (Hidden until election ends) -->
-        <div id="winner-display" class="hidden mb-12 fade-in">
-            <div class="bg-gradient-to-r from-brand-600 to-indigo-800 rounded-2xl p-8 md:p-10 text-white shadow-2xl relative overflow-hidden">
-                <div class="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
-                    <span class="material-symbols-rounded text-[150px]">emoji_events</span>
-                </div>
-                <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div>
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Official Winner</span>
-                            <span class="text-brand-200 text-xs">Election Ended</span>
-                        </div>
-                        <h2 id="winnerName" class="text-4xl md:text-5xl font-extrabold mb-2">--</h2>
-                        <p class="text-brand-100 text-lg">Victory with <span id="winnerVotes" class="font-bold text-white">--</span> confirmed votes.</p>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-center min-w-[120px]">
-                        <span class="material-symbols-rounded text-4xl text-yellow-400 mb-1">trophy</span>
-                        <p class="text-xs font-medium text-brand-100">Verified</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- LIVE TALLY TABLE -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm mb-12">
-            <div class="px-6 py-5 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Candidate Standings</h3>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs text-slate-400 flex items-center gap-1">
-                        <span class="material-symbols-rounded text-sm">sync</span> Auto-refreshing
-                    </span>
-                    <button onclick="exportResults()" class="flex items-center gap-1 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-brand-500/20">
-                        <span class="material-symbols-rounded text-sm">download</span> Export CSV
-                    </button>
-                </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300 text-xs font-bold uppercase tracking-wide mb-6 border border-brand-100 dark:border-brand-700/50 fade-in-up">
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                Live on Sepolia Testnet
             </div>
             
-            <div class="p-6">
-                <div id="resultsList" class="space-y-6">
-                    <!-- Results will be injected here -->
-                    <div class="animate-pulse space-y-4">
-                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4"></div>
-                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/2"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ANALYTICS SECTION -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
-            <!-- Vote Distribution Chart -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-rounded text-brand-600">pie_chart</span>
-                        Vote Distribution
-                    </h3>
-                </div>
-                <div class="p-6">
-                    <canvas id="voteDistributionChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Turnout & Stats -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-rounded text-brand-600">bar_chart</span>
-                        Voter Analytics
-                    </h3>
-                </div>
-                <div class="p-6 space-y-6">
-                    <!-- Turnout Percentage -->
-                    <div>
-                        <div class="flex justify-between items-end mb-2">
-                            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Voter Turnout</span>
-                            <span id="turnoutPercentage" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</span>
-                        </div>
-                        <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
-                            <div id="turnoutBar" class="bg-gradient-to-r from-green-600 to-green-500 h-3 rounded-full transition-all duration-1000 turnout-bar-width"></div>
-                        </div>
-                        <p id="turnoutText" class="text-xs text-slate-400 mt-1">-- votes from -- registered voters</p>
-                    </div>
-
-                    <!-- Participation Stats -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Registered Voters</p>
-                            <p id="registeredVoters" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
-                        </div>
-                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Votes/Candidate</p>
-                            <p id="avgVotes" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
-                        </div>
-                    </div>
-
-                    <!-- Winner Margin (if election ended) -->
-                    <div id="winnerMarginSection" class="hidden p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800">
-                        <p class="text-xs text-brand-700 dark:text-brand-400 mb-1 font-medium">Victory Margin</p>
-                        <p id="winnerMargin" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</p>
-                        <p class="text-xs text-brand-600/70 dark:text-brand-400/70 mt-1">votes ahead of 2nd place</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </main>
-
-    <footer class="border-t border-gray-200 dark:border-slate-800 mt-auto py-8 bg-white dark:bg-slate-900">
-        <div class="max-w-7xl mx-auto px-4 text-center">
-            <p class="text-slate-500 text-sm">
-                VoteChain System • Secured by Ethereum Sepolia • 
-                <a id="etherscan-link" href="#" target="_blank" rel="noopener" class="text-brand-600 hover:underline">View Contract</a>
+            <h1 class="text-5xl md:text-7xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-6 fade-in-up delay-100">
+                Democracy, <br class="hidden md:block" />
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600">Verified by Code.</span>
+            </h1>
+            
+            <p class="text-xl text-slate-500 dark:text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed fade-in-up delay-200">
+                A next-generation voting system combining the physical security of biometric kiosks with the absolute transparency of the Ethereum blockchain.
             </p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center fade-in-up delay-200">
+                <a href="results.html" class="group relative flex items-center gap-3 bg-brand-600 hover:bg-brand-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-brand-500/30 hover:shadow-brand-500/50 hover:-translate-y-1">
+                    <span>View Live Results</span>
+                    <span class="material-symbols-rounded group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                </a>
+                <a href="admin.html" class="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-white border border-slate-200 dark:border-slate-700 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all hover:-translate-y-1">
+                    <span class="material-symbols-rounded text-slate-400">admin_panel_settings</span>
+                    Admin Console
+                </a>
+                <a href="verify.html" class="flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-green-100 dark:hover:bg-green-800 transition-all hover:-translate-y-1">
+                    <span class="material-symbols-rounded text-green-400">verified</span>
+                    Verify Your Vote
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES GRID -->
+    <section class="py-20 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-brand-200 dark:hover:border-brand-700 transition-colors group">
+                    <div class="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-rounded">fingerprint</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Biometric Security</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Voters authenticate via fingerprint scan at a physical kiosk. No phone, wallet, or technical knowledge required.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-brand-200 dark:hover:border-brand-700 transition-colors group">
+                    <div class="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-rounded">deployed_code</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Blockchain Ledger</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Every vote is cryptographically signed and recorded on Ethereum Sepolia. Immutable, permanent, and unhackable.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-brand-200 dark:hover:border-brand-700 transition-colors group">
+                    <div class="w-14 h-14 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-rounded">public</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Public Audit</h3>
+                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Results are live-streamed to a public dashboard. Anyone can verify the election integrity in real-time.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="py-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-slate-900 dark:text-white">The VoteChain Architecture</h2>
+                <p class="text-slate-500 mt-4">A 4-Tier System bridging the physical and digital worlds.</p>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Step 1 -->
+                <div class="text-center">
+                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
+                        <span class="material-symbols-rounded text-4xl text-slate-400 mb-2">touch_app</span>
+                        <span class="text-xs font-bold text-slate-500 uppercase">Kiosk</span>
+                    </div>
+                    <h4 class="font-bold text-slate-900 dark:text-white">1. Voter Scans</h4>
+                </div>
+                
+                <!-- Step 2 -->
+                <div class="text-center">
+                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
+                        <span class="material-symbols-rounded text-4xl text-brand-500 mb-2">dns</span>
+                        <span class="text-xs font-bold text-brand-500 uppercase">Backend</span>
+                    </div>
+                    <h4 class="font-bold text-slate-900 dark:text-white">2. Identity Check</h4>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="text-center">
+                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
+                        <span class="material-symbols-rounded text-4xl text-purple-500 mb-2">key</span>
+                        <span class="text-xs font-bold text-purple-500 uppercase">Signer</span>
+                    </div>
+                    <h4 class="font-bold text-slate-900 dark:text-white">3. Vote Signed</h4>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="text-center">
+                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
+                        <span class="material-symbols-rounded text-4xl text-orange-500 mb-2">deployed_code</span>
+                        <span class="text-xs font-bold text-orange-500 uppercase">Blockchain</span>
+                    </div>
+                    <h4 class="font-bold text-slate-900 dark:text-white">4. Immutable Record</h4>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-12">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <div class="flex justify-center items-center gap-2 mb-4 text-slate-900 dark:text-white font-bold">
+                <span class="material-symbols-rounded">how_to_vote</span> VoteChain
+            </div>
+            <p class="text-slate-500 text-sm mb-8">
+                Final Year Project • 2025 • Sahrdaya College of Advanced Studies
+            </p>
+            <div class="flex justify-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-400">
+                <a href="results.html" class="hover:text-brand-600 transition-colors">Live Results</a>
+                <a href="admin.html" class="hover:text-brand-600 transition-colors">Admin Console</a>
+                <a href="#" class="hover:text-brand-600 transition-colors">GitHub Repo</a>
+            </div>
         </div>
     </footer>
 
-    <!-- ETHERS.JS v6 -->
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
-    <!-- Chart.js for analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
     <script>
-        // --- 1. CONFIGURATION ---
-        // Always use backend API (required for local system)
-        const API_BASE = 'http://localhost:3000';
-        
-        // Contract address will be fetched from backend
-        let CONTRACT_ADDRESS = null;
-        let CONFIG_LOADED = false;
-
-        // --- 2. STATE ---
-        let refreshInterval;
-        let voteChart = null;
-        let currentCandidates = [];
-        let currentMetrics = {};
-
-        // --- THEME TOGGLE ---
+        // Simple Theme Logic
         function toggleTheme() {
-            const html = document.documentElement;
-            const isDark = html.classList.toggle('dark');
-            document.getElementById('theme-icon').innerText = isDark ? 'light_mode' : 'dark_mode';
-        }
-
-        // --- ANALYTICS & VISUALIZATION ---
-        function updateVoteChart(candidates) {
-            const ctx = document.getElementById('voteDistributionChart');
-            if (!ctx) return;
-
-            const labels = candidates.map(c => c.name);
-            const data = candidates.map(c => c.voteCount);
-            const colors = [
-                'rgba(79, 70, 229, 0.8)',   // brand
-                'rgba(99, 102, 241, 0.8)',   // indigo
-                'rgba(139, 92, 246, 0.8)',   // purple
-                'rgba(236, 72, 153, 0.8)',   // pink
-                'rgba(251, 146, 60, 0.8)',   // orange
-                'rgba(34, 197, 94, 0.8)',    // green
-            ];
-
-            if (voteChart) {
-                voteChart.data.labels = labels;
-                voteChart.data.datasets[0].data = data;
-                voteChart.update();
-            } else {
-                voteChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: data,
-                            backgroundColor: colors,
-                            borderWidth: 2,
-                            borderColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#475569',
-                                    padding: 15,
-                                    font: { size: 12 }
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const label = context.label || '';
-                                        const value = context.parsed || 0;
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-                                        return `${label}: ${value} votes (${percentage}%)`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        async function updateAnalytics(candidates, totalVotes) {
-            // Fetch metrics from backend
-            try {
-                const response = await fetch(`${API_BASE}/api/metrics`);
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    currentMetrics = result.data;
-                    const totalRegistered = currentMetrics.totalRegisteredVoters || 0;
-                    
-                    // Update turnout
-                    const turnoutPercent = totalRegistered > 0 ? Math.round((totalVotes / totalRegistered) * 100) : 0;
-                    document.getElementById('turnoutPercentage').textContent = turnoutPercent + '%';
-                    document.getElementById('turnoutBar').style.width = turnoutPercent + '%';
-                    document.getElementById('turnoutText').textContent = `${totalVotes} votes from ${totalRegistered} registered voters`;
-                    
-                    // Update registered voters
-                    document.getElementById('registeredVoters').textContent = totalRegistered;
-                }
-            } catch (e) {
-                console.error('Failed to fetch metrics:', e);
-            }
-
-            // Average votes per candidate
-            const avgVotes = candidates.length > 0 ? (totalVotes / candidates.length).toFixed(1) : '0';
-            document.getElementById('avgVotes').textContent = avgVotes;
-
-            // Winner margin (if election ended and multiple candidates)
-            const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
-            if (sorted.length >= 2 && sorted[0].voteCount > 0) {
-                const margin = sorted[0].voteCount - sorted[1].voteCount;
-                document.getElementById('winnerMargin').textContent = margin;
-                document.getElementById('winnerMarginSection').classList.remove('hidden');
-            } else {
-                document.getElementById('winnerMarginSection').classList.add('hidden');
-            }
-
-            // Update chart
-            updateVoteChart(candidates);
-        }
-
-        function exportResults() {
-            if (currentCandidates.length === 0) {
-                alert('No data to export yet!');
-                return;
-            }
-
-            // Sort by votes
-            const sorted = [...currentCandidates].sort((a, b) => b.voteCount - a.voteCount);
+            document.documentElement.classList.toggle('dark');
+            const icon = document.getElementById('theme-icon');
+            icon.innerText = document.documentElement.classList.contains('dark') ? 'light_mode' : 'dark_mode';
             
-            // Create CSV content
-            let csv = 'Rank,Candidate ID,Candidate Name,Votes,Percentage\n';
-            const totalVotes = sorted.reduce((sum, c) => sum + c.voteCount, 0);
-            
-            sorted.forEach((candidate, index) => {
-                const percentage = totalVotes > 0 ? ((candidate.voteCount / totalVotes) * 100).toFixed(2) : '0.00';
-                csv += `${index + 1},${candidate.id},"${candidate.name}",${candidate.voteCount},${percentage}%\n`;
-            });
-
-            // Add summary
-            csv += '\n--- Summary ---\n';
-            csv += `Total Votes,${totalVotes}\n`;
-            csv += `Total Candidates,${sorted.length}\n`;
-            csv += `Registered Voters,${currentMetrics.totalRegisteredVoters || 'N/A'}\n`;
-            csv += `Turnout,${currentMetrics.totalRegisteredVoters > 0 ? ((totalVotes / currentMetrics.totalRegisteredVoters) * 100).toFixed(2) : '0.00'}%\n`;
-            csv += `Contract Address,${CONTRACT_ADDRESS || 'N/A'}\n`;
-            csv += `Export Date,${new Date().toISOString()}\n`;
-
-            // Download file
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `votechain-results-${Date.now()}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-
-            console.log('✅ Results exported to CSV');
+            // Optional: Persist preference
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
         }
 
-        // --- 3. DATA FETCHING ---
-        async function loadConfig() {
-            try {
-                const configRes = await fetch(`${API_BASE}/api/active-contract`);
-                const config = await configRes.json();
-                
-                if (config.status === 'ok' && config.contractAddress) {
-                    CONTRACT_ADDRESS = config.contractAddress;
-                    CONFIG_LOADED = true;
-                    
-                    console.log(`📄 Contract: ${CONTRACT_ADDRESS}`);
-                    
-                    // Update Etherscan link
-                    const etherscanLink = document.getElementById('etherscan-link');
-                    etherscanLink.href = `https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`;
-                    
-                    return true;
-                } else {
-                    throw new Error('Invalid config response');
-                }
-            } catch (e) {
-                console.error('❌ Failed to load config:', e);
-                throw new Error('Cannot connect to backend server');
-            }
+        // Check preference on load
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.getElementById('theme-icon').innerText = 'light_mode';
         }
-
-        async function init() {
-            try {
-                console.log('🔗 Connecting to VoteChain backend...');
-                
-                // Load contract config first
-                await loadConfig();
-                
-                // Fetch initial data
-                await refreshData();
-                
-                // Auto-refresh every 5 seconds
-                refreshInterval = setInterval(refreshData, 5000);
-                console.log("✅ Dashboard initialized. Auto-refresh every 5s.");
-            } catch (e) {
-                console.error("💥 Init failed:", e);
-                document.getElementById('electionStatus').innerText = "Connection Error";
-                document.getElementById('totalVotes').innerText = "—";
-                document.getElementById('totalCandidates').innerText = "—";
-                document.getElementById('resultsList').innerHTML = 
-                    `<p class="text-red-400 text-center py-8">❌ Unable to connect to backend: ${e.message}</p>`;
-            }
-        }
-
-        async function refreshData() {
-            try {
-                // Ensure config is loaded
-                if (!CONFIG_LOADED) {
-                    await loadConfig();
-                }
-
-                // Fetch results from backend API
-                const response = await fetch(`${API_BASE}/api/results`);
-                
-                if (!response.ok) {
-                    throw new Error(`Backend returned ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.status !== 'ok') {
-                    throw new Error(result.message || 'API error');
-                }
-
-                const { electionActive, totalVotes, totalCandidates, candidates } = result.data;
-
-                // Update status badge
-                const statusEl = document.getElementById('electionStatus');
-                statusEl.innerText = electionActive ? "Active & Voting" : "Election Ended";
-                statusEl.className = `text-xl font-bold ${electionActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`;
-                
-                // Update stats
-                document.getElementById('totalVotes').innerText = totalVotes.toString();
-                document.getElementById('totalCandidates').innerText = totalCandidates.toString();
-
-                console.log(`📊 ${candidates.length} candidates, ${totalVotes} votes total`);
-                
-                // Save for export
-                currentCandidates = candidates;
-                
-                // Render candidate results
-                renderResults(candidates, totalVotes, electionActive);
-                
-                // Update analytics
-                await updateAnalytics(candidates, totalVotes);
-
-            } catch (e) { 
-                console.error("❌ Refresh failed:", e);
-                document.getElementById('electionStatus').innerText = "Connection Error";
-                document.getElementById('electionStatus').className = "text-xl font-bold text-red-600 dark:text-red-400";
-            }
-        }
-
-        function renderResults(candidates, totalVotes, electionActive) {
-            const container = document.getElementById('resultsList');
-            container.innerHTML = '';
-
-            if (candidates.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 text-center py-8">No candidates registered yet. Start an election from the admin dashboard.</p>';
-                document.getElementById('winner-display').classList.add('hidden');
-                return;
-            }
-
-            // Sort by vote count (descending)
-            const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
-            const maxVotes = sorted[0].voteCount || 1; // At least 1 to avoid division by zero
-
-            // Render each candidate
-            sorted.forEach((c, index) => {
-                // Calculate bar percentage (use maxVotes as 100% for visual scaling)
-                const percent = maxVotes > 0 ? (c.voteCount / maxVotes) * 100 : 0;
-                
-                // Winner badge for top candidate (if votes > 0)
-                const isLeader = index === 0 && c.voteCount > 0;
-                const leaderBadge = isLeader ? 
-                    '<span class="ml-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-0.5 rounded">Leading</span>' : '';
-                
-                const html = `
-                    <div class="relative">
-                        <div class="flex justify-between items-end mb-2">
-                            <div class="flex items-center">
-                                <div>
-                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Candidate #${c.id}</span>
-                                    <h4 class="text-lg font-bold text-slate-900 dark:text-white inline-block">${c.name}</h4>
-                                    ${leaderBadge}
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-2xl font-bold text-brand-600 dark:text-brand-400">${c.voteCount}</span>
-                                <span class="text-xs text-slate-500 font-medium uppercase ml-1">Vote${c.voteCount !== 1 ? 's' : ''}</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Progress Bar Background -->
-                        <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
-                            <!-- Animated Bar -->
-                            <div class="bg-gradient-to-r from-brand-600 to-brand-500 h-3 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(79,70,229,0.4)]" 
-                                 style="width: ${percent}%"></div>
-                        </div>
-                        
-                        <!-- Percentage label -->
-                        <div class="text-right mt-1">
-                            <span class="text-xs text-slate-400">${totalVotes > 0 ? ((c.voteCount / totalVotes) * 100).toFixed(1) : '0.0'}%</span>
-                        </div>
-                    </div>
-                `;
-                container.innerHTML += html;
-            });
-
-            // Winner Display (if election ended and votes exist)
-            const winnerDisplay = document.getElementById('winner-display');
-            if (!electionActive && totalVotes > 0 && sorted.length > 0) {
-                // Find all candidates with maxVotes
-                const winners = sorted.filter(c => c.voteCount === maxVotes && maxVotes > 0);
-                winnerDisplay.classList.remove('hidden');
-                // Render stacked banners for each winner
-                winnerDisplay.innerHTML = winners.map(winner => `
-                    <div class="bg-gradient-to-r from-brand-600 to-indigo-800 rounded-2xl p-8 md:p-10 text-white shadow-2xl relative overflow-hidden mb-4">
-                        <div class="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
-                            <span class="material-symbols-rounded text-[150px]">emoji_events</span>
-                        </div>
-                        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                            <div>
-                                <div class="flex items-center gap-2 mb-2">
-                                    <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Official Winner</span>
-                                    <span class="text-brand-200 text-xs">Election Ended</span>
-                                </div>
-                                <h2 class="text-4xl md:text-5xl font-extrabold mb-2">${winner.name}</h2>
-                                <p class="text-brand-100 text-lg">Victory with <span class="font-bold text-white">${winner.voteCount}</span> confirmed votes.</p>
-                            </div>
-                            <div class="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-center min-w-[120px]">
-                                <span class="material-symbols-rounded text-4xl text-yellow-400 mb-1">trophy</span>
-                                <p class="text-xs font-medium text-brand-100">Verified</p>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+        
+        // Navbar Scroll Effect
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 10) {
+                nav.classList.add('bg-white/90', 'dark:bg-slate-900/90', 'backdrop-blur-md', 'shadow-sm');
             } else {
-                winnerDisplay.classList.add('hidden');
-                winnerDisplay.innerHTML = '';
+                nav.classList.remove('bg-white/90', 'dark:bg-slate-900/90', 'backdrop-blur-md', 'shadow-sm');
             }
-        }
-
-        // Start the dashboard
-        init();
-
+        });
     </script>
 </body>
 </html>

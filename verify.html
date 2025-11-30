@@ -98,13 +98,12 @@
     <!-- Ethers.js from cdnjs (More reliable) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script>
-        // Use a public RPC provider (Sepolia)
-        const provider = new ethers.providers.JsonRpcProvider("https://rpc.sepolia.org");
         function toggleTheme() {
             const html = document.documentElement;
             const isDark = html.classList.toggle('dark');
             document.getElementById('themeIcon').innerText = isDark ? 'light_mode' : 'dark_mode';
         }
+
         async function verifyTx() {
             let input = document.getElementById('txInput').value.trim();
             const card = document.getElementById('resultCard');
@@ -149,19 +148,20 @@
                 return;
             }
             try {
-                // Ensure ethers is loaded
-                if (typeof ethers === 'undefined') throw new Error("Library not loaded");
-                // Fetch Transaction
-                const tx = await provider.getTransaction(hash);
-                const receipt = await provider.getTransactionReceipt(hash);
-                if(tx && receipt && receipt.status === 1) {
-                    // Success
-                    document.getElementById('blockNum').innerText = "#" + receipt.blockNumber;
-                    document.getElementById('fromAddr').innerText = tx.from;
-                    document.getElementById('toAddr').innerText = tx.to;
+                // Fetch transaction details from backend
+                const resp = await fetch('/api/verify-transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tx_hash: hash })
+                });
+                const data = await resp.json();
+                if (data.status === 'success' && data.tx) {
+                    document.getElementById('blockNum').innerText = "#" + data.tx.blockNumber;
+                    document.getElementById('fromAddr').innerText = data.tx.from;
+                    document.getElementById('toAddr').innerText = data.tx.to;
                     document.getElementById('etherscanLink').href = `https://sepolia.etherscan.io/tx/${hash}`;
                     card.classList.remove('hidden');
-                    card.classList.add('animate-pulse'); // Brief highlight
+                    card.classList.add('animate-pulse');
                     setTimeout(() => card.classList.remove('animate-pulse'), 500);
                 } else {
                     throw new Error("Tx failed or not found");
@@ -170,7 +170,6 @@
                 err.textContent = '❌ Transaction not found. Please check the hash and try again.';
                 err.classList.remove('hidden');
             } finally {
-                // Reset Button
                 btn.innerHTML = originalBtnText;
                 btn.disabled = false;
             }

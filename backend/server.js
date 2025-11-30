@@ -1,3 +1,29 @@
+// Verify transaction details for frontend (used by verify.html)
+app.post('/api/verify-transaction', async (req, res) => {
+    const { tx_hash } = req.body;
+    if (!tx_hash || typeof tx_hash !== 'string' || !tx_hash.startsWith('0x') || tx_hash.length !== 66) {
+        return res.status(400).json({ status: 'error', message: 'Invalid transaction hash.' });
+    }
+    try {
+        // Use ethers.js to fetch transaction and receipt
+        const tx = await provider.getTransaction(tx_hash);
+        const receipt = await provider.getTransactionReceipt(tx_hash);
+        if (tx && receipt && receipt.status === 1) {
+            res.json({
+                status: 'success',
+                tx: {
+                    blockNumber: receipt.blockNumber,
+                    from: tx.from,
+                    to: tx.to,
+                }
+            });
+        } else {
+            res.status(404).json({ status: 'error', message: 'Transaction not found or not confirmed.' });
+        }
+    } catch (e) {
+        res.status(500).json({ status: 'error', message: 'Failed to fetch transaction.' });
+    }
+});
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';

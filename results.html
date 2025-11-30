@@ -39,7 +39,137 @@
     </nav>
     <!-- MAIN CONTENT -->
     <main class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-        <!-- ...dashboard content from index.html... -->
+        <!-- HEADER STATS -->
+        <div class="text-center mb-12">
+            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Official Election Results</h2>
+            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
+                Real-time data directly from the Ethereum Blockchain. Verified, immutable, and transparent.
+            </p>
+        </div>
+
+        <!-- SUMMARY CARDS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <!-- Status Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                    <span class="material-symbols-rounded text-3xl">pending_actions</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Election Status</p>
+                    <h3 id="electionStatus" class="text-xl font-bold text-slate-900 dark:text-white">Connecting...</h3>
+                </div>
+            </div>
+
+            <!-- Votes Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                    <span class="material-symbols-rounded text-3xl">ballot</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Votes Cast</p>
+                    <h3 id="totalVotes" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
+                </div>
+            </div>
+
+            <!-- Candidates Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+                    <span class="material-symbols-rounded text-3xl">groups</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Candidates</p>
+                    <h3 id="totalCandidates" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- WINNER BANNER (Hidden until election ends) -->
+        <div id="winner-display" class="hidden mb-12 fade-in"></div>
+
+        <!-- LIVE TALLY TABLE -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm mb-12">
+            <div class="px-6 py-5 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Candidate Standings</h3>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-slate-400 flex items-center gap-1">
+                        <span class="material-symbols-rounded text-sm">sync</span> Auto-refreshing
+                    </span>
+                    <button onclick="exportResults()" class="flex items-center gap-1 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-brand-500/20">
+                        <span class="material-symbols-rounded text-sm">download</span> Export CSV
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div id="resultsList" class="space-y-6">
+                    <!-- Results will be injected here -->
+                    <div class="animate-pulse space-y-4">
+                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4"></div>
+                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANALYTICS SECTION -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+            <!-- Vote Distribution Chart -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="material-symbols-rounded text-brand-600">pie_chart</span>
+                        Vote Distribution
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <canvas id="voteDistributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Turnout & Stats -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="material-symbols-rounded text-brand-600">bar_chart</span>
+                        Voter Analytics
+                    </h3>
+                </div>
+                <div class="p-6 space-y-6">
+                    <!-- Turnout Percentage -->
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Voter Turnout</span>
+                            <span id="turnoutPercentage" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</span>
+                        </div>
+                        <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
+                            <div id="turnoutBar" class="bg-gradient-to-r from-green-600 to-green-500 h-3 rounded-full transition-all duration-1000 turnout-bar-width"></div>
+                        </div>
+                        <p id="turnoutText" class="text-xs text-slate-400 mt-1">-- votes from -- registered voters</p>
+                    </div>
+
+                    <!-- Participation Stats -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Registered Voters</p>
+                            <p id="registeredVoters" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
+                        </div>
+                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Votes/Candidate</p>
+                            <p id="avgVotes" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
+                        </div>
+                    </div>
+
+                    <!-- Winner Margin (if election ended) -->
+                    <div id="winnerMarginSection" class="hidden p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800">
+                        <p class="text-xs font-medium text-brand-700 dark:text-brand-400 mb-1">Victory Margin</p>
+                        <p id="winnerMargin" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</p>
+                        <p class="text-xs text-brand-600/70 dark:text-brand-400/70 mt-1">votes ahead of 2nd place</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
     </main>
     <footer class="border-t border-gray-200 dark:border-slate-800 mt-auto py-8 bg-white dark:bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 text-center">
