@@ -21,3 +21,9 @@ All notable changes to this project are documented in this file.
 
 This was a conservative cleanup to remove duplicated route definitions and prevent accidental future regressions.
 
+### 2025-11-30 — Feature: Short-code receipt system
+
+- Backend: generate and persist short, human-friendly receipt codes (`code`) mapped to on-chain `tx_hash` in a `receipts` Supabase table.
+- Endpoints: added `/api/lookup-receipt` (tx_hash -> code) for kiosk polling and stabilized `/api/verify-code` (code -> tx_hash) for verify UI.
+- Kiosk: poll backend for receipt codes after vote submission and fallback to showing truncated `tx_hash` if code not available.
+- Docs: updated README and project docs with deployment, troubleshooting, and schema notes.

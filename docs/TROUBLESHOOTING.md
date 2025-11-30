@@ -2,24 +2,34 @@
 
 This page collects common issues and how to resolve them quickly.
 
-- Not authorized kiosk signer
-  - Symptoms: backend or kiosk logs show `Not authorized kiosk signer`.
-  - Fix: ensure `VOTING_CONTRACT_ADDRESS` is set and run `npx hardhat run scripts/authorize-signer.ts --network sepolia`.
-  - Verify: call contract `officialSigner()` via Hardhat console or view on Etherscan.
-
-- Supabase connection failures
-  - Symptoms: backend fails at startup with missing env or database errors.
-  - Fix: confirm `SUPABASE_URL` and `SUPABASE_KEY` in `backend/.env` and ensure the service role key is valid.
-
-- Fingerprint enrollment failures
-  - Symptoms: kiosk logs `sensor not found` or enrollment times out.
-  - Fix: check that serial port (`/dev/ttyAMA0`) exists, that the user is in `dialout` group and that the sensor has power.
-
-- Transaction timeouts
-  - Symptoms: `tx.wait()` times out but the transaction eventually succeeds.
-  - Fix: increase RPC timeout, check RPC provider health, and confirm sufficient gas/ETH balance.
-
-- Kiosk GPIO errors
-  - Fix: ensure kiosk runs with required privileges (GPIO access), use `sudo -E` where appropriate, and double-check pin mappings in `kiosk_main.py`.
-
 If the above steps do not resolve the issue, check `backend/server.log` and open an issue with logs attached (sanitize secrets first).
+
+## Common errors seen during E2E
+
+- `Database save failed` on `/api/kiosk/enrollment-complete`
+  - Symptoms: kiosk reports enrollment complete but backend returns `Database save failed`.
+  - Likely causes: Supabase RLS policy prevents insert/update for the key being used, invalid `SUPABASE_KEY`, or unique constraint violation (e.g., duplicate `aadhaar_id`).
+  - Steps to debug:
+
+    ```sql
+    select * from public.voters where aadhaar_id = '123456789012';
+    ```
+
+    Ensure `SUPABASE_KEY` is the `service_role` key and RLS policies allow the service role to insert into `voters`.
+    If unique constraints are the issue, remove/cleanup test rows before re-running E2E.
+
+- `Double voting detected!`
+  - Symptoms: `/api/vote` returns this error for a test Aadhaar.
+  - Likely causes: the `voters` row already exists with `has_voted = true` or the backend detected a prior vote on-chain.
+  - Steps to debug:
+
+    ```sql
+    select aadhaar_id, has_voted from public.voters where aadhaar_id = '123456789012';
+    ```
+
+    If `has_voted` is true and this is a test row, reset it for E2E testing or use a separate test Aadhaar.
+    Check backend logs for the double-vote detection path and any on-chain evidence.
+
+## When to open an issue
+
+- Attach the backend logs (redact keys), the exact API calls and payloads you used, and the results of the SQL queries above.

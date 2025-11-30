@@ -459,11 +459,6 @@ if finger.empty_library() == adafruit_fingerprint.OK:
 The system automatically updates contract addresses everywhere when you deploy
 a new election:
 
-- ✅ Backend reads from `.env` file
-- ✅ Admin/results dashboards fetch from backend API
-- ✅ No manual editing required
-- ✅ Deploy unlimited elections
-
 ### Quick Deploy (Automated)
 
 ```bash
@@ -478,6 +473,23 @@ This script:
 3. Guides you through deployment
 4. Auto-restarts backend service
 5. Verifies new contract loaded
+
+## Short-code Receipt System (operational notes)
+
+When deploying for production or testing, the backend now generates a human-friendly short-code (receipt) after a successful on-chain vote and persists a mapping from `code -> tx_hash` in the `receipts` table in Supabase. The following operational notes are important:
+
+- Environment variables: ensure the backend has the following configured in `backend/.env` or your secrets manager:
+    -`SUPABASE_URL`
+    -`SUPABASE_KEY` (Supabase `service_role` key — **server-only secret**)
+    -`SEPOLIA_RPC_URL`
+    -`SERVER_PRIVATE_KEY`
+    -`VOTING_CONTRACT_ADDRESS`
+
+- Service role key: use the Supabase `service_role` key only on the server. RLS policies should allow the service role to `INSERT` and `SELECT` on the `receipts` and `voters` tables while keeping client keys restricted.
+
+- Systemd: when running the backend as a systemd service, ensure the service environment loads secrets securely (systemd environment file or a secrets manager). Example service unit is already provided in the main README and may be reused.
+
+- Verify UI & endpoints: the project exposes `/api/verify-code` (code -> tx_hash) and `/api/lookup-receipt` (tx_hash -> code) used by `verify.html` and the kiosk respectively. Ensure your firewall rules allow only the necessary traffic to the backend.
 
 ### Manual Deployment Steps
 

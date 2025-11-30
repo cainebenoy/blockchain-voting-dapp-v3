@@ -35,3 +35,12 @@ sudo usermod -aG dialout $USER
 Emulation mode
 
 - To test the kiosk on a development machine without hardware, run kiosk_main.py with `--emulate` (see code comments) or set `EMULATE_HARDWARE=1` in the environment.
+
+## Kiosk behavior notes (receipt handling)
+
+- After submitting a vote to the backend, the kiosk will:
+  1. Read `receipt_code` from the `/api/vote` response if present and display it on the OLED.
+  2. If `receipt_code` is not returned immediately, the kiosk will poll `/api/lookup-receipt` (with the `tx_hash`) for a short window (default ~60s) to discover a late-inserted code.
+  3. If no short code is found within the poll window, the kiosk shows a fallback receipt composed of the truncated transaction hash (e.g., first 10 characters) and instructions to verify on the admin/verify UI.
+
+- Ensure the kiosk can reach the backend (default `http://127.0.0.1:3000` on local deployments). If the kiosk is remote, set the backend URL in `kiosk_main.py` or via environment variable.

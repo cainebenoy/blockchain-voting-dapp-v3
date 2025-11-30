@@ -267,21 +267,6 @@ app.post('/api/verify-code', async (req, res) => {
 // Top-level /api/verify-code endpoint
 
 // Top-level /api/verify-code endpoint
-app.post('/api/verify-code', async (req, res) => {
-    const code = (req.body && req.body.code ? String(req.body.code).toUpperCase() : '');
-    try {
-        const { data, error } = await supabase
-            .from('receipts')
-            .select('tx_hash')
-            .eq('code', code)
-            .single();
-        if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
-        res.json({ status: 'success', tx_hash: data.tx_hash });
-    } catch (e) {
-        res.status(500).json({ status: 'error' });
-    }
-});
-
 // Get current active contract (returns runtime contract, useful after deployments)
 app.get('/api/active-contract', (req, res) => {
     // Prevent caching to avoid reload loops

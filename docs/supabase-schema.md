@@ -1,4 +1,4 @@
-# Supabase Schema — Voters table
+# Supabase Schema
 
 This project expects a Supabase table `voters` to support check-in and vote auditing.
 
@@ -42,3 +42,5 @@ insert into public.voters (aadhaar_id, name, fingerprint_id, photo_url, has_vote
 - The backend never stores Aadhaar IDs in logs; it writes an SHA-256 hash in the audit log for privacy.
 - Ensure your service role key is used server-side only and not exposed to browsers.
 - Use Row Level Security (RLS) as appropriate; backend uses the service role to update `has_voted`.
+
+See also: `docs/RECEIPTS.md` for the `receipts` table schema and RLS notes.

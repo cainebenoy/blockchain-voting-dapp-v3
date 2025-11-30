@@ -14,3 +14,10 @@ Recommendations:
 - Maintain a documented data-retention schedule and a process for deletion requests.
 
 Legal note: biometric and voting data may be subject to strict local laws. Engage legal counsel before production deployment.
+
+## Receipts and minimal data storage
+
+The short-code receipt system stores only a short alphanumeric `code` and the corresponding `tx_hash` in the `receipts` table. This mapping does not include PII. Treat the `receipts` table as audit data — it is safe to store but follow these rules:
+
+- Do not store Aadhaar numbers or identifiable fields in `receipts`.
+- Limit retention according to your privacy policy; receipts can be purged after the audit window.
