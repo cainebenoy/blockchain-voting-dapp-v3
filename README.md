@@ -264,263 +264,189 @@ Troubleshooting: if authorization fails, check that the wallet used has sufficie
 Access at `http://localhost:3000/admin.html`
 
 - **Connect Wallet**: MetaMask required, auto-switches to Sepolia
-- **Add Candidates**: Enter names and add to ballot
-- **Start Election**: Enable voting (locks candidate list)
-- **Register Voters**: Initiate remote fingerprint enrollment
-- **End Election**: Finalize results (irreversible)
-- **Deploy New Election**: Fresh contract for new election cycle
+# VoteChain V3 — Blockchain Voting DApp (Renovated)
 
-### Voter Registration Flow
+This repository implements VoteChain V3: a cyber-physical blockchain voting system built for real-world field deployment. It combines biometric authentication (fingerprint kiosks), a trusted backend that signs and submits votes, and a public verification flow using short-code receipts mapped to on-chain transactions.
 
-1. Admin enters voter details in dashboard
-2. Kiosk automatically prompts for fingerprint scan
-3. Voter scans fingerprint (assigned unique ID)
-4. Database records: Aadhaar ↔ Fingerprint ID mapping
+This README has been renovated to reflect recent feature additions (short-code receipt system, kiosk polling/lookup, improved backend endpoints, and E2E testing guidance).
 
-### Voting Flow
+Overview
+--------
 
-1. Voter presses START button on kiosk
-2. Types 12-digit Aadhaar number (displayed on OLED)
-3. Presses Enter
-4. Backend verifies eligibility (not already voted)
-5. Kiosk prompts for fingerprint scan
-6. Fingerprint verified against enrolled ID
-7. Candidate selection buttons appear
-8. Press candidate button twice to confirm
-9. Backend signs and submits vote to blockchain
-10. Success/failure displayed on OLED
-11. **Short code receipt displayed on OLED (e.g., ABC-123)**
-12. Voter writes down short code for later verification
+VoteChain V3 is designed to be audit-friendly, privacy-conscious, and resilient in low-connectivity environments. Key ideas:
 
-### Results Dashboard (`index.html`)
+- Voters authenticate at a local kiosk using fingerprint + Aadhaar number.
+- The backend signs and submits votes to a VotingV2 smart contract (server-authorized signer model).
+- After a successful vote, a short alphanumeric receipt (e.g., ABC-123) is generated and displayed on the kiosk.
+- The receipt maps to the transaction hash in a `receipts` table (Supabase). Voters can verify their vote using the short code or transaction hash on `verify.html`.
 
-Access at `http://localhost:3000`
+Highlights / New Features
+------------------------
 
-- **Live Stats**: Total votes, candidates, election status
-- **Real-time Updates**: Auto-refreshes every 5 seconds
-- **Visual Progress Bars**: Vote distribution
-- **Winner Display**: Shows winner after election ends
-- **Blockchain Verification**: Direct link to Etherscan
+- Short-code receipt system: kiosk displays a human-friendly code after voting; backend persists mapping to `tx_hash` in `receipts`.
+- Receipt lookup endpoints: `/api/verify-code` (code -> tx_hash) and `/api/lookup-receipt` (tx_hash -> code).
+- Kiosk polling & enrollment: kiosks poll `/api/kiosk/poll-commands` for enrollment commands and report results to `/api/kiosk/enrollment-complete`.
+- Robust vote submission: backend waits for confirmation with a timeout and still records vote status on timeout; audit logs are kept and rate limiting is enforced.
+- Verify UI (`verify.html`) accepts both codes and tx hashes and queries the backend for resolution.
+- Improved logging and conservative route cleanup to prevent duplicate handlers.
 
-### Vote Verification Page (`verify.html`)
+Quick Start (summary)
+---------------------
 
-Access at `http://localhost:3000/verify.html`
+Prerequisites
 
-- **Enter Short Code or Transaction Hash**: Voters can enter the short code receipt from the kiosk or the full transaction hash.
-- **Backend Lookup**: If a short code is entered, the backend resolves it to the corresponding transaction hash.
-- **Blockchain Confirmation**: The page displays Ethereum block details and a green confirmation card if the vote is found.
+- Node.js (v18+)
+- npm
+- Python 3 (for kiosk)
+- Supabase project (service_role key for backend)
+- Sepolia RPC provider (Alchemy/Infura) + backend wallet with some ETH for gas (testnet)
 
-## 🔐 Security Features
-
-1. **Biometric Authentication**: R307 fingerprint scanner with 1:N matching
-2. **Blockchain Immutability**: Votes stored on Ethereum, cannot be altered
-3. **Double-Vote Prevention**: Smart contract enforces one vote per Aadhaar ID
-4. **Authorized Signer Model**: Only backend server can submit votes (prevents voter key management)
-5. **Rate Limiting**: API endpoints protected against spam
-6. **Database Sync**: Supabase tracks voting status for fast lookups
-7. **Audit Logging**: SHA-256 hashed Aadhaar IDs in audit trail
-
-## 🛠️ Smart Contract Functions
-
-```solidity
-// VotingV2.sol - Key Functions
-
-setOfficialSigner(address _signer)  // Admin only: authorize backend
-addCandidate(string _name)          // Admin only: add candidate
-startElection()                     // Admin only: begin voting
-endElection()                       // Admin only: finalize results
-vote(uint _candidateId, string _voterId)  // Signer only: record vote
-getAllCandidates()                  // Public: get results
-```
-
-## 📡 API Endpoints
-
-### Public Endpoints
-
-- `GET /api/health` - Health check
-- `GET /api/results` - Live election results
-- `GET /api/active-contract` - Current contract address
-
-### Voting Endpoints
-
-- `POST /api/voter/check-in` - Verify voter eligibility
-- `POST /api/vote` - Submit vote (signs and sends to blockchain)
-- `POST /api/verify-code` - Resolve short code to transaction hash for verification
-
-### Admin Endpoints
-
-- `POST /api/admin/deploy-contract` - Deploy new election
-- `POST /api/admin/initiate-enrollment` - Queue fingerprint enrollment
-- `GET /api/admin/enrollment-status` - Check enrollment status
-
-### Kiosk Endpoints
-
-- `GET /api/kiosk/poll-commands` - Check for pending enrollments
-- `POST /api/kiosk/enrollment-complete` - Report enrollment result
-
-## 🔧 Configuration
-
-### Hardware Pin Mapping (BCM Mode)
-
-```python
-# GPIO Buttons
-PIN_START = 4           # Start voting
-PIN_CANDIDATE_A = 22    # Select Candidate A
-PIN_CANDIDATE_B = 23    # Select Candidate B
-
-# LEDs & Buzzer
-PIN_LED_GREEN = 17      # Success indicator
-PIN_LED_RED = 27        # Error indicator
-PIN_BUZZER = 18         # Feedback beeper
-
-# OLED Display (SPI)
-DC_PIN = 24             # Data/Command
-RST_PIN = 25            # Reset
-
-# Fingerprint Sensor (UART)
-SERIAL_PORT = "/dev/ttyAMA0"
-BAUD_RATE = 57600
-```
-
-### Backend Configuration
-
-```javascript
-// RPC Timeout Settings
-VOTE_TIMEOUT = 60000ms  // 60 seconds for slow RPCs
-
-// Rate Limits
-CHECK_IN_LIMIT = 30 requests/minute
-VOTE_LIMIT = 20 requests/minute
-
-// Polling
-KIOSK_POLL_INTERVAL = 500ms  // Enrollment command polling
-```
-
-## 🐛 Troubleshooting
-
-### Backend shows "Not authorized kiosk signer"
-
-**Solution**: Auto-authorization runs on startup, but if needed:
+Install
 
 ```bash
-npx hardhat run scripts/authorize-signer.ts --network sepolia
+# Clone
+git clone https://github.com/cainebenoy/blockchain-voting-dapp-v3.git
+cd blockchain-voting-dapp-v3
+
+# Install root & backend dependencies
+npm install
+cd backend
+npm install
 ```
 
-### Kiosk shows "Connection Fail, Retry" but vote succeeds
+Configuration
+-------------
 
-**Cause**: RPC timeout during `tx.wait()`  
-**Impact**: Vote IS recorded on blockchain, just confirmation timed out  
-**Solution**: Already implemented 60s timeout with graceful handling
+Copy `.env.example` (or `backend/.env.example`) and set these core variables:
 
-### Fingerprint sensor not responding
+- `SUPABASE_URL` — your Supabase project URL
+- `SUPABASE_KEY` — Supabase service_role key (server-only secret)
+- `SEPOLIA_RPC_URL` — Alchemy/Infura RPC endpoint
+- `SERVER_PRIVATE_KEY` — backend signing wallet (authorize as contract `officialSigner`)
+- `VOTING_CONTRACT_ADDRESS` — deployed VotingV2 address (optional if deploying via scripts)
 
-**Check**:
+Recommended: load secrets via environment variables or a secrets manager in production; do not commit keys.
+
+Run the system (local testnet)
+-----------------------------
+
+1) Start backend
 
 ```bash
-ls -la /dev/ttyAMA0  # Should exist
-sudo usermod -aG dialout $USER  # Add user to serial group
+cd backend
+node server.js
 ```
 
-### GPIO "not allocated" error
-
-**Solution**: Use `initial=GPIO.LOW` in setup calls (already implemented)
-
-### Admin dashboard continuous reload
-
-**Cause**: Browser cache conflict with 304 responses  
-**Solution**: Hard refresh (Ctrl+Shift+R) or use incognito mode
-
-## 📊 Testing
-
-### Unit Tests (Smart Contract)
+2) Start kiosk (on Raspberry Pi with hardware)
 
 ```bash
-npx hardhat test
+sudo -E python3 ../kiosk_main.py
 ```
 
-### Manual Testing Checklist
+3) Open admin UI: `http://localhost:3000/admin.html`
+4) Open verify UI: `http://localhost:3000/verify.html`
 
-- [ ] Deploy contract and verify on Etherscan
-- [ ] Add 2+ candidates via admin dashboard
-- [ ] Start election
-- [ ] Register test voter with fingerprint
-- [ ] Cast vote via kiosk
-- [ ] Verify vote on results dashboard
-- [ ] Check blockchain transaction on Etherscan
-- [ ] End election
-- [ ] Verify winner display
+Core API Endpoints (summary)
+----------------------------
 
-## 📁 Project Structure
+- `GET /api/health` — health check
+- `GET /api/config` — contract and RPC config
+- `GET /api/results` — on-chain results proxy
+- `GET /api/metrics` — combined on-chain + DB metrics
 
-```text
-blockchain-voting-dapp-v3/
-├── contracts/
-│   └── VotingV2.sol           # Smart contract
-├── scripts/
-│   ├── deployV2.ts            # Contract deployment
-│   ├── authorize-signer.ts    # Authorize backend
-│   ├── add-candidates.ts      # Bulk add candidates
-│   └── get-results.ts         # Fetch results
-├── backend/
-│   ├── server.js              # Express API server
-│   ├── VotingV2.json          # Contract ABI
-│   └── package.json
-├── test/
-│   └── VotingV2.test.js       # Contract tests
-├── docs/                      # Technical documentation
-├── kiosk_main.py              # Raspberry Pi kiosk app
-├── admin.html                 # Admin control panel
-├── index.html                 # Public results dashboard
-├── hardhat.config.ts          # Hardhat configuration
-└── package.json               # Root dependencies
+- `POST /api/voter/check-in` — validate Aadhaar; returns fingerprint_id for kiosk verification
+- `POST /api/vote` — cast vote (body: `{ aadhaar_id, candidate_id }`)
+  - Response includes `{ data: { transaction_hash, receipt_code } }` when available
+
+- `POST /api/verify-code` — resolve short code to `tx_hash` (body: `{ code }`)
+- `POST /api/lookup-receipt` — given `tx_hash` return `code` (used by kiosk polling)
+
+- Admin / enrollment endpoints:
+  - `POST /api/admin/add-voter` — queue remote enrollment for kiosk
+  - `GET /api/admin/enrollment-status` — admin UI polls for status
+  - `GET /api/kiosk/poll-commands` — kiosk polls for ENROLL commands
+  - `POST /api/kiosk/enrollment-complete` — kiosk reports enrollment result and backend persists `voters` row
+
+Receipt & Verification Flow (how it works)
+-----------------------------------------
+
+1. After a vote is signed and the transaction is sent, backend attempts `tx.wait(1)` with a 60s timeout.
+2. Backend generates a short code via `generateShortCode()` and inserts `{ code, tx_hash }` into Supabase `receipts`.
+3. Backend returns the `receipt_code` in the `/api/vote` response when the DB insert succeeds.
+4. Kiosk displays the code on the OLED and prints/shows the voter.
+5. Later, a user visits `/verify.html` and enters the code; the page calls `POST /api/verify-code` to get the `tx_hash` and then queries the blockchain to show confirmation.
+
+Notes on robustness
+-------------------
+
+- If DB insertion of the receipt fails, the backend logs an error and returns `receipt_code: null` — the kiosk will fallback to showing the truncated `tx_hash` and instruct the voter to verify via transaction hash.
+- Kiosk code polls `/api/lookup-receipt` for up to 60s after vote submission in case the short code is written slightly later by asynchronous processes.
+- All short codes are normalized to uppercase by the backend and the verify UI.
+
+Database & Supabase Notes
+-------------------------
+
+- `voters` table — stores `{ aadhaar_id, name, fingerprint_id, constituency, has_voted }`.
+- `receipts` table — stores `{ code, tx_hash, inserted_at }` (ensure `code` is unique).
+- Ensure Supabase RLS and policies allow the backend service role to `INSERT` and `SELECT` on these tables. Using the `service_role` key from Supabase is recommended for server-only operations (store it securely).
+
+Suggested minimal SQL for `receipts` table
+
+```sql
+create table if not exists receipts (
+  id bigserial primary key,
+  code varchar(32) not null unique,
+  tx_hash varchar(66) not null unique,
+  inserted_at timestamptz default now()
+);
 ```
 
-## 🔄 Workflow: New Election Cycle
+E2E Smoke Test (how to run locally)
+-----------------------------------
 
-1. **Deploy New Contract** (via admin dashboard or CLI)
+This repository contains a manual E2E flow that exercises enrollment and voting. A minimal script for smoke testing the API (non-hardware) can be created with curl/python to:
 
-  ```bash
-  # Option A: Admin Dashboard
-  # Click "Deploy New Election" button
+1. `POST /api/admin/add-voter` — queue enrollment
+2. Poll `GET /api/kiosk/poll-commands` — kiosk receives ENROLL
+3. `POST /api/kiosk/enrollment-complete` — simulate kiosk reporting success (inserts `voters` row)
+4. `POST /api/vote` — cast vote (returns tx hash and maybe receipt code)
+5. `POST /api/verify-code` — verify receipt code resolves to tx hash
 
-  # Option B: CLI
-  npx hardhat run scripts/deployV2.ts --network sepolia
-  ```
+Tip: when running a vote in live networks, be aware `POST /api/vote` will submit an actual blockchain transaction.
 
-1. **Backend Auto-authorizes** (automatic on startup/deploy) — Server detects new contract and calls `setOfficialSigner(backendWallet)`.
+Testing & CI
+------------
 
-1. **Add Candidates** (via admin dashboard) — Must be done before starting election.
+- Smart contract unit tests: `npx hardhat test` (in `test/`).
+- Consider adding an integration test that stubs Supabase (or uses a test project) and a mock provider to avoid sending real transactions during CI.
 
-1. **Register Voters** (via admin dashboard) — Triggers remote fingerprint enrollment on kiosk; voters scan fingerprint at physical location.
+Troubleshooting & Common Issues
+--------------------------------
 
-1. **Start Election** (admin dashboard) — Locks candidate list and enables voting.
+- `Database save failed` on `/api/kiosk/enrollment-complete`: check Supabase policies, table schema, and that the `SUPABASE_KEY` is set to a service role key.
+- `Double voting detected!`: indicates the `voters` row exists and `has_voted` is true — verify DB state and audit logs. Use `supabase` SQL editor or the API to inspect the row.
+- `RPC_TIMEOUT` during `tx.wait()` — network/rpc slowness. Backend will still proceed and update DB; check Etherscan for tx presence.
 
-1. **Voting Period** (kiosk) — Voters authenticate and cast votes.
+Deployment & Production Considerations
+------------------------------------
 
-1. **End Election** (admin dashboard) — Finalizes results; winner displayed on results page.
+- Use systemd units to manage backend and kiosk processes on Raspberry Pi.
+- Protect Supabase keys and backend private keys using a secrets manager.
+- Enable HTTPS and firewall rules to restrict access to the backend.
+- Regularly backup Supabase (or set up scheduled exports).
 
-## 🌐 Deployment
-
-### Production Considerations
-
-1. **Use Mainnet**: Update RPC URLs and private keys for Ethereum mainnet
-2. **Systemd Services**: Auto-start backend and kiosk on boot
-3. **SSL/TLS**: Enable HTTPS for backend server
-4. **Firewall**: Restrict backend access to kiosk IP only
-5. **Hardware Security**: Solder fingerprint sensor connections
-6. **Backup**: Regular database exports and private key backups
-
-### Systemd Service Example
+Systemd example (backend)
 
 ```ini
 [Unit]
-Description=VoteChain Backend Server
+Description=VoteChain Backend
 After=network.target
 
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/blockchain-voting-dapp-v3/backend
+Environment=NODE_ENV=production
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
 
@@ -528,32 +454,32 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
-## 📝 License
+Contributing & Development
+--------------------------
 
-MIT License - See LICENSE file for details
+- Code style: keep Node.js backend as ESM; follow the existing project layout.
+- Add tests for new behavior (short-code mapping, verify endpoints).
+- Open PRs against `main` and include a small changelog entry for significant changes.
 
-## 👥 Contributors
+Changelog (short)
+-----------------
 
-Built as a Final Year Project demonstrating blockchain integration with embedded systems.
+- 2025-11-30 — Added short-code receipt system, `/api/verify-code`, `/api/lookup-receipt`, kiosk polling improvements, and verify UI updates.
 
-## 🔗 Resources
+License
+-------
 
-- [Hardhat Documentation](https://hardhat.org/)
-- [Ethers.js v6](https://docs.ethers.org/v6/)
-- [Raspberry Pi GPIO](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html)
-- [Supabase Docs](https://supabase.com/docs)
-- [Sepolia Testnet Faucet](https://sepoliafaucet.com/)
+MIT
 
-## 📞 Support
+Contact
+-------
 
-For issues or questions, check:
-
-1. Troubleshooting section above
-1. `docs/` folder for detailed guides
-1. Blockchain explorer: [Sepolia Etherscan](https://sepolia.etherscan.io/)
+Open an issue on GitHub or contact the project owner for questions or deployment guidance.
 
 ---
 
-**Status**: Production-ready for testnet deployment  
-**Last Updated**: November 29, 2025  
-**Version**: 3.0.1
+If you'd like, I can also:
+
+- Open a PR with this README update, or
+- Add a small integration test for the `verify-code` endpoint, or
+- Add a `docs/README-DEPLOY.md` with step-by-step Raspberry Pi setup.
