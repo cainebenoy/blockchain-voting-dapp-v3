@@ -39,81 +39,194 @@ VoteChain V3 is a secure, cyber-physical voting system that combines biometric a
 git clone https://github.com/cainebenoy/blockchain-voting-dapp-v3.git
 cd blockchain-voting-dapp-v3
 
-# Install backend dependencies
+# VoteChain V3 — Blockchain Voting DApp
+
+## Overview
+
+VoteChain V3 is a secure, cyber-physical voting system that combines biometric authentication, blockchain transparency, and a user-friendly kiosk interface. It is designed for real-world elections with emphasis on privacy, auditability, and resilient operation in constrained environments.
+
+## Features
+
+- Biometric voter authentication (fingerprint)
+- Immutable blockchain vote ledger
+- Real-time public dashboard
+- Server-signed transactions (no voter wallet required)
+- API endpoints for results, health, and configuration
+- Modular architecture: kiosk, backend, database, blockchain
+- Security: double-vote prevention, rate limiting, CORS, audit logging
+
+## System Architecture
+
+1. **Smart Kiosk (Edge Layer):** Raspberry Pi, fingerprint scanner, OLED display, physical buttons
+1. **Backend Server (Trust Layer):** Node.js, Express, ethers.js, API, transaction signing
+1. **Voter Database (Data Layer):** Supabase (Postgres), biometric mappings, voter status
+1. **Blockchain Ledger (Verification Layer):** Ethereum Sepolia (testnet), VotingV2 smart contract
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js (v18+)
+- npm
+- Python 3 (for kiosk)
+- Supabase project (service_role key for backend)
+- Sepolia RPC provider (Alchemy/Infura) and a backend wallet with testnet ETH
+
+### Install
+
+```bash
+git clone https://github.com/cainebenoy/blockchain-voting-dapp-v3.git
+cd blockchain-voting-dapp-v3
+npm install
 cd backend
 npm install
 ```
 
 ### Configuration
 
-- Copy `backend/.env.example` to `.env` and fill in your Supabase and blockchain credentials.
-- Deploy the smart contract using Hardhat:
+1. Copy `backend/.env.example` to `backend/.env` and set required variables:
+
+   - `SUPABASE_URL` — your Supabase project URL
+   - `SUPABASE_KEY` — Supabase `service_role` key (server-only secret)
+   - `SEPOLIA_RPC_URL` — Alchemy/Infura RPC endpoint
+   - `SERVER_PRIVATE_KEY` — backend signing wallet (authorize as contract `officialSigner`)
+   - `VOTING_CONTRACT_ADDRESS` — deployed VotingV2 address (optional if deploying via scripts)
+
+2. (Optional) Deploy the smart contract using Hardhat:
 
 ```bash
-npm run deploy:sepolia
+npx hardhat run scripts/deployV2.ts --network sepolia
 ```
 
-### Running the System
+### Run the system (local testnet)
+
+1. Start backend:
 
 ```bash
-# Start backend server
 cd backend
 node server.js
-
-# View dashboard
-Open browser to http://localhost:3000
 ```
 
-## API Endpoints
+1. Start kiosk (on Raspberry Pi with hardware):
 
-| Endpoint | Method | Purpose |
-| --- | --- | --- |
-| `/` | GET | Public results dashboard |
-| `/api/health` | GET | System health check |
-| `/api/results` | GET | Live election data |
-| `/api/config` | GET | Contract configuration |
-| `/api/metrics` | GET | Blockchain metrics |
-| `/api/voter/check-in` | POST | Voter eligibility check |
-| `/api/vote` | POST | Submit vote (kiosk model) |
-
-## Project Structure
-
-```text
-blockchain-voting-dapp-v3/
-├── contracts/
-│   └── VotingV2.sol
-├── backend/
-│   ├── server.js
-│   ├── VotingV2.json
-│   └── .env.example
-├── test/
-│   └── AdvancedVoting.test.js
-├── scripts/
-│   ├── deploy.ts
-│   └── authorize-signer.ts
-├── index.html
-├── hardhat.config.ts
-├── package.json
-└── README.md
+```bash
+sudo -E python3 ../kiosk_main.py
 ```
 
-## Security
+1. Open admin UI: `http://localhost:3000/admin.html`
+1. Open verify UI: `http://localhost:3000/verify.html`
 
-- Biometric authentication
-- Blockchain immutability
-- Server-signed transactions
-- Double-vote prevention
-- Voter identity separation
-- Rate limiting
-- CORS protection
-- Audit logging (SHA-256)
+## Core API Endpoints (summary)
 
-## Support & Resources
+- `GET /api/health` — health check
+- `GET /api/config` — contract and RPC information
+- `GET /api/results` — on-chain results proxy
+- `GET /api/metrics` — combined on-chain + DB metrics
 
-- [Etherscan](https://sepolia.etherscan.io/address/0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c)
-- [Hardhat Docs](https://hardhat.org/)
-- [Ethers.js Docs](https://docs.ethers.org/v6/)
-- [Supabase Docs](https://supabase.com/docs)
+- `POST /api/voter/check-in` — validate Aadhaar; returns fingerprint_id for kiosk verification
+- `POST /api/vote` — cast vote (body: `{ aadhaar_id, candidate_id }`)
+
+  - Response includes `data.transaction_hash` and, when available, `data.receipt_code`.
+
+- `POST /api/verify-code` — resolve short code to `tx_hash` (body: `{ code }`)
+- `POST /api/lookup-receipt` — given `tx_hash` return `code` (used by kiosk polling)
+
+- Admin / enrollment endpoints:
+
+  - `POST /api/admin/add-voter` — queue remote enrollment for kiosk
+  - `GET /api/admin/enrollment-status` — admin UI polls for status
+  - `GET /api/kiosk/poll-commands` — kiosk polls for ENROLL commands
+  - `POST /api/kiosk/enrollment-complete` — kiosk reports enrollment result and backend persists `voters` row
+
+## Short-code Receipt System (how it works)
+
+1. After the backend sends a vote transaction, it waits for confirmation with a 60s timeout.
+1. The backend generates a short, human-friendly receipt code (e.g., `ABC-123`) and inserts `{ code, tx_hash }` into the `receipts` table in Supabase.
+1. The backend returns the `receipt_code` in the `/api/vote` response when the DB insert succeeds; the kiosk displays it on the OLED.
+1. Voters can verify a code at `verify.html`, which calls `/api/verify-code` to resolve the transaction and then checks the blockchain for confirmation.
+
+### Notes on robustness
+
+- If the DB insert for the receipt fails, the backend returns `receipt_code: null`. The kiosk falls back to showing a truncated transaction hash and instructions to verify manually.
+- Kiosk will poll `/api/lookup-receipt` for a short period (e.g., 60s) after vote submission to discover a late-inserted code.
+- Short codes and lookups are normalized to uppercase.
+
+## Database & Supabase notes
+
+- `voters` table: `{ aadhaar_id, name, fingerprint_id, constituency, has_voted }`.
+- `receipts` table: `{ id, code, tx_hash, inserted_at }` — ensure `code` and `tx_hash` are unique.
+
+Suggested minimal SQL for `receipts`:
+
+```sql
+create table if not exists receipts (
+  id bigserial primary key,
+  code varchar(32) not null unique,
+  tx_hash varchar(66) not null unique,
+  inserted_at timestamptz default now()
+);
+```
+
+Ensure Supabase RLS policies permit the backend service role to `INSERT` and `SELECT` on these tables.
+
+## E2E smoke test (manual)
+
+A non-hardware smoke test can script the following API calls:
+
+1. `POST /api/admin/add-voter` — queue enrollment
+1. Poll `GET /api/kiosk/poll-commands` — kiosk receives ENROLL
+1. `POST /api/kiosk/enrollment-complete` — simulate kiosk reporting success (inserts `voters` row)
+1. `POST /api/vote` — cast vote (returns tx hash and maybe receipt code)
+1. `POST /api/verify-code` — verify receipt code resolves to tx hash
+
+> Tip: `POST /api/vote` submits a real transaction when using a real RPC/provider.
+
+## Testing & CI
+
+- Smart contract unit tests: `npx hardhat test` (in `test/`).
+- For CI, stub Supabase or use a test Supabase project and a mock provider to avoid sending real transactions.
+
+## Troubleshooting & common issues
+
+- `Database save failed` on `/api/kiosk/enrollment-complete`: check Supabase policies, table schema, and that `SUPABASE_KEY` is a service role key.
+- `Double voting detected!`: indicates the `voters` row already exists with `has_voted = true`; inspect DB and audit logs.
+- `RPC_TIMEOUT` during `tx.wait()`: network or RPC slowness; check Etherscan for the transaction and logs.
+
+## Deployment & production notes
+
+- Use `systemd` to manage backend and kiosk processes on Raspberry Pi.
+- Protect Supabase keys and backend private keys with a secrets manager.
+- Enable HTTPS and firewall rules to restrict access to the backend.
+- Regularly backup Supabase or configure scheduled exports.
+
+Example `systemd` unit (backend):
+
+```ini
+[Unit]
+Description=VoteChain Backend
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/blockchain-voting-dapp-v3/backend
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Contributing & development
+
+- Keep backend as ESM and follow existing layout.
+- Add tests for new behavior (short-code mapping and verify endpoints).
+- Open PRs against `main` and add a short changelog entry for notable changes.
+
+## Changelog (short)
+
+- 2025-11-30 — Added short-code receipt system, `/api/verify-code`, `/api/lookup-receipt`, kiosk polling improvements, and verify UI updates.
 
 ## License
 
@@ -121,130 +234,13 @@ MIT
 
 ## Contact
 
-For questions or support, open an issue on GitHub or contact the project maintainer.
+Open an issue on GitHub or contact the project owner for questions or deployment guidance.
 
-- LEDs and Buzzer for feedback
+If you'd like, I can also:
 
-### Software
-
-- **Smart Contract**: Solidity (VotingV2.sol)
-- **Backend**: Node.js 20+ with Express.js, Ethers.js v6
-- **Frontend**: Vanilla HTML/CSS/JavaScript with Tailwind CSS
-- **Kiosk**: Python 3.13 with RPi.GPIO, luma.oled, adafruit-fingerprint
-
-## 📰 Recent Changes
-
-- 2025-11-30 — Short Code Receipt System & Verification
-  - After voting, the kiosk displays a unique short code (e.g., ABC-123) as a vote receipt.
-  - Voters can use this code on the verify page (`verify.html`) to confirm their vote on the blockchain.
-  - Backend maps short codes to transaction hashes and provides a `/api/verify-code` endpoint for verification.
-  - `verify.html` now accepts both short codes and transaction hashes for verification.
-  - See `CHANGELOG.md` for full details.
-
-- **Database**: Supabase (PostgreSQL)
-- **Blockchain**: Ethereum Sepolia Testnet
-- **Development**: Hardhat 3, TypeScript 5
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-```bash
-# System dependencies (Raspberry Pi OS)
-sudo apt update
-sudo apt install -y python3 python3-pip nodejs npm
-
-# Python packages
-pip3 install RPi.GPIO luma.oled adafruit-circuitpython-fingerprint requests pyserial
-
-# Enable SPI and Serial
-sudo raspi-config
-# Interface Options → SPI → Enable
-# Interface Options → Serial Port → Hardware YES, Login Shell NO
-```
-
-### Installation
-
-1. **Clone and Install Dependencies**
-
-```bash
-cd "~/Desktop/FInal Year Project/blockchain-voting-dapp-v3"
-
-# Root project dependencies (Hardhat, TypeScript)
-npm install
-
-# Backend server dependencies
-cd backend
-npm install
-cd ..
-```
-
-1. **Configure Environment Variables**
-
-```bash
-# Root .env (for contract deployment)
-cat > .env << EOF
-SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY"
-SEPOLIA_PRIVATE_KEY="YOUR_ADMIN_WALLET_PRIVATE_KEY"
-SUPABASE_KEY="YOUR_SUPABASE_SERVICE_ROLE_KEY"
-SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
-SERVER_PRIVATE_KEY="YOUR_BACKEND_WALLET_PRIVATE_KEY"
-VOTING_CONTRACT_ADDRESS="0xYourContractAddress"
-EOF
-
-# Backend .env (same config)
-cp .env backend/.env
-```
-
-1. **Deploy Smart Contract** (First time only)
-
-```bash
-npx hardhat run scripts/deployV2.ts --network sepolia
-# Copy the deployed contract address to .env files
-```
-
-1. **Start the System**
-
-```bash
-# Terminal 1: Start backend server
-cd backend
-node server.js
-
-# Terminal 2: Start kiosk (requires sudo for GPIO)
-cd ..
-sudo -E python3 kiosk_main.py
-
-# Terminal 3: Open results dashboard
-# Navigate to http://localhost:3000 in browser
-```
-
-## Environment Variables Reference
-
-Below is a concise reference for the environment variables used by the project. Keep secrets out of version control and prefer a secure secrets manager for production.
-
-| Variable | Example / Format | Purpose | Secret? |
-| --- | --- | --- | --- |
-| `SEPOLIA_RPC_URL` | `https://eth-sepolia.g.alchemy.com/v2/<ALCHEMY_KEY>` | RPC endpoint for Sepolia network | No (endpoint) |
-| `SEPOLIA_PRIVATE_KEY` | `0x...` or `...` | Admin wallet for contract deployment | Yes |
-| `SERVER_PRIVATE_KEY` | `0x...` | Backend signing wallet (official signer) | Yes |
-| `SUPABASE_URL` | `https://<project>.supabase.co` | Supabase project URL | No |
-| `SUPABASE_KEY` | `service_role` key | Supabase service role key used by backend | Yes (do not commit) |
-| `VOTING_CONTRACT_ADDRESS` | `0x...` | Deployed VotingV2 contract address | No |
-
-Notes:
-
-- Use `backend/.env.example` as the authoritative template and copy it to `backend/.env` during setup.
-- Mark any secret values as environment-only and never commit them. For production, use a secrets manager (Vault, AWS Secrets Manager, Dotenvx, etc.).
-
-## Signer Authorization (Walkthrough)
-
-After deploying the contract, the backend wallet must be authorized as the `officialSigner` on the `VotingV2` contract so it can submit votes on behalf of kiosks.
-
-1. Ensure `VOTING_CONTRACT_ADDRESS` and `SERVER_PRIVATE_KEY` are set in your `backend/.env`.
-1. From the repo root run:
-
-  ```bash
-  npx hardhat run scripts/authorize-signer.ts --network sepolia
+- Open a PR with this README update, or
+- Add a small integration test for the `verify-code` endpoint, or
+- Add a `docs/README-DEPLOY.md` with step-by-step Raspberry Pi setup.
   ```
 
 1. Verify on-chain: visit Etherscan for the deployed contract and check `officialSigner` (public view) or call the contract getter:
