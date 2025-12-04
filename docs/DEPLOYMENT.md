@@ -109,6 +109,7 @@ pm2 --version
 ### 5. Configure Service Discovery
 
 Follow [docs/SERVICE_DISCOVERY.md](SERVICE_DISCOVERY.md) to:
+
 1. Create the Supabase `system_config` table (run SQL script)
 2. Install Python dependencies: `sudo pip3 install supabase requests --break-system-packages`
 3. Test the tunnel: `python3 start_tunnel.py`

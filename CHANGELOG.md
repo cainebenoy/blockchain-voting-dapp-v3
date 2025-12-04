@@ -27,7 +27,7 @@ All notable changes to this project are documented in this file.
 
 ---
 
-## [Unreleased] - Earlier Changes (2025-12-04)
+## [Unreleased] - Earlier Changes
 
 ### Added
 

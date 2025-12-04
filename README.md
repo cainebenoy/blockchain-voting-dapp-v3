@@ -16,7 +16,6 @@ VoteChain V3 is a secure, cyber-physical voting system that combines biometric a
 - Automated deployment and contract management via backend API
 - Auto-restart capability for production environments
 - **Automatic service discovery**: Frontend auto-discovers backend URL via Supabase, enabling seamless hybrid hosting (GitHub Pages + Pi backend)
-
 ## System Architecture
 
 1. **Smart Kiosk (Edge Layer):** Raspberry Pi, fingerprint scanner, OLED display, physical buttons

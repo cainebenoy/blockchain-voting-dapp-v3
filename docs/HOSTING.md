@@ -6,7 +6,7 @@ This guide explains how to host VoteChain with public internet access, allowing 
 
 VoteChain supports a **hybrid hosting model**:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │ VOTERS / ADMINISTRATORS (Anywhere)                      │
 └────────────────────┬────────────────────────────────────┘
@@ -104,8 +104,6 @@ sudo dpkg -i cloudflared-linux-arm64.deb
 cloudflared --version
 ```
 
-### 2.2 Install Python Dependencies
-
 ```bash
 # Supabase client for database updates
 sudo pip3 install supabase requests --break-system-packages
@@ -190,14 +188,12 @@ Edit `start_tunnel.py`:
 nano start_tunnel.py
 ```
 
-The script should already read credentials from `backend/.env`. Verify that your `backend/.env` has:
+The tunnel script should already read credentials from `backend/.env`. Verify that your `backend/.env` has:
 
 ```bash
 SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
 SUPABASE_KEY="eyJhbGc..."  # Service role key
 ```
-
-### 3.4 Update Frontend Files
 
 Both `admin.html` and `verify.html` should already have your credentials. Verify the `<script>` section (around line 310 in admin.html):
 
@@ -216,8 +212,6 @@ const CONFIG_SUPABASE_KEY = "eyJhbGc...";  // Service role key
 curl http://localhost:3000/api/health
 # Should return: {"status":"ok","service":"VoteChain Backend","time":"..."}
 ```
-
-### 4.2 Test Tunnel Script Manually
 
 ```bash
 # Start the tunnel script
@@ -328,6 +322,7 @@ Every time the tunnel restarts (e.g., after power cycle), steps 1-5 happen autom
 **Causes**: DNS issues, network disconnected, cloudflared not installed
 
 **Fix**:
+
 ```bash
 # Check DNS
 ping api.trycloudflare.com
@@ -509,4 +504,4 @@ ngrok http 3000 --domain=YOUR-FIXED-DOMAIN.ngrok-free.app
 
 ---
 
-**Your VoteChain system is now ready for public voting! 🎉**
+**Your VoteChain system is now ready for public voting**
