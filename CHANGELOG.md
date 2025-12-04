@@ -2,7 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased] - 2025-11-29
+## [Unreleased] - 2025-12-04
+
+### Added
+
+- **Fingerprint retry logic**: Kiosk now allows one retry attempt during voting if the first fingerprint scan fails, improving user experience and reducing false rejections.
+- **Deployment automation**: Backend now handles contract deployment via `/api/admin/deploy-contract` endpoint; deployment scripts updated to centralize deployment through backend API.
+- **AUTO_RESTART configuration**: Added `AUTO_RESTART` environment variable to backend `.env` to control automatic systemd service restarts after deployment.
+- **Active contract endpoint**: Added `/api/active-contract` to return current contract address and network info for frontend/admin UI synchronization.
+
+### Fixed
+
+- **Kiosk indentation error**: Corrected Python indentation in fingerprint verification block that prevented kiosk from starting on boot.
+- **TypeScript type errors**: Fixed error handling in `scripts/deployV2.ts` to properly handle unknown exception types.
+- **Backend syntax issues**: Removed duplicate `/api/verify-code` endpoint and fixed missing closing bracket in `app.listen()`.
+- **ESLint warnings**: Renamed unused catch variables to `_e` convention to suppress warnings.
+
+### Changed
+
+- **Backend contract runtime updates**: Made contract instance mutable to allow hot-swapping after deployments without full server restart.
+- **Deployment flow**: Centralized deployment to backend API; `scripts/deployV2.ts` now calls backend endpoint instead of deploying directly.
+- **Admin UI improvements**: Enhanced deploy button to refresh config and reinitialize contract instance after successful deployment.
+
+## [Previous] - 2025-11-29
 
 - Commit `c464e3d` — kiosk: fix OLED rendering, hardware checks, idle font/shadow tweaks
   - Make the Raspberry Pi kiosk robust to hardware errors: persistent OLED error messages and guarded device access (no unexpected process exits on hardware faults).

@@ -6,13 +6,15 @@ VoteChain V3 is a secure, cyber-physical voting system that combines biometric a
 
 ## Features
 
-- Biometric voter authentication (fingerprint)
+- Biometric voter authentication (fingerprint) with retry logic for improved reliability
 - Immutable blockchain vote ledger
 - Real-time public dashboard
 - Server-signed transactions (no voter wallet required)
 - API endpoints for results, health, and configuration
 - Modular architecture: kiosk, backend, database, blockchain
 - Security: double-vote prevention, rate limiting, CORS, audit logging
+- Automated deployment and contract management via backend API
+- Auto-restart capability for production environments
 
 ## System Architecture
 
@@ -49,13 +51,26 @@ npm install
    - `SUPABASE_KEY` — Supabase `service_role` key (server-only secret)
    - `SEPOLIA_RPC_URL` — Alchemy/Infura RPC endpoint
    - `SERVER_PRIVATE_KEY` — backend signing wallet (authorize as contract `officialSigner`)
-   - `VOTING_CONTRACT_ADDRESS` — deployed VotingV2 address (optional if deploying via scripts)
+   - `VOTING_CONTRACT_ADDRESS` — deployed VotingV2 address (optional if deploying via backend API)
+   - `AUTO_RESTART` — (optional) set to `true` to enable automatic systemd service restart after contract deployment
 
-2. (Optional) Deploy the smart contract using Hardhat:
+2. Deploy the smart contract:
+
+**Option A: Via Backend API (Recommended for Production)**
+
+Use the admin UI at `http://localhost:3000/admin.html` and click "Deploy New Election". The backend will:
+- Deploy a new VotingV2 contract
+- Update the backend `.env` file with the new contract address
+- Authorize the backend wallet as the official signer
+- Optionally restart the systemd service (if `AUTO_RESTART=true`)
+
+**Option B: Manual Deployment via Scripts**
 
 ```bash
 npx hardhat run scripts/deployV2.ts --network sepolia
 ```
+
+Note: When using Option A, the backend handles all post-deployment steps automatically.
 
 ### Run the system (local testnet)
 
@@ -77,21 +92,28 @@ sudo -E python3 ../kiosk_main.py
 
 ## Core API Endpoints (summary)
 
+### Public Endpoints
+
 - `GET /api/health` — health check
 - `GET /api/config` — contract and RPC information
 - `GET /api/results` — on-chain results proxy
 - `GET /api/metrics` — combined on-chain + DB metrics
+- `GET /api/active-contract` — returns current contract address and network (useful after deployments)
+
+### Voting Endpoints
 
 - `POST /api/voter/check-in` — validate Aadhaar; returns fingerprint_id for kiosk verification
 - `POST /api/vote` — cast vote (body: `{ aadhaar_id, candidate_id }`)
-
   - Response includes `data.transaction_hash` and, when available, `data.receipt_code`.
+
+### Receipt Verification
 
 - `POST /api/verify-code` — resolve short code to `tx_hash` (body: `{ code }`)
 - `POST /api/lookup-receipt` — given `tx_hash` return `code` (used by kiosk polling)
 
-- Admin / enrollment endpoints:
+### Admin & Enrollment Endpoints
 
+  - `POST /api/admin/deploy-contract` — deploy new VotingV2 contract and update backend configuration
   - `POST /api/admin/add-voter` — queue remote enrollment for kiosk
   - `GET /api/admin/enrollment-status` — admin UI polls for status
   - `GET /api/kiosk/poll-commands` — kiosk polls for ENROLL commands
@@ -109,6 +131,30 @@ sudo -E python3 ../kiosk_main.py
 - If the DB insert for the receipt fails, the backend returns `receipt_code: null`. The kiosk falls back to showing a truncated transaction hash and instructions to verify manually.
 - Kiosk will poll `/api/lookup-receipt` for a short period (e.g., 60s) after vote submission to discover a late-inserted code.
 - Short codes and lookups are normalized to uppercase.
+
+## Kiosk Features & Behavior
+
+### Fingerprint Verification with Retry
+
+The kiosk implements a user-friendly fingerprint verification process:
+
+- **First Attempt**: When a voter provides their Aadhaar ID, the kiosk prompts for fingerprint scan
+- **Retry Logic**: If the first scan fails or doesn't match, the voter gets ONE additional attempt
+- **User Feedback**: Clear OLED messages ("Scan Failed - Please try again") and audio beep
+- **Security**: After two failed attempts, the kiosk returns to the idle screen (no indefinite retries)
+- **Reset Option**: Voters can press the START button at any time to return to the beginning
+
+This retry mechanism reduces false rejections due to scanning issues while maintaining security.
+
+### Receipt Display
+
+After submitting a vote to the backend, the kiosk will:
+
+1. Read `receipt_code` from the `/api/vote` response if present and display it on the OLED.
+2. If `receipt_code` is not returned immediately, the kiosk will poll `/api/lookup-receipt` (with the `tx_hash`) for a short window (default ~60s) to discover a late-inserted code.
+3. If no short code is found within the poll window, the kiosk shows a fallback receipt composed of the truncated transaction hash (e.g., first 10 characters) and instructions to verify on the admin/verify UI.
+
+Ensure the kiosk can reach the backend (default `http://127.0.0.1:3000` on local deployments). If the kiosk is remote, set the backend URL in `kiosk_main.py` or via environment variable.
 
 ## Database & Supabase notes
 
