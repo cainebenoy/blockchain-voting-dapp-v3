@@ -302,10 +302,66 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
-        // --- CONFIGURATION ---
-        const BACKEND_URL = "http://127.0.0.1:3000";
+        // ============================================================
+        // SERVICE DISCOVERY CONFIGURATION
+        // ============================================================
+        // Update these with your Supabase project details
+        const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjUxMDU1OSwiZXhwIjoyMDc4MDg2NTU5fQ.Z29FfApBXiKSb7d5f2HSbUghgtliXHaAE4dLs2mDerk";
+        
+        // Backend URL - will be dynamically discovered
+        let BACKEND_URL = "http://127.0.0.1:3000"; // Fallback for local development
+        
+        // Track discovery state
+        let serviceDiscovered = false;
+        
+        // ============================================================
+        // DYNAMIC BACKEND DISCOVERY
+        // ============================================================
+        async function discoverBackendURL() {
+            // Check if we're running locally (for development)
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🔧 Running locally - using localhost backend');
+                serviceDiscovered = true;
+                return BACKEND_URL;
+            }
+            
+            console.log('🔄 Discovering backend URL from Supabase...');
+            
+            try {
+                const { createClient } = supabase;
+                const configDB = createClient(CONFIG_SUPABASE_URL, CONFIG_SUPABASE_KEY);
+                
+                const { data, error } = await configDB
+                    .from('system_config')
+                    .select('value, updated_at')
+                    .eq('key', 'backend_url')
+                    .single();
+                
+                if (error) throw error;
+                
+                if (data && data.value && data.value !== 'https://waiting-for-tunnel.com') {
+                    BACKEND_URL = data.value;
+                    serviceDiscovered = true;
+                    console.log('✅ Backend discovered:', BACKEND_URL);
+                    console.log('   Last updated:', data.updated_at);
+                    return BACKEND_URL;
+                } else {
+                    throw new Error('Backend URL not yet configured');
+                }
+            } catch (e) {
+                console.error('❌ Service discovery failed:', e);
+                showToast('Could not find VoteChain backend. Is the Raspberry Pi online?', 'error');
+                return null;
+            }
+        }
+        
+        // ============================================================
+        // CONFIGURATION
+        // ============================================================
         
         // DEFAULT CONTRACT ADDRESS (Sepolia)
         const DEFAULT_CONTRACT = "0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA";
@@ -825,6 +881,46 @@
         function updateAddressDisplay() {
             document.getElementById("shortAddress").innerText = contractAddress.substring(0,6) + "..." + contractAddress.substring(38);
         }
+
+        // ============================================================
+        // INITIALIZATION WITH SERVICE DISCOVERY
+        // ============================================================
+        async function initApp() {
+            console.log('🚀 Initializing VoteChain Admin Console...');
+            
+            // Step 1: Discover backend URL
+            const url = await discoverBackendURL();
+            if (!url) {
+                console.error('❌ Cannot proceed without backend URL');
+                return;
+            }
+            
+            // Step 2: Load contract configuration from backend
+            try {
+                await loadActiveContract();
+            } catch (e) {
+                console.warn('⚠️ Could not load contract from backend:', e);
+            }
+            
+            // Step 3: Check backend health
+            try {
+                await checkHealth();
+            } catch (e) {
+                console.warn('⚠️ Backend health check failed:', e);
+            }
+            
+            // Step 4: Load initial data
+            try {
+                await refreshData();
+            } catch (e) {
+                console.warn('⚠️ Could not load initial data:', e);
+            }
+            
+            console.log('✅ Admin console initialized');
+        }
+
+        // Start initialization when page loads
+        document.addEventListener('DOMContentLoaded', initApp);
 
         
     </script>

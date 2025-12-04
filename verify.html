@@ -96,14 +96,77 @@
         </div>
     </main>
     <!-- Ethers.js from cdnjs (More reliable) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script>
+        // ============================================================
+        // SERVICE DISCOVERY CONFIGURATION
+        // ============================================================
+        const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjUxMDU1OSwiZXhwIjoyMDc4MDg2NTU5fQ.Z29FfApBXiKSb7d5f2HSbUghgtliXHaAE4dLs2mDerk";
+        
+        // Backend URL - will be dynamically discovered
+        let BACKEND_URL = "http://127.0.0.1:3000"; // Fallback for local development
+        let serviceDiscovered = false;
+        
+        // ============================================================
+        // DYNAMIC BACKEND DISCOVERY
+        // ============================================================
+        async function discoverBackendURL() {
+            // Check if we're running locally
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🔧 Running locally - using localhost backend');
+                serviceDiscovered = true;
+                return BACKEND_URL;
+            }
+            
+            console.log('🔄 Discovering backend URL from Supabase...');
+            
+            try {
+                const { createClient } = supabase;
+                const configDB = createClient(CONFIG_SUPABASE_URL, CONFIG_SUPABASE_KEY);
+                
+                const { data, error } = await configDB
+                    .from('system_config')
+                    .select('value, updated_at')
+                    .eq('key', 'backend_url')
+                    .single();
+                
+                if (error) throw error;
+                
+                if (data && data.value && data.value !== 'https://waiting-for-tunnel.com') {
+                    BACKEND_URL = data.value;
+                    serviceDiscovered = true;
+                    console.log('✅ Backend discovered:', BACKEND_URL);
+                    return BACKEND_URL;
+                } else {
+                    throw new Error('Backend URL not yet configured');
+                }
+            } catch (e) {
+                console.error('❌ Service discovery failed:', e);
+                alert('Could not find VoteChain backend. Is the Raspberry Pi online?');
+                return null;
+            }
+        }
+        
+        // Initialize discovery on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await discoverBackendURL();
+            console.log('✅ Verify page initialized with backend:', BACKEND_URL);
+        });
+        
+        // ============================================================
+        // THEME TOGGLE
+        // ============================================================
         function toggleTheme() {
             const html = document.documentElement;
             const isDark = html.classList.toggle('dark');
             document.getElementById('themeIcon').innerText = isDark ? 'light_mode' : 'dark_mode';
         }
 
+        // ============================================================
+        // VERIFICATION LOGIC
+        // ============================================================
         async function verifyTx() {
             let input = document.getElementById('txInput').value.trim();
             const card = document.getElementById('resultCard');
@@ -117,8 +180,6 @@
             btn.innerHTML = `<span class="animate-spin material-symbols-rounded">sync</span> Verifying...`;
             btn.disabled = true;
             let hash = input;
-            // Backend base URL (use backend port)
-            const BACKEND_URL = 'http://127.0.0.1:3000';
 
             // If input is a short code (e.g., ABC-123), resolve to tx hash
             if (/^[A-Z2-9]{3}-[A-Z2-9]{3}$/i.test(input)) {

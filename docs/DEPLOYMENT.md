@@ -70,11 +70,51 @@ RX (Green)   → TX / GPIO 14 (Pin 8)
 sudo apt update && sudo apt upgrade -y
 
 # Set timezone
+sudo timedatectl set-timezone America/New_York  # Change as needed
 ```
 
-Create the `systemd` unit files as described in the repo (example shown in the repo under `votechain-backend.service` and `votechain-kiosk.service`).
+### 3. Network & DNS Configuration
 
-#### 3. Enable and Start Services
+For reliable service discovery via Cloudflare Tunnel, ensure DNS is properly configured:
+
+```bash
+# Set to Google DNS for reliable resolution
+echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+
+# Test connectivity
+ping -c 2 google.com
+ping -c 2 api.trycloudflare.com
+```
+
+### 4. Install Runtime Dependencies
+
+```bash
+# Node.js and npm (already installed during setup)
+node --version
+npm --version
+
+# Python 3 and pip (for kiosk and tunnel manager)
+sudo apt install python3 python3-pip -y
+python3 --version
+
+# Cloudflared (for tunnel)
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i cloudflared-linux-arm64.deb
+
+# PM2 (process management)
+sudo npm install -g pm2
+pm2 --version
+```
+
+### 5. Configure Service Discovery
+
+Follow [docs/SERVICE_DISCOVERY.md](SERVICE_DISCOVERY.md) to:
+1. Create the Supabase `system_config` table (run SQL script)
+2. Install Python dependencies: `sudo pip3 install supabase requests --break-system-packages`
+3. Test the tunnel: `python3 start_tunnel.py`
+4. Add to PM2: `pm2 start start_tunnel.py --name "auto-tunnel" --interpreter python3`
+
+### 6. Enable and Start Services
 
 ```bash
 ## Reload systemd

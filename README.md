@@ -15,13 +15,25 @@ VoteChain V3 is a secure, cyber-physical voting system that combines biometric a
 - Security: double-vote prevention, rate limiting, CORS, audit logging
 - Automated deployment and contract management via backend API
 - Auto-restart capability for production environments
+- **Automatic service discovery**: Frontend auto-discovers backend URL via Supabase, enabling seamless hybrid hosting (GitHub Pages + Pi backend)
 
 ## System Architecture
 
 1. **Smart Kiosk (Edge Layer):** Raspberry Pi, fingerprint scanner, OLED display, physical buttons
 2. **Backend Server (Trust Layer):** Node.js, Express, ethers.js, API, transaction signing
-3. **Voter Database (Data Layer):** Supabase (Postgres), biometric mappings, voter status
+3. **Voter Database (Data Layer):** Supabase (Postgres), biometric mappings, voter status, service discovery config
 4. **Blockchain Ledger (Verification Layer):** Ethereum Sepolia (testnet), VotingV2 smart contract
+5. **Service Discovery (Connectivity Layer):** Cloudflare Tunnel + Supabase `system_config` table for dynamic backend URL resolution
+
+## Deployment Architecture
+
+**Hybrid Hosting Pattern:**
+- **Frontend**: Static HTML files hosted on GitHub Pages (CDN, always available)
+- **Backend**: Node.js server on Raspberry Pi, exposed via Cloudflare Tunnel (free HTTPS tunnel)
+- **Service Discovery**: Supabase acts as a "notice board" where the tunnel script updates the current backend URL whenever the tunnel starts
+- **No Manual Configuration**: Frontend queries Supabase on load to discover backend URL automatically
+
+See [docs/SERVICE_DISCOVERY.md](docs/SERVICE_DISCOVERY.md) for complete setup and troubleshooting.
 
 ## Quick Start
 
@@ -224,6 +236,17 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
+## Documentation
+
+- **[SERVICE_DISCOVERY.md](docs/SERVICE_DISCOVERY.md)** — Complete service discovery system architecture, setup guide, and troubleshooting
+- **[HOSTING.md](docs/HOSTING.md)** — Hybrid hosting guide: GitHub Pages frontend + Cloudflare Tunnel backend with automatic URL discovery
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** — Raspberry Pi deployment: OS setup, hardware configuration, systemd services
+- **[HARDWARE.md](docs/HARDWARE.md)** — Hardware wiring guide, component specifications, emulation notes
+- **[SECURITY.md](docs/SECURITY.md)** — Security considerations, RLS policies, API key management, CORS configuration
+- **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — Common issues and solutions
+- **[PRIVACY.md](docs/PRIVACY.md)** — Privacy design and voter data handling
+- **[RECEIPTS.md](docs/RECEIPTS.md)** — Receipt code system and vote verification flow
+
 ## Contributing & development
 
 - Keep backend as ESM and follow existing layout.
@@ -232,6 +255,7 @@ WantedBy=multi-user.target
 
 ## Changelog (short)
 
+- 2025-12-04 — Service discovery system complete: Cloudflare Tunnel, Supabase config table, frontend auto-discovery, hybrid hosting support (GitHub Pages + Pi backend)
 - 2025-11-30 — Added short-code receipt system, `/api/verify-code`, `/api/lookup-receipt`, kiosk polling improvements, and verify UI updates.
 
 ## Contact

@@ -2,7 +2,32 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased] - 2025-12-04
+## [2025-12-04] - Service Discovery System (Complete)
+
+### Added - Service Discovery & Hybrid Hosting
+
+- **Cloudflare Tunnel integration**: `start_tunnel.py` manages tunnel lifecycle, extracts public URL from logs, and updates Supabase with the current backend address
+- **Supabase service discovery**: `system_config` table stores dynamic backend URL with RLS policies (public read, service role write)
+- **Frontend auto-discovery**: `admin.html` and `verify.html` query Supabase on load to dynamically discover backend URL
+- **Zero-configuration hybrid hosting**: Frontend on GitHub Pages + Backend on Raspberry Pi via Cloudflare Tunnel with automatic URL resolution
+- **Service discovery documentation**: Complete `docs/SERVICE_DISCOVERY.md` with setup steps, testing procedures, troubleshooting, and monitoring
+- **PM2 integration**: Tunnel manager added to PM2 for automatic startup on Pi boot
+- **DNS resilience**: Automatic DNS configuration for reliable Cloudflare API access
+- **Environment variable loading**: `start_tunnel.py` automatically loads Supabase credentials from `backend/.env`
+
+### Fixed
+
+- **DNS resolution**: Set default DNS to Google 8.8.8.8 to resolve Cloudflare API connectivity issues
+
+### Changed
+
+- **Architecture**: Added service discovery layer for flexible, location-independent deployment
+- **Frontend initialization**: Both HTML frontends now perform service discovery before initializing contract instances
+- **Deployment model**: Supports GitHub Pages + Pi hybrid model without manual URL configuration
+
+---
+
+## [Unreleased] - Earlier Changes (2025-12-04)
 
 ### Added
 
