@@ -1036,67 +1036,67 @@ if __name__ == '__main__':
                             continue
                         if voter:
                             # 4. VERIFY FINGERPRINT (allow one retry)
-                                show_msg("Verifying...", "Scan Finger", "Or Press START")
-                                set_leds(green=True, red=False)
-                                print(f"Expecting Finger ID #{voter['fingerprint_id']}")
+                            show_msg("Verifying...", "Scan Finger", "Or Press START")
+                            set_leds(green=True, red=False)
+                            print(f"Expecting Finger ID #{voter['fingerprint_id']}")
 
-                                verified = False
-                                max_attempts = 2
-                                attempt = 0
-                                while attempt < max_attempts:
-                                    scanned_id = scan_finger_and_get_id()
-                                    # Check for reset signal
-                                    if scanned_id == "RESET":
-                                        print("🔄 Resetting to idle...")
-                                        idle_message_shown = False
-                                        verified = False
-                                        break
-                                    # Successful match
-                                    if scanned_id == voter['fingerprint_id']:
-                                        verified = True
-                                        break
-
-                                    # First failed attempt -> give one more try
-                                    attempt += 1
-                                    if attempt < max_attempts:
-                                        print("⚠️ Scan failed — prompting retry")
-                                        show_msg("Scan Failed", "Please try again", "Or Press START")
-                                        # Audible prompt
-                                        try:
-                                            beep(count=1, duration=0.05)
-                                        except Exception:
-                                            pass
-                                        # loop to allow next scan
-                                        continue
-                                    else:
-                                        # Exhausted attempts
-                                        verified = False
-                                        break
-
-                                if not verified:
-                                    # Deny access and return to idle (do not block waiting for START)
-                                    print("⛔ Mismatch after retries.")
-                                    show_msg("Access Denied", "Finger Mismatch", "Returning to idle")
-                                    set_leds(green=False, red=True)
-                                    try:
-                                        beep(count=3, duration=0.2)
-                                    except Exception:
-                                        pass
-                                    time.sleep(1.0)
-                                    idle_message_shown = False
-                                    continue
-
-                                # 5. VOTE INTERFACE (identity verified)
-                                print("✅ Identity Verified.")
-                                final_choice = run_voting_interface(voter['name'])
+                            verified = False
+                            max_attempts = 2
+                            attempt = 0
+                            while attempt < max_attempts:
+                                scanned_id = scan_finger_and_get_id()
                                 # Check for reset signal
-                                if final_choice == "RESET":
+                                if scanned_id == "RESET":
                                     print("🔄 Resetting to idle...")
                                     idle_message_shown = False
+                                    verified = False
+                                    break
+                                # Successful match
+                                if scanned_id == voter['fingerprint_id']:
+                                    verified = True
+                                    break
+
+                                # First failed attempt -> give one more try
+                                attempt += 1
+                                if attempt < max_attempts:
+                                    print("⚠️ Scan failed — prompting retry")
+                                    show_msg("Scan Failed", "Please try again", "Or Press START")
+                                    # Audible prompt
+                                    try:
+                                        beep(count=1, duration=0.05)
+                                    except Exception:
+                                        pass
+                                    # loop to allow next scan
                                     continue
-                                # 6. SUBMIT
-                                submit_vote(aadhaar, final_choice)
-                                time.sleep(4)
+                                else:
+                                    # Exhausted attempts
+                                    verified = False
+                                    break
+
+                            if not verified:
+                                # Deny access and return to idle (do not block waiting for START)
+                                print("⛔ Mismatch after retries.")
+                                show_msg("Access Denied", "Finger Mismatch", "Returning to idle")
+                                set_leds(green=False, red=True)
+                                try:
+                                    beep(count=3, duration=0.2)
+                                except Exception:
+                                    pass
+                                time.sleep(1.0)
+                                idle_message_shown = False
+                                continue
+
+                            # 5. VOTE INTERFACE (identity verified)
+                            print("✅ Identity Verified.")
+                            final_choice = run_voting_interface(voter['name'])
+                            # Check for reset signal
+                            if final_choice == "RESET":
+                                print("🔄 Resetting to idle...")
+                                idle_message_shown = False
+                                continue
+                            # 6. SUBMIT
+                            submit_vote(aadhaar, final_choice)
+                            time.sleep(4)
                             idle_message_shown = False  # Reset for next iteration
                         else:
                             # No voter found but not a reset signal, just go back to idle
