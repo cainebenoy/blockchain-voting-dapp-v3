@@ -134,8 +134,8 @@ def extract_tunnel_url(process):
     """
     print("⏳ Waiting for Cloudflare tunnel URL...")
     
-    # Regex pattern for trycloudflare.com URLs
-    url_pattern = re.compile(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com')
+    # Regex pattern for trycloudflare.com URLs (exclude api.trycloudflare.com)
+    url_pattern = re.compile(r'https://(?!api\.)[a-zA-Z0-9-]+\.trycloudflare\.com')
     
     start_time = time.time()
     timeout = 30  # 30 second timeout
