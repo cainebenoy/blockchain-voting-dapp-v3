@@ -1,17 +1,9 @@
-def wait_for_reset():
-    """Wait for the START button to be pressed, then return 'RESET'."""
-    while True:
-        if GPIO.input(PIN_BTN_START) == GPIO.LOW:
-            time.sleep(0.2)
-            return "RESET"
-        time.sleep(0.1)
-def beep_success():
-    beep(2, 0.08)
+#!/usr/bin/env python3
+"""
+VoteChain V3 Kiosk - Main Entry Point
+Biometric voting terminal with fingerprint authentication
+"""
 
-def beep_error():
-    beep(1, 0.5)
-    time.sleep(0.1)
-    beep(1, 0.2)
 import time
 import sys
 import tty
@@ -27,6 +19,7 @@ except Exception:
     InputDevice = None
     ecodes = None
     list_devices = lambda: []
+
 import serial
 import adafruit_fingerprint
 import requests
@@ -37,25 +30,6 @@ from luma.oled.device import sh1106, ssd1306
 
 # Pre-declare globals to satisfy static analysis (will be initialized later)
 device = None
-
-# Lightweight stubs to avoid 'used before assignment' warnings in Pylance.
-def set_leds(green=False, red=False):
-    try:
-        GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
-        GPIO.output(PIN_LED_RED, GPIO.HIGH if red else GPIO.LOW)
-    except Exception:
-        pass
-
-def beep(count=1, duration=0.1):
-    # Real implementation defined later; stub to keep early callers quiet.
-    try:
-        for _ in range(count):
-            GPIO.output(PIN_BUZZER, GPIO.HIGH)
-            time.sleep(duration)
-            GPIO.output(PIN_BUZZER, GPIO.LOW)
-            time.sleep(0.05)
-    except Exception:
-        pass
 
 # --- CONFIGURATION ---
 # ⚠️ UPDATE THIS IP IF YOUR LAPTOP IP CHANGES ⚠️
@@ -216,22 +190,30 @@ else:
 # --- HELPER FUNCTIONS ---
 
 def beep(count=1, duration=0.1):
-    def beep_success():
-        beep(2, 0.08)
-
-    def beep_error():
-        beep(1, 0.5)
-        time.sleep(0.1)
-        beep(1, 0.2)
-
-    def beep_prompt():
-        beep(1, 0.05)
-
     for _ in range(count):
         GPIO.output(PIN_BUZZER, GPIO.HIGH)
         time.sleep(duration)
         GPIO.output(PIN_BUZZER, GPIO.LOW)
         time.sleep(0.05)
+
+def beep_success():
+    beep(2, 0.08)
+
+def beep_error():
+    beep(1, 0.5)
+    time.sleep(0.1)
+    beep(1, 0.2)
+
+def beep_prompt():
+    beep(1, 0.05)
+
+def wait_for_reset():
+    """Wait for the START button to be pressed, then return 'RESET'."""
+    while True:
+        if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+            time.sleep(0.2)
+            return "RESET"
+        time.sleep(0.1)
 
 def set_leds(green=False, red=False):
     GPIO.output(PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
