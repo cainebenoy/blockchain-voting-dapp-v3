@@ -57,7 +57,7 @@ app.post('/api/verify-code', async (req, res) => {
             .single();
         if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
         res.json({ status: 'success', tx_hash: data.tx_hash });
-    } catch (e) {
+    } catch (_e) {
         res.status(500).json({ status: 'error' });
     }
 });
@@ -272,12 +272,10 @@ app.post('/api/verify-code', async (req, res) => {
             .single();
         if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
         res.json({ status: 'success', tx_hash: data.tx_hash });
-    } catch (e) {
+    } catch (_e) {
         res.status(500).json({ status: 'error' });
     }
-});
 
-// Top-level /api/verify-code endpoint
 
 // Top-level /api/verify-code endpoint
 // Get current active contract (returns runtime contract, useful after deployments)
@@ -766,4 +764,5 @@ app.get('/api/metrics', async (_req, res) => {
 // Start the server
 app.listen(port, () => {
     console.log(`🤖 Election Official (Backend) is listening on port ${port}`);
+});
 });

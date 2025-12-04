@@ -38,8 +38,10 @@ async function main() {
     const json = await postJson('http://localhost:3000/api/admin/deploy-contract', {});
     console.log('✅ Backend deploy response:');
     console.log(JSON.stringify(json, null, 2));
-  } catch (e) {
-    console.error('❌ Failed to call backend deploy endpoint:', e && e.message ? e.message : e);
+  } catch (e: unknown) {
+    const err = e as { message?: string } | string;
+    const msg = typeof err === 'object' && err && 'message' in err ? (err as { message: string }).message : String(err);
+    console.error('❌ Failed to call backend deploy endpoint:', msg);
     process.exit(1);
   }
 }
