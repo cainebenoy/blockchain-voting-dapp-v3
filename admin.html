@@ -494,7 +494,7 @@
 
         async function fetchVoterCount() {
             try {
-                const response = await fetch('http://localhost:3000/api/metrics');
+                const response = await fetch(`${BACKEND_URL}/api/metrics`);
                 const data = await response.json();
                 if (data.totalRegisteredVoters !== undefined) {
                     totalRegisteredVoters = data.totalRegisteredVoters;
@@ -904,7 +904,7 @@
             
             // Step 3: Check backend health
             try {
-                await checkHealth();
+                await checkSystemHealth();
             } catch (e) {
                 console.warn('⚠️ Backend health check failed:', e);
             }
