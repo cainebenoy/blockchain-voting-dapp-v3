@@ -183,17 +183,62 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
     <!-- Chart.js for analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Supabase for service discovery -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         // --- 1. CONFIGURATION ---
-        const API_BASE = 'http://localhost:3000';
+        // Service Discovery Configuration
+        const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjUxMDU1OSwiZXhwIjoyMDc4MDg2NTU5fQ.Z29FfApBXiKSb7d5f2HSbUghgtliXHaAE4dLs2mDerk";
+        
+        let API_BASE = 'http://localhost:3000'; // Fallback for local development
         let CONTRACT_ADDRESS = null;
         let CONFIG_LOADED = false;
+        let serviceDiscovered = false;
 
         // --- 2. STATE ---
         let refreshInterval;
         let voteChart = null;
         let currentCandidates = [];
         let currentMetrics = {};
+
+        // --- SERVICE DISCOVERY ---
+        async function discoverBackendURL() {
+            // Check if we're running locally (for development)
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🔧 Running locally - using localhost backend');
+                serviceDiscovered = true;
+                return API_BASE;
+            }
+            
+            console.log('🔄 Discovering backend URL from Supabase...');
+            
+            try {
+                const { createClient } = supabase;
+                const configDB = createClient(CONFIG_SUPABASE_URL, CONFIG_SUPABASE_KEY);
+                
+                const { data, error } = await configDB
+                    .from('system_config')
+                    .select('value, updated_at')
+                    .eq('key', 'backend_url')
+                    .single();
+                
+                if (error) throw error;
+                
+                if (data && data.value && data.value !== 'https://waiting-for-tunnel.com') {
+                    API_BASE = data.value;
+                    serviceDiscovered = true;
+                    console.log('✅ Backend discovered:', API_BASE);
+                    console.log('   Last updated:', data.updated_at);
+                    return API_BASE;
+                } else {
+                    throw new Error('Backend URL not yet configured');
+                }
+            } catch (e) {
+                console.error('❌ Service discovery failed:', e);
+                return null;
+            }
+        }
 
         // --- THEME TOGGLE ---
         function toggleTheme() {
@@ -358,7 +403,14 @@
         async function init() {
             try {
                 console.log('🔗 Connecting to VoteChain backend...');
-                // Load contract config first
+                
+                // Discover backend URL first
+                const backendUrl = await discoverBackendURL();
+                if (!backendUrl) {
+                    throw new Error('Cannot discover backend URL. Is the Pi online?');
+                }
+                
+                // Load contract config
                 await loadConfig();
                 // Fetch initial data
                 await refreshData();
