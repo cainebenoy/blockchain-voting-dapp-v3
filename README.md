@@ -56,15 +56,16 @@ npm install
 
 2. Deploy the smart contract:
 
-**Option A: Via Backend API (Recommended for Production)**
+#### Option A: Via Backend API (Recommended for Production)
 
 Use the admin UI at `http://localhost:3000/admin.html` and click "Deploy New Election". The backend will:
+
 - Deploy a new VotingV2 contract
 - Update the backend `.env` file with the new contract address
 - Authorize the backend wallet as the official signer
 - Optionally restart the systemd service (if `AUTO_RESTART=true`)
 
-**Option B: Manual Deployment via Scripts**
+#### Option B: Manual Deployment via Scripts
 
 ```bash
 npx hardhat run scripts/deployV2.ts --network sepolia
@@ -113,11 +114,11 @@ sudo -E python3 ../kiosk_main.py
 
 ### Admin & Enrollment Endpoints
 
-  - `POST /api/admin/deploy-contract` — deploy new VotingV2 contract and update backend configuration
-  - `POST /api/admin/add-voter` — queue remote enrollment for kiosk
-  - `GET /api/admin/enrollment-status` — admin UI polls for status
-  - `GET /api/kiosk/poll-commands` — kiosk polls for ENROLL commands
-  - `POST /api/kiosk/enrollment-complete` — kiosk reports enrollment result and backend persists `voters` row
+- `POST /api/admin/deploy-contract` — deploy new VotingV2 contract and update backend configuration
+- `POST /api/admin/add-voter` — queue remote enrollment for kiosk
+- `GET /api/admin/enrollment-status` — admin UI polls for status
+- `GET /api/kiosk/poll-commands` — kiosk polls for ENROLL commands
+- `POST /api/kiosk/enrollment-complete` — kiosk reports enrollment result and backend persists `voters` row
 
 ## Short-code Receipt System (how it works)
 
