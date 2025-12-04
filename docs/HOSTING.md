@@ -69,11 +69,13 @@ git remote -v  # Verify origin points to your fork
 4. Click **Save**
 
 Wait 60 seconds, then your site is live at:
-```
+
+```url
 https://yourusername.github.io/blockchain-voting-dapp-v3/
 ```
 
 Test it:
+
 - Frontend: `https://yourusername.github.io/blockchain-voting-dapp-v3/admin.html`
 - Verification: `https://yourusername.github.io/blockchain-voting-dapp-v3/verify.html`
 
@@ -223,6 +225,7 @@ python3 start_tunnel.py
 ```
 
 Check Supabase to verify URL was saved:
+
 - **Table Editor** → **system_config**
 - **value** column should show: `https://something.trycloudflare.com`
 
@@ -239,14 +242,16 @@ curl https://something.trycloudflare.com/api/health
 ### 4.4 Test Frontend Discovery
 
 Open your GitHub Pages site in a browser:
-```
+
+```url
 https://yourusername.github.io/blockchain-voting-dapp-v3/admin.html
 ```
 
 Open **Browser Developer Tools** (F12) → **Console**
 
 You should see:
-```
+
+```text
 ✅ Backend discovered: https://something.trycloudflare.com
 ✅ Admin console initialized
 ```
@@ -309,7 +314,7 @@ pm2 monit
 8. **Backend Found**: Frontend gets the tunnel URL and stores in `BACKEND_URL`
 9. **All API Calls**: Use the discovered URL automatically
 
-### No Manual Configuration Needed!
+### No Manual Configuration Needed
 
 Every time the tunnel restarts (e.g., after power cycle), steps 1-5 happen automatically, and voters always get the current URL.
 
@@ -344,11 +349,12 @@ python3 start_tunnel.py
 
 **Fix**: Run the SQL script in Supabase SQL Editor (see Step 3.1)
 
-### Problem: "Service discovery failed" in browser console
+### Problem: Service discovery failed in browser console
 
 **Cause**: Wrong Supabase URL or key in HTML file
 
 **Fix**:
+
 1. Check `admin.html` line ~310 for correct credentials
 2. Verify credentials match `backend/.env`
 3. Hard refresh browser: `Ctrl+Shift+R`
@@ -365,6 +371,7 @@ python3 start_tunnel.py
 ### Problem: "Backend connection timeout"
 
 **Check**:
+
 1. Is backend running? `curl http://localhost:3000/api/health`
 2. Is tunnel active? `pm2 logs auto-tunnel` should show "Tunnel is active"
 3. Is the tunnel URL correct? Check Supabase `system_config` table
@@ -375,6 +382,7 @@ python3 start_tunnel.py
 **This should NOT happen** because we use HTTPS tunnel: `https://xxx.trycloudflare.com`
 
 **If it occurs**:
+
 1. Verify Supabase shows `https://` URL, not `http://`
 2. Check tunnel output logs: `pm2 logs auto-tunnel | grep "https://"`
 3. Force browser cache clear: `Ctrl+Shift+R`
@@ -504,4 +512,6 @@ ngrok http 3000 --domain=YOUR-FIXED-DOMAIN.ngrok-free.app
 
 ---
 
-**Your VoteChain system is now ready for public voting**
+## Your VoteChain System is Ready
+
+Your VoteChain system is now ready for public voting
