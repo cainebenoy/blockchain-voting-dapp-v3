@@ -873,7 +873,7 @@
                 // 2. Poll for Completion
                 const pollInterval = setInterval(async () => {
                     try {
-                        const statusRes = await fetch(`${BACKEND_URL}/api/admin/enrollment-status`);
+                        const statusRes = await fetchWithFallback(`${BACKEND_URL}/api/admin/enrollment-status`);
                         const statusData = await statusRes.json();
                         if(statusData.status === 'COMPLETED') {
                             clearInterval(pollInterval);

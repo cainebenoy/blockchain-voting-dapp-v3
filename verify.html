@@ -237,6 +237,64 @@
             throw new Error('Could not discover backend');
         }
         
+        // --- FETCH WITH PROXY FALLBACK ---
+        async function fetchWithFallback(url, options = {}) {
+            // Try direct fetch first (fastest, no DNS needed if it's already cached)
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    console.log('✅ Direct fetch succeeded');
+                    return response;
+                }
+            } catch (e) {
+                console.log('⚠️ Direct fetch failed, trying CORS proxy...');
+            }
+            
+            // Fall back to CORS proxy for DNS failures
+            const proxies = [
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
+            ];
+            
+            for (const proxy of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 4000);
+                    
+                    let proxyURL;
+                    if (proxy.name === 'allorigins') {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    } else {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    }
+                    
+                    const response = await fetch(proxyURL, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log(`✅ Proxy ${proxy.name} succeeded`);
+                        
+                        // Return a response-like object with the proxy data
+                        return {
+                            ok: true,
+                            status: 200,
+                            headers: new Map([['content-type', 'application/json']]),
+                            json: async () => JSON.parse(data.contents),
+                            text: async () => data.contents
+                        };
+                    }
+                } catch (e) {
+                    console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
+                }
+            }
+            
+            // If all proxies fail, throw error
+            throw new Error('All fetch attempts failed (direct + CORS proxies)');
+        }
+        
         // Initialize discovery on page load
         document.addEventListener('DOMContentLoaded', async () => {
             await discoverBackendURL();
@@ -276,7 +334,7 @@
             // If input is a short code (e.g., ABC-123), resolve to tx hash
             if (/^[A-Z2-9]{3}-[A-Z2-9]{3}$/i.test(input)) {
                 try {
-                    const resp = await fetch(BACKEND_URL + '/api/verify-code', {
+                    const resp = await fetchWithFallback(BACKEND_URL + '/api/verify-code', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ code: input.toUpperCase() })
@@ -305,7 +363,7 @@
             }
             try {
                 // Fetch transaction details from backend
-                const resp = await fetch(BACKEND_URL + '/api/verify-transaction', {
+                const resp = await fetchWithFallback(BACKEND_URL + '/api/verify-transaction', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tx_hash: hash })
