@@ -130,27 +130,43 @@
         }
 
         async function testTunnelViaProxy(tunnelURL) {
-            // Try using a public CORS proxy for DNS-resistant fallback
-            try {
-                const corsProxy = 'https://api.allorigins.win/get?url=';
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                
-                const proxyURL = corsProxy + encodeURIComponent(tunnelURL + '/api/health');
-                const response = await fetch(proxyURL, {
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    return data.status === 200 || data.contents.includes('ok');
+            // Try multiple CORS proxies for DNS-resistant fallback
+            const proxies = [
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' },
+                { name: 'corsproxy.io', url: 'https://corsproxy.io/?' }
+            ];
+            
+            for (const proxy of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    
+                    let proxyURL;
+                    if (proxy.name === 'allorigins') {
+                        proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
+                    } else {
+                        proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
+                    }
+                    
+                    const response = await fetch(proxyURL, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const isHealthy = proxy.name === 'allorigins' 
+                            ? (data.status === 200 || data.contents?.includes('ok'))
+                            : (data.status === 200 || data.contents?.includes('ok'));
+                        if (isHealthy) {
+                            console.log(`✅ Tunnel accessible via ${proxy.name} proxy`);
+                            return true;
+                        }
+                    }
+                } catch (e) {
+                    console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
                 }
-                return false;
-            } catch (e) {
-                console.log('⚠️ Proxy fallback failed:', e.message);
-                return false;
             }
+            
+            return false;
         }
         
         async function discoverBackendURL() {

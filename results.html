@@ -221,27 +221,43 @@
         }
 
         async function testTunnelViaProxy(tunnelURL) {
-            // Try using a public CORS proxy for DNS-resistant fallback
-            try {
-                const corsProxy = 'https://api.allorigins.win/get?url=';
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                
-                const proxyURL = corsProxy + encodeURIComponent(tunnelURL + '/api/health');
-                const response = await fetch(proxyURL, {
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    return data.status === 200 || data.contents.includes('ok');
+            // Try multiple CORS proxies for DNS-resistant fallback
+            const proxies = [
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' },
+                { name: 'corsproxy.io', url: 'https://corsproxy.io/?' }
+            ];
+            
+            for (const proxy of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    
+                    let proxyURL;
+                    if (proxy.name === 'allorigins') {
+                        proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
+                    } else {
+                        proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
+                    }
+                    
+                    const response = await fetch(proxyURL, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const isHealthy = proxy.name === 'allorigins' 
+                            ? (data.status === 200 || data.contents?.includes('ok'))
+                            : (data.status === 200 || data.contents?.includes('ok'));
+                        if (isHealthy) {
+                            console.log(`✅ Tunnel accessible via ${proxy.name} proxy`);
+                            return true;
+                        }
+                    }
+                } catch (e) {
+                    console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
                 }
-                return false;
-            } catch (e) {
-                console.log('⚠️ Proxy fallback failed:', e.message);
-                return false;
             }
+            
+            return false;
         }
         
         async function discoverBackendURL() {
@@ -455,33 +471,61 @@
         // --- 3. DATA FETCHING ---
         // --- FETCH WITH PROXY FALLBACK ---
         async function fetchWithFallback(url, options = {}) {
-            // Try direct fetch first
+            // Try direct fetch first (fastest, no DNS needed if it's already cached)
             try {
-                const response = await fetch(url, { ...options, timeout: 3000 });
-                if (response.ok) return response;
-            } catch (e) {
-                console.log('⚠️ Direct fetch failed for:', url.substring(0, 50) + '...');
-            }
-            
-            // Fall back to CORS proxy for DNS failures
-            try {
-                const corsProxy = 'https://api.allorigins.win/get?url=';
-                const proxyURL = corsProxy + encodeURIComponent(url);
-                const response = await fetch(proxyURL, { timeout: 5000 });
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (response.ok) {
-                    const data = await response.json();
-                    // Return a response-like object with the proxy data
-                    return {
-                        ok: true,
-                        status: 200,
-                        json: async () => JSON.parse(data.contents)
-                    };
+                    console.log('✅ Direct fetch succeeded');
+                    return response;
                 }
             } catch (e) {
-                console.log('⚠️ Proxy fallback also failed');
+                console.log('⚠️ Direct fetch failed, trying CORS proxies...');
             }
             
-            throw new Error('All fetch attempts failed');
+            // Fall back to CORS proxies for DNS failures
+            const proxies = [
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' },
+                { name: 'corsproxy', url: 'https://corsproxy.io/?' }
+            ];
+            
+            for (const proxy of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 4000);
+                    
+                    let proxyURL;
+                    if (proxy.name === 'allorigins') {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    } else {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    }
+                    
+                    const response = await fetch(proxyURL, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log(`✅ Proxy ${proxy.name} succeeded`);
+                        
+                        // Return a response-like object with the proxy data
+                        return {
+                            ok: true,
+                            status: 200,
+                            headers: new Map([['content-type', 'application/json']]),
+                            json: async () => JSON.parse(data.contents),
+                            text: async () => data.contents
+                        };
+                    }
+                } catch (e) {
+                    console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
+                }
+            }
+            
+            // If all proxies fail, throw error
+            throw new Error('All fetch attempts failed (direct + CORS proxies)');
         }
 
         async function loadConfig() {
