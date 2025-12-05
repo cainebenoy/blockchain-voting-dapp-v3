@@ -207,7 +207,7 @@
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 console.log('🔧 Running locally - using localhost backend');
                 serviceDiscovered = true;
-                return BACKEND_URL;
+                return API_BASE;
             }
             
             console.log('🔄 Discovering backend URL from Cloudflare Tunnel...');
@@ -230,11 +230,11 @@
                 const data = await response.json();
                 
                 if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
-                    BACKEND_URL = data[0].value;
+                    API_BASE = data[0].value;
                     serviceDiscovered = true;
-                    console.log('✅ Cloudflare Tunnel URL discovered:', BACKEND_URL);
+                    console.log('✅ Cloudflare Tunnel URL discovered:', API_BASE);
                     console.log('   Last updated:', data[0].updated_at);
-                    return BACKEND_URL;
+                    return API_BASE;
                 } else {
                     throw new Error('Cloudflare Tunnel URL not yet configured in Supabase');
                 }
