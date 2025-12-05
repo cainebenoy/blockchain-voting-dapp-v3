@@ -652,34 +652,21 @@ def scan_finger_and_get_id():
         return "RESET"
     if not result:
         finger.set_led(color=1, mode=3) # Red error
-        show_msg("Scan Failed", "No finger detected", "Press START to reset")
-        # Wait for reset button press
-        while True:
-            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
-                time.sleep(0.2)
-                return "RESET"
-            time.sleep(0.1)
+        # Return None to allow retry logic to handle this
+        return None
     print("Templating...", end="")
     if finger.image_2_tz(1) != adafruit_fingerprint.OK:
         finger.set_led(color=1, mode=3)
-        show_msg("Scan Failed", "Template error", "Press START to reset")
-        while True:
-            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
-                time.sleep(0.2)
-                return "RESET"
-            time.sleep(0.1)
+        # Return None to allow retry logic to handle this
+        return None
     print("Searching...", end="")
     if finger.finger_search() == adafruit_fingerprint.OK:
         finger.set_led(color=2, mode=3) # Green success
         return finger.finger_id
     else:
         finger.set_led(color=1, mode=3) # Red fail
-        show_msg("Scan Failed", "Not recognized", "Press START to reset")
-        while True:
-            if GPIO.input(PIN_BTN_START) == GPIO.LOW:
-                time.sleep(0.2)
-                return "RESET"
-            time.sleep(0.1)
+        # Return None to allow retry logic to handle this
+        return None
 
 # --- NEW: ENROLLMENT LOGIC ---
 
@@ -1037,17 +1024,22 @@ if __name__ == '__main__':
                                 if scanned_id == voter['fingerprint_id']:
                                     verified = True
                                     break
-
-                                # First failed attempt -> give one more try
+                                
+                                # Failed scan (None) or wrong fingerprint ID
                                 attempt += 1
                                 if attempt < max_attempts:
-                                    print("⚠️ Scan failed — prompting retry")
-                                    show_msg("Scan Failed", "Please try again", "Or Press START")
+                                    if scanned_id is None:
+                                        print("⚠️ Scan failed — prompting retry")
+                                        show_msg("Scan Failed", "Try again", "Attempt 2 of 2")
+                                    else:
+                                        print(f"⚠️ Wrong finger (got ID #{scanned_id}) — prompting retry")
+                                        show_msg("Wrong Finger", "Try again", "Attempt 2 of 2")
                                     # Audible prompt
                                     try:
                                         beep(count=1, duration=0.05)
                                     except Exception:
                                         pass
+                                    time.sleep(1)
                                     # loop to allow next scan
                                     continue
                                 else:
@@ -1057,15 +1049,24 @@ if __name__ == '__main__':
 
                             if not verified:
                                 # Deny access and return to idle (do not block waiting for START)
-                                print("⛔ Mismatch after retries.")
-                                show_msg("Access Denied", "Finger Mismatch", "Returning to idle")
+                                if scanned_id is None:
+                                    print("⛔ Scan failed after retries.")
+                                    show_msg("Access Denied", "Scan Failed", "Press START")
+                                else:
+                                    print("⛔ Mismatch after retries.")
+                                    show_msg("Access Denied", "Finger Mismatch", "Press START")
                                 set_leds(green=False, red=True)
                                 try:
                                     beep(count=3, duration=0.2)
                                 except Exception:
                                     pass
-                                time.sleep(1.0)
-                                idle_message_shown = False
+                                # Wait for START button to reset
+                                while True:
+                                    if GPIO.input(PIN_BTN_START) == GPIO.LOW:
+                                        time.sleep(0.2)
+                                        idle_message_shown = False
+                                        break
+                                    time.sleep(0.1)
                                 continue
 
                             # 5. VOTE INTERFACE (identity verified)
