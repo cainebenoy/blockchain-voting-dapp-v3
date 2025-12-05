@@ -213,29 +213,56 @@
             
             console.log('🔄 Discovering backend URL from Supabase...');
             
+            // Try direct REST API first (more reliable than SDK)
             try {
-                const { createClient } = supabase;
-                const configDB = createClient(CONFIG_SUPABASE_URL, CONFIG_SUPABASE_KEY);
+                const response = await fetch(
+                    `${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value,updated_at`,
+                    {
+                        headers: {
+                            'apikey': CONFIG_SUPABASE_KEY,
+                            'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}`
+                        }
+                    }
+                );
                 
-                const { data, error } = await configDB
-                    .from('system_config')
-                    .select('value, updated_at')
-                    .eq('key', 'backend_url')
-                    .single();
+                if (!response.ok) {
+                    throw new Error(`Supabase returned ${response.status}`);
+                }
                 
-                if (error) throw error;
+                const data = await response.json();
                 
-                if (data && data.value && data.value !== 'https://waiting-for-tunnel.com') {
-                    API_BASE = data.value;
+                if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
+                    API_BASE = data[0].value;
                     serviceDiscovered = true;
                     console.log('✅ Backend discovered:', API_BASE);
-                    console.log('   Last updated:', data.updated_at);
-                    return API_BASE;
+                    console.log('   Last updated:', data[0].updated_at);
+                    
+                    // Verify the backend is actually reachable
+                    try {
+                        const healthCheck = await fetch(`${API_BASE}/api/health`, { 
+                            method: 'GET',
+                            signal: AbortSignal.timeout(5000) // 5 second timeout
+                        });
+                        if (healthCheck.ok) {
+                            console.log('✅ Backend health check passed');
+                            return API_BASE;
+                        } else {
+                            throw new Error('Backend not responding to health check');
+                        }
+                    } catch (healthError) {
+                        console.warn('⚠️ Health check failed:', healthError.message);
+                        // Still return the URL, maybe it will work for other endpoints
+                        return API_BASE;
+                    }
                 } else {
-                    throw new Error('Backend URL not yet configured');
+                    throw new Error('Backend URL not yet configured in Supabase');
                 }
             } catch (e) {
                 console.error('❌ Service discovery failed:', e);
+                console.error('📋 Troubleshooting steps:');
+                console.error('   1. Check that the Raspberry Pi is online');
+                console.error('   2. Verify the tunnel is running: pm2 status');
+                console.error('   3. Check Supabase for backend_url configuration');
                 return null;
             }
         }
@@ -404,11 +431,27 @@
             try {
                 console.log('🔗 Connecting to VoteChain backend...');
                 
+                // Show loading state
+                document.getElementById('electionStatus').innerText = "Connecting...";
+                document.getElementById('resultsList').innerHTML = 
+                    `<div class="text-center py-12">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
+                        <p class="text-slate-500 dark:text-slate-400">🔍 Discovering backend server...</p>
+                        <p class="text-xs text-slate-400 mt-2">This may take a few seconds</p>
+                    </div>`;
+                
                 // Discover backend URL first
                 const backendUrl = await discoverBackendURL();
                 if (!backendUrl) {
-                    throw new Error('Cannot discover backend URL. Is the Pi online?');
+                    throw new Error('Cannot discover backend URL. Please ensure the Raspberry Pi is online and the tunnel is running.');
                 }
+                
+                // Update loading message
+                document.getElementById('resultsList').innerHTML = 
+                    `<div class="text-center py-12">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
+                        <p class="text-slate-500 dark:text-slate-400">✅ Backend found! Loading election data...</p>
+                    </div>`;
                 
                 // Load contract config
                 await loadConfig();
@@ -423,7 +466,25 @@
                 document.getElementById('totalVotes').innerText = "—";
                 document.getElementById('totalCandidates').innerText = "—";
                 document.getElementById('resultsList').innerHTML = 
-                    `<p class="text-red-400 text-center py-8">❌ Unable to connect to backend: ${e.message}</p>`;
+                    `<div class="text-center py-12 px-4">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                            <span class="material-symbols-rounded text-3xl text-red-600 dark:text-red-400">error</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Connection Failed</h3>
+                        <p class="text-red-600 dark:text-red-400 mb-4">${e.message}</p>
+                        <div class="text-left max-w-md mx-auto bg-slate-100 dark:bg-slate-800 rounded-lg p-4 text-sm">
+                            <p class="font-semibold mb-2">📋 Troubleshooting Steps:</p>
+                            <ol class="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400">
+                                <li>Verify the Raspberry Pi is powered on and connected</li>
+                                <li>Check that the backend tunnel is running</li>
+                                <li>Try refreshing this page in a few moments</li>
+                                <li>Open browser console (F12) for detailed logs</li>
+                            </ol>
+                        </div>
+                        <button onclick="location.reload()" class="mt-6 px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg transition-colors">
+                            🔄 Retry Connection
+                        </button>
+                    </div>`;
             }
         }
 

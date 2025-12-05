@@ -331,29 +331,56 @@
             
             console.log('🔄 Discovering backend URL from Supabase...');
             
+            // Try direct REST API first (more reliable than SDK)
             try {
-                const { createClient } = supabase;
-                const configDB = createClient(CONFIG_SUPABASE_URL, CONFIG_SUPABASE_KEY);
+                const response = await fetch(
+                    `${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value,updated_at`,
+                    {
+                        headers: {
+                            'apikey': CONFIG_SUPABASE_KEY,
+                            'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}`
+                        }
+                    }
+                );
                 
-                const { data, error } = await configDB
-                    .from('system_config')
-                    .select('value, updated_at')
-                    .eq('key', 'backend_url')
-                    .single();
+                if (!response.ok) {
+                    throw new Error(`Supabase returned ${response.status}`);
+                }
                 
-                if (error) throw error;
+                const data = await response.json();
                 
-                if (data && data.value && data.value !== 'https://waiting-for-tunnel.com') {
-                    BACKEND_URL = data.value;
+                if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
+                    BACKEND_URL = data[0].value;
                     serviceDiscovered = true;
                     console.log('✅ Backend discovered:', BACKEND_URL);
-                    console.log('   Last updated:', data.updated_at);
-                    return BACKEND_URL;
+                    console.log('   Last updated:', data[0].updated_at);
+                    
+                    // Verify the backend is actually reachable
+                    try {
+                        const healthCheck = await fetch(`${BACKEND_URL}/api/health`, { 
+                            method: 'GET',
+                            signal: AbortSignal.timeout(5000) // 5 second timeout
+                        });
+                        if (healthCheck.ok) {
+                            console.log('✅ Backend health check passed');
+                            return BACKEND_URL;
+                        } else {
+                            throw new Error('Backend not responding to health check');
+                        }
+                    } catch (healthError) {
+                        console.warn('⚠️ Health check failed:', healthError.message);
+                        // Still return the URL, maybe it will work for other endpoints
+                        return BACKEND_URL;
+                    }
                 } else {
-                    throw new Error('Backend URL not yet configured');
+                    throw new Error('Backend URL not yet configured in Supabase');
                 }
             } catch (e) {
                 console.error('❌ Service discovery failed:', e);
+                console.error('📋 Troubleshooting steps:');
+                console.error('   1. Check that the Raspberry Pi is online');
+                console.error('   2. Verify the tunnel is running: pm2 status');
+                console.error('   3. Check Supabase for backend_url configuration');
                 showToast('Could not find VoteChain backend. Is the Raspberry Pi online?', 'error');
                 return null;
             }
@@ -889,17 +916,22 @@
             console.log('🚀 Initializing VoteChain Admin Console...');
             
             // Step 1: Discover backend URL
+            showToast('🔍 Discovering VoteChain backend...', 'info');
             const url = await discoverBackendURL();
             if (!url) {
                 console.error('❌ Cannot proceed without backend URL');
+                showToast('❌ Failed to connect. Please check console (F12) for details.', 'error');
                 return;
             }
+            
+            showToast('✅ Backend found! Loading data...', 'success');
             
             // Step 2: Load contract configuration from backend
             try {
                 await loadActiveContract();
             } catch (e) {
                 console.warn('⚠️ Could not load contract from backend:', e);
+                showToast('⚠️ Could not load contract config', 'warning');
             }
             
             // Step 3: Check backend health
@@ -912,8 +944,10 @@
             // Step 4: Load initial data
             try {
                 await refreshData();
+                showToast('✅ Admin console ready!', 'success');
             } catch (e) {
                 console.warn('⚠️ Could not load initial data:', e);
+                showToast('⚠️ Some data could not be loaded', 'warning');
             }
             
             console.log('✅ Admin console initialized');
