@@ -209,11 +209,37 @@
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
                 const response = await fetch(`${url}/api/health`, {
                     method: 'GET',
-                    signal: controller.signal
+                    signal: controller.signal,
+                    mode: 'cors',
+                    cache: 'no-cache'
                 });
                 clearTimeout(timeoutId);
                 return response.ok;
             } catch (e) {
+                return false;
+            }
+        }
+
+        async function testTunnelViaProxy(tunnelURL) {
+            // Try using a public CORS proxy for DNS-resistant fallback
+            try {
+                const corsProxy = 'https://api.allorigins.win/get?url=';
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                const proxyURL = corsProxy + encodeURIComponent(tunnelURL + '/api/health');
+                const response = await fetch(proxyURL, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.status === 200 || data.contents.includes('ok');
+                }
+                return false;
+            } catch (e) {
+                console.log('⚠️ Proxy fallback failed:', e.message);
                 return false;
             }
         }
@@ -243,7 +269,11 @@
                     const data = await response.json();
                     if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
                         tunnelURL = data[0].value;
-                        console.log('✅ Cloudflare Tunnel URL found:', tunnelURL);
+                        console.log('🔄 Discovering backend URL from Cloudflare Tunnel...');
+                        console.log('✅ Cloudflare Tunnel URL discovered:', tunnelURL);
+                        if (data[0].updated_at) {
+                            console.log('   Last updated:', data[0].updated_at);
+                        }
                     }
                 }
             } catch (e) {
@@ -263,8 +293,19 @@
                 }
             }
             
+            // Tunnel DNS resolution failed - try proxy-based approach
             if (tunnelURL) {
-                console.log('🔗 Using Cloudflare Tunnel');
+                console.log('⚠️ Direct tunnel access failed - attempting via CORS proxy...');
+                if (await testTunnelViaProxy(tunnelURL)) {
+                    console.log('✅ Tunnel accessible via proxy');
+                    API_BASE = tunnelURL;
+                    serviceDiscovered = true;
+                    return API_BASE;
+                }
+            }
+            
+            if (tunnelURL) {
+                console.log('⚠️ DNS resolution failing - using tunnel URL anyway (will retry with fallback)');
                 API_BASE = tunnelURL;
                 serviceDiscovered = true;
                 return API_BASE;
@@ -344,7 +385,7 @@
         async function updateAnalytics(candidates, totalVotes) {
             // Fetch metrics from backend
             try {
-                const response = await fetch(`${API_BASE}/api/metrics`);
+                const response = await fetchWithFallback(`${API_BASE}/api/metrics`);
                 const result = await response.json();
                 if (result.status === 'success') {
                     currentMetrics = result.data;
@@ -412,9 +453,40 @@
         }
 
         // --- 3. DATA FETCHING ---
+        // --- FETCH WITH PROXY FALLBACK ---
+        async function fetchWithFallback(url, options = {}) {
+            // Try direct fetch first
+            try {
+                const response = await fetch(url, { ...options, timeout: 3000 });
+                if (response.ok) return response;
+            } catch (e) {
+                console.log('⚠️ Direct fetch failed for:', url.substring(0, 50) + '...');
+            }
+            
+            // Fall back to CORS proxy for DNS failures
+            try {
+                const corsProxy = 'https://api.allorigins.win/get?url=';
+                const proxyURL = corsProxy + encodeURIComponent(url);
+                const response = await fetch(proxyURL, { timeout: 5000 });
+                if (response.ok) {
+                    const data = await response.json();
+                    // Return a response-like object with the proxy data
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => JSON.parse(data.contents)
+                    };
+                }
+            } catch (e) {
+                console.log('⚠️ Proxy fallback also failed');
+            }
+            
+            throw new Error('All fetch attempts failed');
+        }
+
         async function loadConfig() {
             try {
-                const configRes = await fetch(`${API_BASE}/api/active-contract`);
+                const configRes = await fetchWithFallback(`${API_BASE}/api/active-contract`);
                 const config = await configRes.json();
                 if (config.status === 'ok' && config.contractAddress) {
                     CONTRACT_ADDRESS = config.contractAddress;
@@ -501,7 +573,7 @@
                     await loadConfig();
                 }
                 // Fetch results from backend API
-                const response = await fetch(`${API_BASE}/api/results`);
+                const response = await fetchWithFallback(`${API_BASE}/api/results`);
                 if (!response.ok) {
                     throw new Error(`Backend returned ${response.status}`);
                 }
