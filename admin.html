@@ -321,21 +321,6 @@
         // ============================================================
         // DYNAMIC BACKEND DISCOVERY
         // ============================================================
-        async function testBackendURL(url, timeout = 3000) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-                const response = await fetch(`${url}/api/health`, {
-                    method: 'GET',
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                return response.ok;
-            } catch (e) {
-                return false;
-            }
-        }
-        
         async function discoverBackendURL() {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 console.log('🔧 Running locally - using localhost backend');
@@ -343,78 +328,42 @@
                 return BACKEND_URL;
             }
             
-            console.log('🔄 Discovering backend URL...');
-            let discoveredURL = null;
+            console.log('🔄 Discovering backend URL from Cloudflare Tunnel...');
             
             try {
                 const response = await fetch(
                     `${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value,updated_at`,
-                    { headers: { 'apikey': CONFIG_SUPABASE_KEY, 'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}` } }
-                );
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
-                        const supabaseURL = data[0].value;
-                        console.log('✅ Supabase URL found:', supabaseURL);
-                        if (await testBackendURL(supabaseURL, 3000)) {
-                            console.log('✅ Supabase URL is reachable');
-                            BACKEND_URL = supabaseURL;
-                            serviceDiscovered = true;
-                            return BACKEND_URL;
-                        } else {
-                            console.warn('⚠️ Supabase URL not reachable, trying alternatives...');
-                            discoveredURL = supabaseURL;
+                    {
+                        headers: {
+                            'apikey': CONFIG_SUPABASE_KEY,
+                            'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}`
                         }
                     }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`Supabase returned ${response.status}`);
                 }
-            } catch (e) {
-                console.warn('⚠️ Supabase lookup failed:', e.message);
-            }
-            
-            console.log('🔍 Scanning local network for backend...');
-            const localIPsToTry = [
-                'http://192.168.1.100:3000', 'http://192.168.1.1:3000', 'http://192.168.0.100:3000',
-                'http://10.0.0.100:3000', 'http://172.16.0.100:3000', 'http://votechain.local:3000',
-                'http://raspberrypi.local:3000'
-            ];
-            for (const url of localIPsToTry) {
-                if (await testBackendURL(url, 2000)) {
-                    console.log('✅ Found backend at:', url);
-                    BACKEND_URL = url;
+                
+                const data = await response.json();
+                
+                if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
+                    BACKEND_URL = data[0].value;
                     serviceDiscovered = true;
-                    return BACKEND_URL;
-                }
-            }
-            
-            if (discoveredURL) {
-                console.warn('⚠️ Using Supabase URL as fallback:', discoveredURL);
-                BACKEND_URL = discoveredURL;
-                serviceDiscovered = true;
-                return BACKEND_URL;
-            }
-            
-            const userIP = prompt('❓ Could not auto-detect backend.
-
-Enter Raspberry Pi IP (e.g., 192.168.1.100):
-
-How to find it:
-  - Linux/Pi: hostname -I
-  - Windows: ipconfig
-  - Mac: System Preferences > Network', '');
-            if (userIP && userIP.trim()) {
-                const url = `http://${userIP.trim()}:3000`;
-                console.log(`🔗 Testing user IP: ${url}`);
-                if (await testBackendURL(url, 3000)) {
-                    console.log('✅ Connected to:', url);
-                    BACKEND_URL = url;
-                    serviceDiscovered = true;
-                    try { localStorage.setItem('votechain_backend_url', url); } catch (e) {}
+                    console.log('✅ Cloudflare Tunnel URL discovered:', BACKEND_URL);
+                    console.log('   Last updated:', data[0].updated_at);
                     return BACKEND_URL;
                 } else {
-                    throw new Error(`Cannot reach backend at ${url}`);
+                    throw new Error('Cloudflare Tunnel URL not yet configured in Supabase');
                 }
+            } catch (e) {
+                console.error('❌ Service discovery failed:', e.message);
+                console.error('📋 Troubleshooting:');
+                console.error('   1. Ensure Raspberry Pi is online and running the backend');
+                console.error('   2. Verify Cloudflare Tunnel is active: pm2 status');
+                console.error('   3. Check Supabase for backend_url configuration');
+                return null;
             }
-            throw new Error('Could not discover backend URL');
         }
         
         // ============================================================
