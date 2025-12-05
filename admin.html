@@ -447,10 +447,9 @@
                 console.log('⚠️ Direct fetch failed, trying CORS proxies...');
             }
             
-            // Fall back to CORS proxies for DNS failures
+            // Fall back to CORS proxy for DNS failures
             const proxies = [
-                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' },
-                { name: 'corsproxy', url: 'https://corsproxy.io/?' }
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
             ];
             
             for (const proxy of proxies) {
@@ -503,7 +502,7 @@
         // Fetch active contract from backend on page load
         async function loadActiveContract() {
             try {
-                const res = await fetch(`${BACKEND_URL}/api/config`);
+                const res = await fetchWithFallback(`${BACKEND_URL}/api/config`);
                 const data = await res.json();
                 if (data.contractAddress) {
                     contractAddress = data.contractAddress;
@@ -541,7 +540,7 @@
         async function checkSystemHealth() {
             // Check Backend API
             try {
-                const res = await fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(3000) });
+                const res = await fetchWithFallback(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(3000) });
                 if (res.ok) {
                     document.getElementById('backendStatusIndicator').className = 'w-2 h-2 rounded-full bg-green-500';
                     document.getElementById('backendStatus').textContent = 'Online';
@@ -557,7 +556,7 @@
 
             // Check Database via Metrics
             try {
-                const res = await fetch(`${BACKEND_URL}/api/metrics`, { signal: AbortSignal.timeout(3000) });
+                const res = await fetchWithFallback(`${BACKEND_URL}/api/metrics`, { signal: AbortSignal.timeout(3000) });
                 const data = await res.json();
                 if (data.status === 'success') {
                     document.getElementById('databaseStatusIndicator').className = 'w-2 h-2 rounded-full bg-green-500';
@@ -592,7 +591,7 @@
 
             // Check Kiosk (via poll-commands endpoint)
             try {
-                const res = await fetch(`${BACKEND_URL}/api/kiosk/poll-commands`, { signal: AbortSignal.timeout(2000) });
+                const res = await fetchWithFallback(`${BACKEND_URL}/api/kiosk/poll-commands`, { signal: AbortSignal.timeout(2000) });
                 if (res.ok) {
                     document.getElementById('kioskStatusIndicator').className = 'w-2 h-2 rounded-full bg-green-500';
                     document.getElementById('kioskStatus').textContent = 'Active';
@@ -625,7 +624,7 @@
 
         async function fetchVoterCount() {
             try {
-                const response = await fetch(`${BACKEND_URL}/api/metrics`);
+                const response = await fetchWithFallback(`${BACKEND_URL}/api/metrics`);
                 const data = await response.json();
                 if (data.totalRegisteredVoters !== undefined) {
                     totalRegisteredVoters = data.totalRegisteredVoters;
@@ -856,7 +855,7 @@
 
             try {
                 const payload = { aadhaar_id: aadhaar, name, constituency };
-                const res = await fetch(`${BACKEND_URL}/api/admin/add-voter`, {
+                const res = await fetchWithFallback(`${BACKEND_URL}/api/admin/add-voter`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -927,7 +926,7 @@
             try {
                 showToast("Deploying new contract & resetting voters...", 'info');
                 
-                const res = await fetch(`${BACKEND_URL}/api/admin/deploy-contract`, {
+                const res = await fetchWithFallback(`${BACKEND_URL}/api/admin/deploy-contract`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });

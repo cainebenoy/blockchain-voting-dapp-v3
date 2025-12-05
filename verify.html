@@ -132,8 +132,7 @@
         async function testTunnelViaProxy(tunnelURL) {
             // Try multiple CORS proxies for DNS-resistant fallback
             const proxies = [
-                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' },
-                { name: 'corsproxy.io', url: 'https://corsproxy.io/?' }
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
             ];
             
             for (const proxy of proxies) {

@@ -485,10 +485,9 @@
                 console.log('⚠️ Direct fetch failed, trying CORS proxies...');
             }
             
-            // Fall back to CORS proxies for DNS failures
+            // Fall back to CORS proxy for DNS failures
             const proxies = [
-                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' },
-                { name: 'corsproxy', url: 'https://corsproxy.io/?' }
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
             ];
             
             for (const proxy of proxies) {
