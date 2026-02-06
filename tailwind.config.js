@@ -1,0 +1,27 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./index.html",
+    "./frontend/**/*.html",
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { 
+        sans: ['Inter', 'sans-serif'],
+        display: ['Inter', 'sans-serif']
+      },
+      colors: {
+        brand: {
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
+          900: '#312e81',
+        }
+      }
+    }
+  },
+  plugins: [],
+}

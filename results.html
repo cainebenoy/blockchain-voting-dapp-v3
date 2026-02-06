@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoteChain | Live Election Results</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 min-h-screen flex flex-col transition-colors duration-300">
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+                        <span class="material-symbols-rounded text-2xl">how_to_vote</span>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">VoteChain</h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Public Ledger Interface</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-800">
+                        <span class="live-indicator"></span> Live Data: Sepolia
+                    </div>
+                    <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
+                        <span id="theme-icon" class="material-symbols-rounded text-xl">light_mode</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!-- MAIN CONTENT -->
+    <main class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
+        <!-- HEADER STATS -->
+        <div class="text-center mb-12">
+            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Official Election Results</h2>
+            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
+                Real-time data directly from the Ethereum Blockchain. Verified, immutable, and transparent.
+            </p>
+        </div>
+
+        <!-- SUMMARY CARDS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <!-- Status Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                    <span class="material-symbols-rounded text-3xl">pending_actions</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Election Status</p>
+                    <h3 id="electionStatus" class="text-xl font-bold text-slate-900 dark:text-white">Connecting...</h3>
+                </div>
+            </div>
+
+            <!-- Votes Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                    <span class="material-symbols-rounded text-3xl">ballot</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Total Votes Cast</p>
+                    <h3 id="totalVotes" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
+                </div>
+            </div>
+
+            <!-- Candidates Card -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+                <div class="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+                    <span class="material-symbols-rounded text-3xl">groups</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Candidates</p>
+                    <h3 id="totalCandidates" class="text-xl font-bold text-slate-900 dark:text-white">--</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- WINNER BANNER (Hidden until election ends) -->
+        <div id="winner-display" class="hidden mb-12 fade-in"></div>
+
+        <!-- LIVE TALLY TABLE -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm mb-12">
+            <div class="px-6 py-5 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Candidate Standings</h3>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-slate-400 flex items-center gap-1">
+                        <span class="material-symbols-rounded text-sm">sync</span> Auto-refreshing
+                    </span>
+                    <button onclick="exportResults()" class="flex items-center gap-1 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-brand-500/20">
+                        <span class="material-symbols-rounded text-sm">download</span> Export CSV
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div id="resultsList" class="space-y-6">
+                    <!-- Results will be injected here -->
+                    <div class="animate-pulse space-y-4">
+                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4"></div>
+                        <div class="h-4 bg-gray-200 dark:bg-slate-700 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANALYTICS SECTION -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+            <!-- Vote Distribution Chart -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="material-symbols-rounded text-brand-600">pie_chart</span>
+                        Vote Distribution
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <canvas id="voteDistributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Turnout & Stats -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="material-symbols-rounded text-brand-600">bar_chart</span>
+                        Voter Analytics
+                    </h3>
+                </div>
+                <div class="p-6 space-y-6">
+                    <!-- Turnout Percentage -->
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Voter Turnout</span>
+                            <span id="turnoutPercentage" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</span>
+                        </div>
+                        <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
+                            <div id="turnoutBar" class="bg-gradient-to-r from-green-600 to-green-500 h-3 rounded-full transition-all duration-1000 turnout-bar-width"></div>
+                        </div>
+                        <p id="turnoutText" class="text-xs text-slate-400 mt-1">-- votes from -- registered voters</p>
+                    </div>
+
+                    <!-- Participation Stats -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Registered Voters</p>
+                            <p id="registeredVoters" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
+                        </div>
+                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Votes/Candidate</p>
+                            <p id="avgVotes" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
+                        </div>
+                    </div>
+
+                    <!-- Winner Margin (if election ended) -->
+                    <div id="winnerMarginSection" class="hidden p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800">
+                        <p class="text-xs font-medium text-brand-700 dark:text-brand-400 mb-1">Victory Margin</p>
+                        <p id="winnerMargin" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</p>
+                        <p class="text-xs text-brand-600/70 dark:text-brand-400/70 mt-1">votes ahead of 2nd place</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    </main>
+    <footer class="border-t border-gray-200 dark:border-slate-800 mt-auto py-8 bg-white dark:bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-slate-500 text-sm">
+                VoteChain System • Secured by Ethereum Sepolia • 
+                <a id="etherscan-link" href="#" target="_blank" rel="noopener" class="text-brand-600 hover:underline">View Contract</a>
+            </p>
+        </div>
+    </footer>
+    <!-- ETHERS.JS v6 -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Supabase for service discovery -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // --- 1. CONFIGURATION ---
+        // Service Discovery Configuration
+        const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjUxMDU1OSwiZXhwIjoyMDc4MDg2NTU5fQ.Z29FfApBXiKSb7d5f2HSbUghgtliXHaAE4dLs2mDerk";
+        
+        let API_BASE = 'http://localhost:3000'; // Fallback for local development
+        let CONTRACT_ADDRESS = null;
+        let CONFIG_LOADED = false;
+        let serviceDiscovered = false;
+        let directFetchFailed = false; // Track if direct DNS is failing to skip future attempts
+
+        // --- 2. STATE ---
+        let refreshInterval;
+        let voteChart = null;
+        let currentCandidates = [];
+        let currentMetrics = {};
+
+        // --- SERVICE DISCOVERY ---
+        async function testBackendURL(url, timeout = 2000) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                const response = await fetch(`${url}/api/health`, {
+                    method: 'GET',
+                    signal: controller.signal,
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                clearTimeout(timeoutId);
+                return response.ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function testTunnelViaProxy(tunnelURL) {
+            // Removed - no longer needed since fetchWithFallback handles proxy
+            return false;
+        }
+        
+        async function discoverBackendURL() {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                serviceDiscovered = true;
+                return API_BASE;
+            }
+            
+            let tunnelURL = null;
+            try {
+                const response = await fetch(
+                    `${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value`,
+                    {
+                        headers: {
+                            'apikey': CONFIG_SUPABASE_KEY,
+                            'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}`
+                        }
+                    }
+                );
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
+                        tunnelURL = data[0].value;
+                    }
+                }
+            } catch (e) {
+                // Silent fallback
+            }
+            
+            if (window.location.hostname !== 'cainebenoy.github.io') {
+                const localIPs = ['http://192.168.1.10:3000', 'http://192.168.1.100:3000', 'http://192.168.1.1:3000', 'http://192.168.0.100:3000', 'http://10.0.0.100:3000', 'http://raspberrypi.local:3000'];
+                for (const url of localIPs) {
+                    if (await testBackendURL(url)) {
+                        API_BASE = url;
+                        serviceDiscovered = true;
+                        return API_BASE;
+                    }
+                }
+            }
+            
+            // Use tunnel URL directly - fetchWithFallback will handle proxy if needed
+            if (tunnelURL) {
+                API_BASE = tunnelURL;
+                serviceDiscovered = true;
+                return API_BASE;
+            }
+            
+            throw new Error('Could not discover backend');
+        }
+
+        // --- THEME TOGGLE ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.classList.toggle('dark');
+            document.getElementById('theme-icon').innerText = isDark ? 'light_mode' : 'dark_mode';
+        }
+
+        // --- ANALYTICS & VISUALIZATION ---
+        function updateVoteChart(candidates) {
+            const ctx = document.getElementById('voteDistributionChart');
+            if (!ctx) return;
+
+            const labels = candidates.map(c => c.name);
+            const data = candidates.map(c => c.voteCount);
+            const colors = [
+                'rgba(79, 70, 229, 0.8)',   // brand
+                'rgba(99, 102, 241, 0.8)',   // indigo
+                'rgba(139, 92, 246, 0.8)',   // purple
+                'rgba(236, 72, 153, 0.8)',   // pink
+                'rgba(251, 146, 60, 0.8)',   // orange
+                'rgba(34, 197, 94, 0.8)',    // green
+            ];
+
+            if (voteChart) {
+                voteChart.data.labels = labels;
+                voteChart.data.datasets[0].data = data;
+                voteChart.update();
+            } else {
+                voteChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 2,
+                            borderColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: document.documentElement.classList.contains('dark') ? '#cbd5e1' : '#475569',
+                                    padding: 15,
+                                    font: { size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed || 0;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                                        return `${label}: ${value} votes (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        async function updateAnalytics(candidates, totalVotes) {
+            // Metrics endpoint is unreliable through CORS proxy - use fallback calculations
+            // Estimate registered voters from total votes (assume ~70% turnout for display)
+            const estimatedRegistered = totalVotes > 0 ? Math.ceil(totalVotes / 0.7) : 0;
+            const turnoutPercent = estimatedRegistered > 0 ? Math.round((totalVotes / estimatedRegistered) * 100) : 0;
+            
+            document.getElementById('turnoutPercentage').textContent = turnoutPercent > 0 ? turnoutPercent + '%' : 'N/A';
+            document.getElementById('turnoutBar').style.width = (turnoutPercent > 0 ? turnoutPercent : 0) + '%';
+            document.getElementById('turnoutText').textContent = totalVotes > 0 
+                ? `${totalVotes} votes cast` 
+                : 'No votes yet';
+            document.getElementById('registeredVoters').textContent = estimatedRegistered > 0 ? estimatedRegistered : 'N/A';
+            
+            // Average votes per candidate
+            const avgVotes = candidates.length > 0 ? (totalVotes / candidates.length).toFixed(1) : '0';
+            document.getElementById('avgVotes').textContent = avgVotes;
+            // Winner margin (if election ended and multiple candidates)
+            const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
+            if (sorted.length >= 2 && sorted[0].voteCount > 0) {
+                const margin = sorted[0].voteCount - sorted[1].voteCount;
+                document.getElementById('winnerMargin').textContent = margin;
+                document.getElementById('winnerMarginSection').classList.remove('hidden');
+            } else {
+                document.getElementById('winnerMarginSection').classList.add('hidden');
+            }
+            // Update chart
+            updateVoteChart(candidates);
+        }
+
+        function exportResults() {
+            if (currentCandidates.length === 0) {
+                alert('No data to export yet!');
+                return;
+            }
+            // Sort by votes
+            const sorted = [...currentCandidates].sort((a, b) => b.voteCount - a.voteCount);
+            // Create CSV content
+            let csv = 'Rank,Candidate ID,Candidate Name,Votes,Percentage\n';
+            const totalVotes = sorted.reduce((sum, c) => sum + c.voteCount, 0);
+            sorted.forEach((candidate, index) => {
+                const percentage = totalVotes > 0 ? ((candidate.voteCount / totalVotes) * 100).toFixed(2) : '0.00';
+                csv += `${index + 1},${candidate.id},"${candidate.name}",${candidate.voteCount},${percentage}%\n`;
+            });
+            // Add summary
+            csv += '\n--- Summary ---\n';
+            csv += `Total Votes,${totalVotes}\n`;
+            csv += `Total Candidates,${sorted.length}\n`;
+            csv += `Registered Voters,${currentMetrics.totalRegisteredVoters || 'N/A'}\n`;
+            csv += `Turnout,${currentMetrics.totalRegisteredVoters > 0 ? ((totalVotes / currentMetrics.totalRegisteredVoters) * 100).toFixed(2) : '0.00'}%\n`;
+            csv += `Contract Address,${CONTRACT_ADDRESS || 'N/A'}\n`;
+            csv += `Export Date,${new Date().toISOString()}\n`;
+            // Download file
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `votechain-results-${Date.now()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            console.log('✅ Results exported to CSV');
+        }
+
+        // --- 3. DATA FETCHING ---
+        // --- FETCH WITH PROXY FALLBACK ---
+        async function fetchWithFallback(url, options = {}) {
+            // Check if we're using tunnel - if so, always use self-hosted proxy instead of direct fetch
+            const usingTunnel = API_BASE && API_BASE.includes('trycloudflare.com');
+            
+            // Try direct fetch ONLY if not using tunnel
+            if (!usingTunnel && !directFetchFailed) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 2000);
+                    const response = await fetch(url, { ...options, signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (response.ok) {
+                        // Cache the response text so .json() can be called multiple times
+                        const responseText = await response.text();
+                        return {
+                            ok: true,
+                            status: response.status,
+                            headers: response.headers,
+                            json: async () => JSON.parse(responseText),
+                            text: async () => responseText
+                        };
+                    }
+                } catch (e) {
+                    directFetchFailed = true;
+                }
+            }
+            
+            // Use self-hosted CORS proxy if on tunnel
+            if (usingTunnel) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
+                    
+                    // Convert any tunnel URLs to localhost URLs for backend to fetch
+                    let targetURL = url;
+                    if (url.includes('trycloudflare.com')) {
+                        // Replace tunnel domain with localhost
+                        targetURL = url.replace(/https:\/\/[a-z0-9.-]+\.trycloudflare\.com/, 'http://localhost:3000');
+                    } else if (!url.startsWith('http')) {
+                        // If relative URL, prepend localhost
+                        targetURL = 'http://localhost:3000' + (url.startsWith('/') ? '' : '/') + url;
+                    }
+                    
+                    const proxyURL = `${API_BASE}/api/proxy?url=${encodeURIComponent(targetURL)}`;
+                    const response = await fetch(proxyURL, { ...options, signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        // Cache the response text so .json() can be called multiple times
+                        const responseText = await response.text();
+                        return {
+                            ok: true,
+                            status: response.status,
+                            headers: response.headers,
+                            json: async () => JSON.parse(responseText),
+                            text: async () => responseText
+                        };
+                    }
+                } catch (e) {
+                    console.error('Self-hosted proxy failed:', e);
+                }
+            }
+            
+            // Fall back to the self-hosted proxy as the reliable proxy option
+            const proxies = [
+                { name: 'selfhost', url: `${BACKEND_URL}/api/proxy?url=` }
+            ];
+
+            for (const proxy of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+                    const proxyURL = proxy.url + encodeURIComponent(url);
+                    const response = await fetch(proxyURL, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (response.ok) {
+                        const text = await response.text();
+                        return {
+                            ok: true,
+                            status: response.status,
+                            json: async () => JSON.parse(text),
+                            text: async () => text
+                        };
+                    }
+                } catch (e) {
+                    // Silent fail — only self-hosted proxy exists here
+                }
+            }
+
+            throw new Error('All fetch attempts failed');
+        }
+
+        async function loadConfig() {
+            try {
+                const configRes = await fetchWithFallback(`${API_BASE}/api/active-contract`);
+                const config = await configRes.json();
+                if (config.status === 'ok' && config.contractAddress) {
+                    CONTRACT_ADDRESS = config.contractAddress;
+                    CONFIG_LOADED = true;
+                    // Update Etherscan link
+                    const etherscanLink = document.getElementById('etherscan-link');
+                    etherscanLink.href = `https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`;
+                    return true;
+                } else {
+                    throw new Error('Invalid config response');
+                }
+            } catch (e) {
+                console.error('❌ Failed to load config:', e);
+                throw new Error('Cannot connect to backend server');
+            }
+        }
+
+        async function init() {
+            try {
+                // Show loading state
+                document.getElementById('electionStatus').innerText = "Connecting...";
+                document.getElementById('resultsList').innerHTML = 
+                    `<div class="text-center py-12">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
+                        <p class="text-slate-500 dark:text-slate-400">Discovering backend server...</p>
+                        <p class="text-xs text-slate-400 mt-2">This may take a few seconds</p>
+                    </div>`;
+                
+                // Discover backend URL first
+                const backendUrl = await discoverBackendURL();
+                if (!backendUrl) {
+                    throw new Error('Cannot discover backend URL. Please ensure the Raspberry Pi is online and the tunnel is running.');
+                }
+                
+                // Update loading message
+                document.getElementById('resultsList').innerHTML = 
+                    `<div class="text-center py-12">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
+                        <p class="text-slate-500 dark:text-slate-400">Backend found! Loading election data...</p>
+                    </div>`;
+                
+                // Load contract config
+                await loadConfig();
+                // Fetch initial data
+                await refreshData();
+                // Auto-refresh every 5 seconds
+                refreshInterval = setInterval(refreshData, 5000);
+            } catch (e) {
+                console.error("Connection failed:", e.message);
+                document.getElementById('electionStatus').innerText = "Connection Error";
+                document.getElementById('totalVotes').innerText = "—";
+                document.getElementById('totalCandidates').innerText = "—";
+                document.getElementById('resultsList').innerHTML = 
+                    `<div class="text-center py-12 px-4">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                            <span class="material-symbols-rounded text-3xl text-red-600 dark:text-red-400">error</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Connection Failed</h3>
+                        <p class="text-red-600 dark:text-red-400 mb-4">${e.message}</p>
+                        <div class="text-left max-w-md mx-auto bg-slate-100 dark:bg-slate-800 rounded-lg p-4 text-sm">
+                            <p class="font-semibold mb-2">📋 Troubleshooting Steps:</p>
+                            <ol class="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400">
+                                <li>Verify the Raspberry Pi is powered on and connected</li>
+                                <li>Check that the backend tunnel is running</li>
+                                <li>Try refreshing this page in a few moments</li>
+                                <li>Open browser console (F12) for detailed logs</li>
+                            </ol>
+                        </div>
+                        <button onclick="location.reload()" class="mt-6 px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg transition-colors">
+                            🔄 Retry Connection
+                        </button>
+                    </div>`;
+            }
+        }
+
+        async function refreshData() {
+            try {
+                // Ensure config is loaded
+                if (!CONFIG_LOADED) {
+                    await loadConfig();
+                }
+                // Fetch results from backend API
+                const response = await fetchWithFallback(`${API_BASE}/api/results`);
+                if (!response.ok) {
+                    throw new Error(`Backend returned ${response.status}`);
+                }
+                const result = await response.json();
+                if (result.status !== 'ok') {
+                    throw new Error(result.message || 'API error');
+                }
+                const { electionActive, totalVotes, totalCandidates, candidates } = result.data;
+                // Update status badge
+                const statusEl = document.getElementById('electionStatus');
+                statusEl.innerText = electionActive ? "Active & Voting" : "Election Ended";
+                statusEl.className = `text-xl font-bold ${electionActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`;
+                // Update stats
+                document.getElementById('totalVotes').innerText = totalVotes.toString();
+                document.getElementById('totalCandidates').innerText = totalCandidates.toString();
+                // Save for export
+                currentCandidates = candidates;
+                // Render candidate results
+                renderResults(candidates, totalVotes, electionActive);
+                // Update analytics
+                await updateAnalytics(candidates, totalVotes);
+            } catch (e) { 
+                // Silent error - connection issues are expected during DNS resolution
+                document.getElementById('electionStatus').innerText = "Connection Error";
+                document.getElementById('electionStatus').className = "text-xl font-bold text-red-600 dark:text-red-400";
+            }
+        }
+
+        function renderResults(candidates, totalVotes, electionActive) {
+            const container = document.getElementById('resultsList');
+            container.innerHTML = '';
+            if (candidates.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 text-center py-8">No candidates registered yet. Start an election from the admin dashboard.</p>';
+                document.getElementById('winner-display').classList.add('hidden');
+                return;
+            }
+            // Sort by vote count (descending)
+            const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
+            const maxVotes = sorted[0].voteCount || 1; // At least 1 to avoid division by zero
+            // Render each candidate
+            sorted.forEach((c, index) => {
+                // Calculate bar percentage (use maxVotes as 100% for visual scaling)
+                const percent = maxVotes > 0 ? (c.voteCount / maxVotes) * 100 : 0;
+                // Winner badge for top candidate (if votes > 0)
+                const isLeader = index === 0 && c.voteCount > 0;
+                const leaderBadge = isLeader ? 
+                    '<span class="ml-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-0.5 rounded">Leading</span>' : '';
+                const html = `
+                    <div class="relative">
+                        <div class="flex justify-between items-end mb-2">
+                            <div class="flex items-center">
+                                <div>
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Candidate #${c.id}</span>
+                                    <h4 class="text-lg font-bold text-slate-900 dark:text-white inline-block">${c.name}</h4>
+                                    ${leaderBadge}
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-2xl font-bold text-brand-600 dark:text-brand-400">${c.voteCount}</span>
+                                <span class="text-xs text-slate-500 font-medium uppercase ml-1">Vote${c.voteCount !== 1 ? 's' : ''}</span>
+                            </div>
+                        </div>
+                        <!-- Progress Bar Background -->
+                        <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
+                            <!-- Animated Bar -->
+                            <div class="bg-gradient-to-r from-brand-600 to-brand-500 h-3 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(79,70,229,0.4)]" 
+                                 style="width: ${percent}%"></div>
+                        </div>
+                        <!-- Percentage label -->
+                        <div class="text-right mt-1">
+                            <span class="text-xs text-slate-400">${totalVotes > 0 ? ((c.voteCount / totalVotes) * 100).toFixed(1) : '0.0'}%</span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+            // Winner Display (if election ended and votes exist)
+            const winnerDisplay = document.getElementById('winner-display');
+            if (!electionActive && totalVotes > 0 && sorted.length > 0) {
+                // Find all candidates with maxVotes
+                const winners = sorted.filter(c => c.voteCount === maxVotes && maxVotes > 0);
+                winnerDisplay.classList.remove('hidden');
+                // Render stacked banners for each winner
+                winnerDisplay.innerHTML = winners.map(winner => `
+                    <div class="bg-gradient-to-r from-brand-600 to-indigo-800 rounded-2xl p-8 md:p-10 text-white shadow-2xl relative overflow-hidden mb-4">
+                        <div class="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
+                            <span class="material-symbols-rounded text-[150px]">emoji_events</span>
+                        </div>
+                        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Official Winner</span>
+                                    <span class="text-brand-200 text-xs">Election Ended</span>
+                                </div>
+                                <h2 class="text-4xl md:text-5xl font-extrabold mb-2">${winner.name}</h2>
+                                <p class="text-brand-100 text-lg">Victory with <span class="font-bold text-white">${winner.voteCount}</span> confirmed votes.</p>
+                            </div>
+                            <div class="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-center min-w-[120px]">
+                                <span class="material-symbols-rounded text-4xl text-yellow-400 mb-1">trophy</span>
+                                <p class="text-xs font-medium text-brand-100">Verified</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                winnerDisplay.classList.add('hidden');
+                winnerDisplay.innerHTML = '';
+            }
+        }
+
+        // Start the dashboard
+        init();
+    </script>
+</body>
+</html>

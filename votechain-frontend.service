@@ -1,0 +1,16 @@
+[Unit]
+Description=VoteChain V3 - Frontend Server
+After=network.target votechain.service
+
+[Service]
+Type=simple
+User=cainepi
+WorkingDirectory=/home/cainepi/Desktop/FInal Year Project/blockchain-voting-dapp-v3
+ExecStart=/usr/bin/python3 -m http.server 8000
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/cainepi/votechain-frontend.log
+StandardError=append:/home/cainepi/votechain-frontend.log
+
+[Install]
+WantedBy=multi-user.target
