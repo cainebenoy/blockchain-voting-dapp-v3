@@ -112,8 +112,8 @@ Follow [docs/SERVICE_DISCOVERY.md](SERVICE_DISCOVERY.md) to:
 
 1. Create the Supabase `system_config` table (run SQL script)
 2. Install Python dependencies: `sudo pip3 install supabase requests --break-system-packages`
-3. Test the tunnel: `python3 bin/start_tunnel.py`
-4. Add to PM2: `pm2 start bin/start_tunnel.py --name "auto-tunnel" --interpreter python3`
+3. Test the tunnel: `python3 start_tunnel.py`
+4. Add to PM2: `pm2 start start_tunnel.py --name "auto-tunnel" --interpreter python3`
 
 ### 6. Enable and Start Services
 
@@ -261,7 +261,7 @@ python3 ../examples/sys_info.py -d sh1106
 
 ```bash
 ## Run with sudo (required for GPIO access)
-sudo -E python3 kiosk/kiosk_main.py
+sudo -E python3 kiosk_main.py
 
 ## Or add user to gpio group (may not work on all Pi OS versions)
 sudo usermod -aG gpio pi

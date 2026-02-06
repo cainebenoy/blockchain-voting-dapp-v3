@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoteChain | Admin Console</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -318,7 +317,6 @@
         
         // Track discovery state
         let serviceDiscovered = false;
-        let directFetchFailed = false; // Track if direct DNS is failing
         
         // ============================================================
         // DYNAMIC BACKEND DISCOVERY
@@ -341,15 +339,37 @@
         }
 
         async function testTunnelViaProxy(tunnelURL) {
-            // Removed - no longer needed since fetchWithFallback handles proxy
-            return false;
+            // Try using a public CORS proxy for DNS-resistant fallback
+            try {
+                const corsProxy = 'https://api.allorigins.win/get?url=';
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                const proxyURL = corsProxy + encodeURIComponent(tunnelURL + '/api/health');
+                const response = await fetch(proxyURL, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.status === 200 || data.contents.includes('ok');
+                }
+                return false;
+            } catch (e) {
+                console.log('⚠️ Proxy fallback failed:', e.message);
+                return false;
+            }
         }
         
         async function discoverBackendURL() {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🔧 Running locally - using localhost backend');
                 serviceDiscovered = true;
                 return BACKEND_URL;
             }
+            
+            console.log('🔄 Discovering backend URL...');
             
             let tunnelURL = null;
             try {
@@ -367,25 +387,42 @@
                     const data = await response.json();
                     if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
                         tunnelURL = data[0].value;
+                        console.log('✅ Cloudflare Tunnel URL discovered:', tunnelURL);
+                        if (data[0].updated_at) {
+                            console.log('   Last updated:', data[0].updated_at);
+                        }
                     }
                 }
             } catch (e) {
-                // Silent fallback
+                console.warn('⚠️ Could not fetch tunnel URL:', e.message);
             }
             
             if (window.location.hostname !== 'cainebenoy.github.io') {
-                const localIPs = ['http://192.168.1.10:3000', 'http://192.168.1.100:3000', 'http://192.168.1.1:3000', 'http://192.168.0.100:3000', 'http://10.0.0.100:3000', 'http://raspberrypi.local:3000'];
+                console.log('🔍 Scanning local network...');
+                const localIPs = ['http://192.168.1.100:3000', 'http://192.168.1.1:3000', 'http://192.168.0.100:3000', 'http://10.0.0.100:3000', 'http://raspberrypi.local:3000'];
                 for (const url of localIPs) {
                     if (await testBackendURL(url)) {
+                        console.log('✅ Found local IP:', url);
                         BACKEND_URL = url;
                         serviceDiscovered = true;
                         return BACKEND_URL;
                     }
                 }
             }
-            
-            // Use tunnel URL directly - fetchWithFallback will handle proxy if needed
+
+            // Tunnel DNS resolution failed - try proxy-based approach
             if (tunnelURL) {
+                console.log('⚠️ Direct tunnel access failed - attempting via CORS proxy...');
+                if (await testTunnelViaProxy(tunnelURL)) {
+                    console.log('✅ Tunnel accessible via proxy');
+                    BACKEND_URL = tunnelURL;
+                    serviceDiscovered = true;
+                    return BACKEND_URL;
+                }
+            }
+            
+            if (tunnelURL) {
+                console.log('⚠️ DNS resolution failing - using tunnel URL anyway (will retry with fallback)');
                 BACKEND_URL = tunnelURL;
                 serviceDiscovered = true;
                 return BACKEND_URL;
@@ -396,82 +433,60 @@
         
         // --- FETCH WITH PROXY FALLBACK ---
         async function fetchWithFallback(url, options = {}) {
-            // Skip direct fetch if we already know DNS is failing
-            if (!directFetchFailed) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 2000);
-                    const response = await fetch(url, { ...options, signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (response.ok) {
-                        return response;
-                    }
-                } catch (e) {
-                    directFetchFailed = true;
+            // Try direct fetch first (fastest, no DNS needed if it's already cached)
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    console.log('✅ Direct fetch succeeded');
+                    return response;
                 }
+            } catch (e) {
+                console.log('⚠️ Direct fetch failed, trying CORS proxies...');
             }
             
-            // Fall back to self-hosted CORS proxy through tunnel
-            // This works because: External laptop → Tunnel → Pi's /api/proxy → localhost (no CORS)
-            if (BACKEND_URL && BACKEND_URL.includes('trycloudflare.com')) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000);
-                    
-                    // Convert tunnel URL to localhost URL for proxy to fetch
-                    let targetURL = url;
-                    if (url.includes('trycloudflare.com')) {
-                        targetURL = url.replace(/https:\/\/[^/]+/, 'http://localhost:3000');
-                    }
-                    
-                    // Use tunnel's proxy endpoint to relay the request
-                    const proxyURL = `${BACKEND_URL}/api/proxy?url=${encodeURIComponent(targetURL)}`;
-                    const proxyOptions = {
-                        ...options,
-                        signal: controller.signal
-                    };
-                    
-                    const response = await fetch(proxyURL, proxyOptions);
-                    clearTimeout(timeoutId);
-                    
-                    if (response.ok) {
-                        return response;
-                    }
-                } catch (e) {
-                    // If self-hosted proxy fails, continue to external proxies
-                }
-            }
-            
-            // Fall back to the self-hosted proxy only (more reliable than public proxies)
+            // Fall back to CORS proxy for DNS failures
             const proxies = [
-                { name: 'selfhost', url: `${BACKEND_URL}/api/proxy?url=` }
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
             ];
-
+            
             for (const proxy of proxies) {
                 try {
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-                    const proxyURL = proxy.url + encodeURIComponent(url);
+                    
+                    let proxyURL;
+                    if (proxy.name === 'allorigins') {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    } else {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    }
+                    
                     const response = await fetch(proxyURL, { signal: controller.signal });
                     clearTimeout(timeoutId);
-
+                    
                     if (response.ok) {
-                        const text = await response.text();
+                        const data = await response.json();
+                        console.log(`✅ Proxy ${proxy.name} succeeded`);
+                        
+                        // Return a response-like object with the proxy data
                         return {
                             ok: true,
-                            status: response.status,
-                            headers: response.headers,
-                            json: async () => JSON.parse(text),
-                            text: async () => text
+                            status: 200,
+                            headers: new Map([['content-type', 'application/json']]),
+                            json: async () => JSON.parse(data.contents),
+                            text: async () => data.contents
                         };
                     }
                 } catch (e) {
-                    // Silent fail — only self-hosted proxy exists here
+                    console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
                 }
             }
-
-            throw new Error('All fetch attempts failed (direct + self-hosted proxy)');
+            
+            // If all proxies fail, throw error
+            throw new Error('All fetch attempts failed (direct + CORS proxies)');
         }
         
         // ============================================================
@@ -479,7 +494,7 @@
         // ============================================================
         
         // DEFAULT CONTRACT ADDRESS (Sepolia)
-        const DEFAULT_CONTRACT = "0x36c1850dFE668f5a30cefe5b69679e981af3873E";
+        const DEFAULT_CONTRACT = "0x62f589eED2fEfEe77690FF83542EbAcc4d8670CA";
         
         // Contract address will be fetched from backend on load
         let contractAddress = DEFAULT_CONTRACT;
@@ -492,16 +507,18 @@
                 if (data.contractAddress) {
                     contractAddress = data.contractAddress;
                     updateAddressDisplay();
+                    console.log('✅ Loaded contract from backend:', contractAddress);
                 }
             } catch (e) {
-                // Silent fallback to localStorage
+                console.error('Failed to load contract from backend:', e);
                 // Fall back to localStorage or default
                 contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
                 updateAddressDisplay();
             }
         }
         
-        // Note: loadActiveContract() is called by initApp() after backend discovery
+        // Load contract address immediately
+        loadActiveContract();
 
         // ABI
         const contractABI = [ 
@@ -829,14 +846,8 @@
             const constituency = document.getElementById("voterConst").value;
 
             if(!aadhaar || !name) return showToast("Fill required fields", 'error');
-            
-            // Ensure backend is discovered first
-            if (!serviceDiscovered || !BACKEND_URL) {
-                showToast("⚠️ Backend not connected. Please wait for initialization...", 'warning');
-                return;
-            }
 
-            showToast("Activating Kiosk Scanner... Please wait.", 'info');
+            showToast("🔵 Activating Kiosk Scanner... Please wait.", 'info');
             const btn = document.getElementById("btnAddVoter");
             const originalHTML = btn.innerHTML;
             btn.disabled = true;
@@ -1005,37 +1016,44 @@
         // INITIALIZATION WITH SERVICE DISCOVERY
         // ============================================================
         async function initApp() {
+            console.log('🚀 Initializing VoteChain Admin Console...');
+            
             // Step 1: Discover backend URL
-            showToast('Discovering VoteChain backend...', 'info');
+            showToast('🔍 Discovering VoteChain backend...', 'info');
             const url = await discoverBackendURL();
             if (!url) {
-                showToast('Failed to connect. Please check connection.', 'error');
+                console.error('❌ Cannot proceed without backend URL');
+                showToast('❌ Failed to connect. Please check console (F12) for details.', 'error');
                 return;
             }
             
-            showToast('Backend found! Loading data...', 'success');
+            showToast('✅ Backend found! Loading data...', 'success');
             
             // Step 2: Load contract configuration from backend
             try {
                 await loadActiveContract();
             } catch (e) {
-                // Silent fallback
+                console.warn('⚠️ Could not load contract from backend:', e);
+                showToast('⚠️ Could not load contract config', 'warning');
             }
             
             // Step 3: Check backend health
             try {
                 await checkSystemHealth();
             } catch (e) {
-                // Silent error
+                console.warn('⚠️ Backend health check failed:', e);
             }
             
             // Step 4: Load initial data
             try {
                 await refreshData();
-                showToast('Admin console ready!', 'success');
+                showToast('✅ Admin console ready!', 'success');
             } catch (e) {
-                // Silent error
+                console.warn('⚠️ Could not load initial data:', e);
+                showToast('⚠️ Some data could not be loaded', 'warning');
             }
+            
+            console.log('✅ Admin console initialized');
         }
 
         // Start initialization when page loads

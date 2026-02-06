@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
-        <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -72,10 +71,6 @@
                 <!-- Details -->
                 <div class="p-6 space-y-4">
                     <div class="flex justify-between py-2 border-b border-gray-100 dark:border-slate-700">
-                        <span class="text-slate-500 dark:text-slate-400">Tx Hash</span>
-                        <a id="txHashDisplay" class="font-mono text-xs text-brand-600 truncate max-w-[220px]" href="#" target="_blank" rel="noreferrer">0x...</a>
-                    </div>
-                    <div class="flex justify-between py-2 border-b border-gray-100 dark:border-slate-700">
                         <span class="text-slate-500 dark:text-slate-400">Block Number</span>
                         <span id="blockNum" class="font-mono font-bold text-slate-900 dark:text-white">#000000</span>
                     </div>
@@ -113,7 +108,6 @@
         // Backend URL - will be dynamically discovered
         let BACKEND_URL = "http://127.0.0.1:3000"; // Fallback for local development
         let serviceDiscovered = false;
-        let directFetchFailed = false; // Track if direct DNS is failing
         
         // ============================================================
         // DYNAMIC BACKEND DISCOVERY
@@ -136,15 +130,52 @@
         }
 
         async function testTunnelViaProxy(tunnelURL) {
-            // Removed - no longer needed since fetchWithFallback handles proxy
+            // Try multiple CORS proxies for DNS-resistant fallback
+            const proxies = [
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
+            ];
+            
+            for (const proxy of proxies) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    
+                    let proxyURL;
+                    if (proxy.name === 'allorigins') {
+                        proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
+                    } else {
+                        proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
+                    }
+                    
+                    const response = await fetch(proxyURL, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const isHealthy = proxy.name === 'allorigins' 
+                            ? (data.status === 200 || data.contents?.includes('ok'))
+                            : (data.status === 200 || data.contents?.includes('ok'));
+                        if (isHealthy) {
+                            console.log(`✅ Tunnel accessible via ${proxy.name} proxy`);
+                            return true;
+                        }
+                    }
+                } catch (e) {
+                    console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
+                }
+            }
+            
             return false;
         }
         
         async function discoverBackendURL() {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🔧 Running locally - using localhost backend');
                 serviceDiscovered = true;
                 return BACKEND_URL;
             }
+            
+            console.log('🔄 Discovering backend URL...');
             
             let tunnelURL = null;
             try {
@@ -162,25 +193,42 @@
                     const data = await response.json();
                     if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
                         tunnelURL = data[0].value;
+                        console.log('✅ Cloudflare Tunnel URL discovered:', tunnelURL);
+                        if (data[0].updated_at) {
+                            console.log('   Last updated:', data[0].updated_at);
+                        }
                     }
                 }
             } catch (e) {
-                // Silent fallback
+                console.warn('⚠️ Could not fetch tunnel URL:', e.message);
             }
             
             if (window.location.hostname !== 'cainebenoy.github.io') {
-                const localIPs = ['http://192.168.1.10:3000', 'http://192.168.1.100:3000', 'http://192.168.1.1:3000', 'http://192.168.0.100:3000', 'http://10.0.0.100:3000', 'http://raspberrypi.local:3000'];
+                console.log('🔍 Scanning local network...');
+                const localIPs = ['http://192.168.1.100:3000', 'http://192.168.1.1:3000', 'http://192.168.0.100:3000', 'http://10.0.0.100:3000', 'http://raspberrypi.local:3000'];
                 for (const url of localIPs) {
                     if (await testBackendURL(url)) {
+                        console.log('✅ Found local IP:', url);
                         BACKEND_URL = url;
                         serviceDiscovered = true;
                         return BACKEND_URL;
                     }
                 }
             }
-            
-            // Use tunnel URL directly - fetchWithFallback will handle proxy if needed
+
+            // Tunnel DNS resolution failed - try proxy-based approach
             if (tunnelURL) {
+                console.log('⚠️ Direct tunnel access failed - attempting via CORS proxy...');
+                if (await testTunnelViaProxy(tunnelURL)) {
+                    console.log('✅ Tunnel accessible via proxy');
+                    BACKEND_URL = tunnelURL;
+                    serviceDiscovered = true;
+                    return BACKEND_URL;
+                }
+            }
+            
+            if (tunnelURL) {
+                console.log('⚠️ DNS resolution failing - using tunnel URL anyway (will retry with fallback)');
                 BACKEND_URL = tunnelURL;
                 serviceDiscovered = true;
                 return BACKEND_URL;
@@ -191,94 +239,70 @@
         
         // --- FETCH WITH PROXY FALLBACK ---
         async function fetchWithFallback(url, options = {}) {
-            // Check if we're using tunnel - if so, always use self-hosted proxy instead of direct fetch
-            const usingTunnel = BACKEND_URL && BACKEND_URL.includes('trycloudflare.com');
-            
-            // Try direct fetch ONLY if not using tunnel
-            if (!usingTunnel && !directFetchFailed) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 2000);
-                    const response = await fetch(url, { ...options, signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (response.ok) {
-                        return response;
-                    }
-                } catch (e) {
-                    directFetchFailed = true;
+            // Try direct fetch first (fastest, no DNS needed if it's already cached)
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    console.log('✅ Direct fetch succeeded');
+                    return response;
                 }
+            } catch (e) {
+                console.log('⚠️ Direct fetch failed, trying CORS proxy...');
             }
             
-            // Use self-hosted CORS proxy if on tunnel
-            if (usingTunnel) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000);
-                    
-                    // Convert any tunnel URLs to localhost URLs for backend to fetch
-                    let targetURL = url;
-                    if (url.includes('trycloudflare.com')) {
-                        // Replace tunnel domain with localhost
-                        targetURL = url.replace(/https:\/\/[a-z0-9.-]+\.trycloudflare\.com/, 'http://localhost:3000');
-                    } else if (!url.startsWith('http')) {
-                        // If relative URL, prepend localhost
-                        targetURL = 'http://localhost:3000' + (url.startsWith('/') ? '' : '/') + url;
-                    }
-                    
-                    const proxyURL = `${BACKEND_URL}/api/proxy?url=${encodeURIComponent(targetURL)}`;
-                    const response = await fetch(proxyURL, { ...options, signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    
-                    if (response.ok) {
-                        // Cache the response text so .json() can be called multiple times
-                        const responseText = await response.text();
-                        return {
-                            ok: true,
-                            status: response.status,
-                            headers: response.headers,
-                            json: async () => JSON.parse(responseText),
-                            text: async () => responseText
-                        };
-                    }
-                } catch (e) {
-                    console.error('Self-hosted proxy failed:', e);
-                }
-            }
-            
-            // Fall back to the self-hosted proxy as the single, reliable proxy option
+            // Fall back to CORS proxy for DNS failures
             const proxies = [
-                { name: 'selfhost', url: `${BACKEND_URL}/api/proxy?url=` }
+                { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
             ];
-
+            
             for (const proxy of proxies) {
                 try {
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-                    const proxyURL = proxy.url + encodeURIComponent(url);
+                    
+                    let proxyURL;
+                    if (proxy.name === 'allorigins') {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    } else {
+                        proxyURL = proxy.url + encodeURIComponent(url);
+                    }
+                    
                     const response = await fetch(proxyURL, { signal: controller.signal });
                     clearTimeout(timeoutId);
-
+                    
                     if (response.ok) {
-                        const text = await response.text();
+                        const data = await response.json();
+                        console.log(`✅ Proxy ${proxy.name} succeeded`);
+                        
+                        // Return a response-like object with the proxy data
                         return {
                             ok: true,
-                            status: response.status,
-                            json: async () => JSON.parse(text),
-                            text: async () => text
+                            status: 200,
+                            headers: new Map([['content-type', 'application/json']]),
+                            json: async () => JSON.parse(data.contents),
+                            text: async () => data.contents
                         };
                     }
                 } catch (e) {
-                    // Silent fail, try next proxy (though there is only one)
+                    console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
                 }
             }
-
-            throw new Error('All fetch attempts failed');
+            
+            // If all proxies fail, throw error
+            throw new Error('All fetch attempts failed (direct + CORS proxies)');
         }
         
         // Initialize discovery on page load
         document.addEventListener('DOMContentLoaded', async () => {
             await discoverBackendURL();
+            if (serviceDiscovered) {
+                console.log('✅ Verify page initialized with backend:', BACKEND_URL);
+            } else {
+                console.error('❌ Verify page failed to initialize - backend not found');
+            }
         });
         
         // ============================================================
@@ -307,47 +331,22 @@
             btn.disabled = true;
             let hash = input;
 
-            // Re-run discovery if we never found a backend (helps if page loaded before tunnel was ready)
-            if (!serviceDiscovered) {
+            // If input is a short code (e.g., ABC-123), resolve to tx hash
+            if (/^[A-Z2-9]{3}-[A-Z2-9]{3}$/i.test(input)) {
                 try {
-                    await discoverBackendURL();
-                } catch (_) {
-                    // fall through; we'll still attempt with whatever BACKEND_URL is set to
-                }
-            }
-
-            // If input looks like a short code, normalize and resolve to tx hash
-            const normalized = input.replace(/\s+/g, '').replace(/-/g, '').toUpperCase();
-            const looksLikeCode = /^[A-Z0-9]{6,8}$/.test(normalized) && !normalized.startsWith('0X');
-            console.log('Input:', input, 'Normalized:', normalized, 'Looks like code:', looksLikeCode);
-            if (looksLikeCode) {
-                const code = normalized.length === 6
-                    ? `${normalized.slice(0, 3)}-${normalized.slice(3, 6)}`
-                    : `${normalized.slice(0, 3)}-${normalized.slice(3, 6)}`; // keep existing pattern but tolerate extra chars
-                console.log('Attempting to resolve code:', code, 'BACKEND_URL:', BACKEND_URL);
-                try {
-                    const verifyCodeURL = BACKEND_URL + '/api/verify-code';
-                    console.log('Calling:', verifyCodeURL);
-                    const resp = await fetchWithFallback(verifyCodeURL, {
+                    const resp = await fetchWithFallback(BACKEND_URL + '/api/verify-code', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code })
+                        body: JSON.stringify({ code: input.toUpperCase() })
                     });
-                    console.log('Response received, ok:', resp.ok);
-                    const respText = await resp.text();
-                    console.log('Raw verify-code response:', respText);
-                    const data = JSON.parse(respText);
-                    console.log('Parsed verify-code response:', data);
+                    const data = await resp.json();
                     if (data.status === 'success' && data.tx_hash && data.tx_hash.startsWith('0x')) {
                         hash = data.tx_hash;
-                        console.log('Resolved code to hash:', hash, 'length:', hash.length);
                     } else {
-                        const msg = data.message || 'Receipt code not found.';
-                        throw new Error(msg);
+                        throw new Error('Code not found');
                     }
                 } catch (e) {
-                    console.error('Code lookup error:', e.message, e.stack);
-                    err.textContent = `❌ ${e.message || 'Receipt code not found. Please check and try again.'}`;
+                    err.textContent = '❌ Receipt code not found. Please check and try again.';
                     err.classList.remove('hidden');
                     btn.innerHTML = originalBtnText;
                     btn.disabled = false;
@@ -355,9 +354,8 @@
                 }
             }
             // Validate hash
-            console.log('Final hash to validate:', hash, 'starts with 0x:', hash.startsWith('0x'), 'length:', hash.length);
             if (!hash.startsWith('0x') || hash.length !== 66) {
-                err.textContent = '❌ Invalid transaction hash. Length: ' + hash.length + ', Starts with 0x: ' + hash.startsWith('0x');
+                err.textContent = '❌ Invalid transaction hash.';
                 err.classList.remove('hidden');
                 btn.innerHTML = originalBtnText;
                 btn.disabled = false;
@@ -372,8 +370,6 @@
                 });
                 const data = await resp.json();
                 if (data.status === 'success' && data.tx) {
-                    document.getElementById('txHashDisplay').innerText = hash;
-                    document.getElementById('txHashDisplay').href = `https://sepolia.etherscan.io/tx/${hash}`;
                     document.getElementById('blockNum').innerText = "#" + data.tx.blockNumber;
                     document.getElementById('fromAddr').innerText = data.tx.from;
                     document.getElementById('toAddr').innerText = data.tx.to;
@@ -382,11 +378,10 @@
                     card.classList.add('animate-pulse');
                     setTimeout(() => card.classList.remove('animate-pulse'), 500);
                 } else {
-                    const msg = data.message || "Tx failed or not found";
-                    throw new Error(msg);
+                    throw new Error("Tx failed or not found");
                 }
             } catch (e) {
-                err.textContent = `❌ ${e.message || 'Transaction not found. Please check the hash and try again.'}`;
+                err.textContent = '❌ Transaction not found. Please check the hash and try again.';
                 err.classList.remove('hidden');
             } finally {
                 btn.innerHTML = originalBtnText;

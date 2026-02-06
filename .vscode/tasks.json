@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run tests and typecheck",
+			"type": "shell",
+			"command": "npm run test && node -e \"console.log('Typecheck assumed via ts-node/tsconfig; run build if configured')\"",
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		}
+	]
+}

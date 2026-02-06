@@ -201,48 +201,6 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', service: 'VoteChain Backend', time: new Date().toISOString() });
 });
 
-// Self-hosted CORS proxy for tunnel access (solves external network CORS issues)
-app.all('/api/proxy', async (req, res) => {
-    const rawUrl = req.query.url;
-    if (!rawUrl || typeof rawUrl !== 'string') {
-        return res.status(400).json({ error: 'Missing url parameter' });
-    }
-
-    // Prefer IPv4 loopback to avoid occasional IPv6/::1 resolution issues
-    const targetUrl = rawUrl.replace('localhost', '127.0.0.1');
-
-    try {
-        const fetch = (await import('node-fetch')).default;
-        const method = req.method;
-
-        // Forward content-type if present, otherwise default to JSON
-        const contentType = req.get('content-type') || 'application/json';
-        const headers = { 'Content-Type': contentType };
-
-        const options = {
-            method,
-            headers,
-            ...(method !== 'GET' && method !== 'HEAD' && req.body ? { body: JSON.stringify(req.body) } : {})
-        };
-
-        const response = await fetch(targetUrl, options);
-        const data = await response.text();
-
-        // Log non-OK proxied responses for visibility
-        if (!response.ok) {
-            console.warn('[PROXY] non-OK response', response.status, targetUrl, data && data.toString().slice(0, 100));
-        }
-
-        res.status(response.status).set({
-            'Content-Type': response.headers.get('content-type') || 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        }).send(data);
-    } catch (error) {
-        console.error('[PROXY] Proxy error:', error && error.stack ? error.stack : error);
-        res.status(500).json({ error: 'Proxy request failed', message: error && error.message ? error.message : String(error) });
-    }
-});
-
 // Contract configuration endpoint (for frontend)
 app.get('/api/config', (req, res) => {
     res.json({
@@ -787,7 +745,7 @@ app.get('/api/metrics', async (_req, res) => {
     }
 });
 
-// Start the server - listen on all IPv4 addresses (0.0.0.0) to allow network access
-app.listen(port, '0.0.0.0', () => {
-    console.log(`🤖 Election Official (Backend) is listening on 0.0.0.0:${port}`);
+// Start the server
+app.listen(port, () => {
+    console.log(`🤖 Election Official (Backend) is listening on port ${port}`);
 });

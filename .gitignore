@@ -48,13 +48,3 @@ __pycache__/
 .Python
 venv/
 env/
-
-# Binary files
-*.deb
-cloudflared-*
-*.so
-*.o
-
-# Large files
-*.tar.gz
-*.zip

@@ -98,7 +98,7 @@ node server.js
 2.Start kiosk (on Raspberry Pi with hardware):
 
 ```bash
-sudo -E python3 ../kiosk/kiosk_main.py
+sudo -E python3 ../kiosk_main.py
 ```
 
 3.Open admin UI: `http://localhost:3000/admin.html`
