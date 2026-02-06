@@ -9,10 +9,10 @@
 
 ```bash
 # Check everything is running
-./check-system.sh
+./bin/check-system.sh
 
 # Or use master control
-./votechain.sh status
+./bin/votechain.sh status
 ```
 
 **Expected startup time:** ~20 seconds after power-on
@@ -34,18 +34,18 @@
 ### Start/stop all services
 
 ```bash
-./votechain.sh start    # Start everything
-./votechain.sh stop     # Stop everything
-./votechain.sh restart  # Restart everything
-./votechain.sh status   # Check status
+./bin/votechain.sh start    # Start everything
+./bin/votechain.sh stop     # Stop everything
+./bin/votechain.sh restart  # Restart everything
+./bin/votechain.sh status   # Check status
 ```
 
 ### View logs
 
 ```bash
-./votechain.sh logs backend   # Backend logs
-./votechain.sh logs frontend  # Frontend logs
-./votechain.sh logs kiosk     # Kiosk logs
+./bin/votechain.sh logs backend   # Backend logs
+./bin/votechain.sh logs frontend  # Frontend logs
+./bin/votechain.sh logs kiosk     # Kiosk logs
 ```
 
 ---
@@ -58,7 +58,7 @@ If you need to run services manually for testing, follow these steps.
 
 Your system is already configured correctly:
 
-- ✅ `kiosk_main.py` → `BACKEND_URL = http://127.0.0.1:3000`
+- ✅ `kiosk/kiosk_main.py` → `BACKEND_URL = http://127.0.0.1:3000`
 - ✅ `admin.html` → `BACKEND_URL = http://127.0.0.1:3000`
 - ✅ Backend has all enrollment endpoints ready
 - ✅ All files are on the same Pi (no network setup needed)
@@ -92,7 +92,7 @@ node server.js
 Open a **second terminal** in VS Code (click the `+` button):
 
 ```bash
-python3 kiosk_main.py
+python3 kiosk/kiosk_main.py
 ```
 
 **Expected output:**
@@ -168,6 +168,8 @@ ls /dev/ttyAMA0
 
 # Check OLED connections
 # Make sure SPI is enabled: sudo raspi-config → Interface Options → SPI → Enable
+# Run kiosk from kiosk directory
+cd kiosk && python3 kiosk_main.py
 ```
 
 ### Admin page not connecting
