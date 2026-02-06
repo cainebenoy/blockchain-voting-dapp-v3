@@ -34,11 +34,11 @@ Backend Server (localhost:3000)
 2. **Run the Setup Script:**
    ```bash
    # The script is already in your repository
-   cat supabase-setup.sql
+   cat db/supabase-setup.sql
    ```
 
 3. **Execute in Supabase:**
-   - Copy the entire contents of `supabase-setup.sql`
+   - Copy the entire contents of `db/supabase-setup.sql`
    - Paste into Supabase SQL Editor
    - Click "Run"
 
@@ -76,7 +76,7 @@ pip3 install supabase --break-system-packages
 Edit the script to add your Supabase credentials:
 
 ```bash
-nano start_tunnel.py
+nano bin/start_tunnel.py
 ```
 
 Update these lines (around line 33-34):
@@ -102,7 +102,7 @@ node server.js &
 
 # In another terminal, test the tunnel script
 cd ..
-python3 start_tunnel.py
+python3 bin/start_tunnel.py
 ```
 
 **Expected output:**
@@ -141,7 +141,7 @@ sudo npm install -g pm2
 cd /home/cainepi/Desktop/FInal Year Project/blockchain-voting-dapp-v3
 
 # Start tunnel manager
-pm2 start start_tunnel.py \
+pm2 start bin/start_tunnel.py \
     --name "auto-tunnel" \
     --interpreter python3 \
     --restart-delay 5000
@@ -167,14 +167,14 @@ module.exports = {
     },
     {
       name: 'votechain-kiosk',
-      script: 'kiosk_main.py',
+      script: 'kiosk/kiosk_main.py',
       interpreter: 'python3',
       restart_delay: 10000,
       max_restarts: 5
     },
     {
       name: 'auto-tunnel',
-      script: 'start_tunnel.py',
+      script: 'bin/start_tunnel.py',
       interpreter: 'python3',
       restart_delay: 5000,
       max_restarts: 10
@@ -214,7 +214,7 @@ pm2 startup
 The frontend files (`admin.html` and `verify.html`) have already been updated with service discovery logic. Just commit and push:
 
 ```bash
-git add admin.html verify.html supabase-setup.sql start_tunnel.py
+git add admin.html verify.html db/supabase-setup.sql bin/start_tunnel.py
 git commit -m "feat: add service discovery for automatic backend URL detection"
 git push origin main
 ```
@@ -287,7 +287,7 @@ pm2 logs auto-tunnel
 The Supabase table still has the placeholder value. Check:
 
 1. Tunnel script is running
-2. Supabase credentials are correct in `start_tunnel.py`
+2. Supabase credentials are correct in `bin/start_tunnel.py`
 3. Service role key has write permission
 
 ### Issue: "CORS error" in browser
@@ -378,7 +378,7 @@ pm2 stop all && pm2 start all
 
 ## 🔐 Security Considerations
 
-1. **Service Role Key:** Stored in `start_tunnel.py` - keep this file secure
+1. **Service Role Key:** Stored in `bin/start_tunnel.py` - keep this file secure
 2. **RLS Policies:** Public can read `system_config`, only service role can write
 3. **Tunnel URLs:** Publicly accessible but change frequently (security by obscurity)
 4. **Rate Limiting:** Already configured in backend (`express-rate-limit`)
@@ -402,7 +402,7 @@ pm2 stop all && pm2 start all
    - All subsequent API calls use discovered URL
 
 3. **On Tunnel Crash:**
-   - PM2 auto-restarts `start_tunnel.py` in 5 seconds
+   - PM2 auto-restarts `bin/start_tunnel.py` in 5 seconds
    - New tunnel gets new URL
    - Script updates Supabase automatically
    - Frontend discovers new URL on next page load

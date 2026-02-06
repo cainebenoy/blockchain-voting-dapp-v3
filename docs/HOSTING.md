@@ -184,10 +184,10 @@ Note: Service Role Key is SECRET—only put it in `backend/.env`, not in HTML!
 
 ### 3.3 Update Tunnel Script
 
-Edit `start_tunnel.py`:
+Edit `bin/start_tunnel.py`:
 
 ```bash
-nano start_tunnel.py
+nano bin/start_tunnel.py
 ```
 
 The tunnel script should already read credentials from `backend/.env`. Verify that your `backend/.env` has:
@@ -217,7 +217,7 @@ curl http://localhost:3000/api/health
 
 ```bash
 # Start the tunnel script
-python3 start_tunnel.py
+python3 bin/start_tunnel.py
 
 # Watch for output:
 # ✅ TUNNEL URL FOUND: https://something.trycloudflare.com
@@ -266,7 +266,7 @@ Try clicking "Check Health" — should show green status.
 
 ```bash
 # Start the tunnel script as a PM2 service
-pm2 start start_tunnel.py --name "auto-tunnel" --interpreter python3
+pm2 start bin/start_tunnel.py --name "auto-tunnel" --interpreter python3
 
 # Save configuration
 pm2 save
@@ -340,7 +340,7 @@ which cloudflared
 cloudflared --version
 
 # Retry tunnel
-python3 start_tunnel.py
+python3 bin/start_tunnel.py
 ```
 
 ### Problem: "Database Update Failed"
@@ -459,7 +459,7 @@ cat /etc/resolv.conf
 
 | Key | Used By | Access | Sensitive |
 |-----|---------|--------|-----------|
-| Service Role | `start_tunnel.py` | Read/Write system_config | ⚠️ **YES** |
+| Service Role | `bin/start_tunnel.py` | Read/Write system_config | ⚠️ **YES** |
 | Anon Key | Frontend JS | Read system_config only | ✅ No |
 
 Keep service role key **ONLY** in `backend/.env` (server-side), never in frontend code.
@@ -499,7 +499,7 @@ ngrok http 3000
 # For fixed subdomain ($8/month):
 ngrok http 3000 --domain=YOUR-FIXED-DOMAIN.ngrok-free.app
 
-# Modify start_tunnel.py to use ngrok instead of cloudflared
+# Modify bin/start_tunnel.py to use ngrok instead of cloudflared
 ```
 
 ---

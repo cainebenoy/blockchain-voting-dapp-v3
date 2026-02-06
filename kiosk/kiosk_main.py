@@ -11,7 +11,6 @@ import termios
 import select
 import atexit
 import threading
-import os
 
 # Optional global keyboard capture (works without terminal focus)
 try:
@@ -262,27 +261,6 @@ def show_msg(line1, line2="", line3="", big_text=False):
             print(f"⚠️ Screen Draw Error: {e}")
     else:
         print("⚠️ Screen not initialized (device is None)")
-
-
-def button_debug(duration_sec=10):
-    """Simple live readout of button states for wiring tests."""
-    end = time.time() + duration_sec
-    print(f"[DEBUG] Button debug for {duration_sec}s (0=pressed with pull-up wiring)")
-    while time.time() < end:
-        state_start = GPIO.input(PIN_BTN_START)
-        state_a = GPIO.input(PIN_BTN_A)
-        state_b = GPIO.input(PIN_BTN_B)
-        print(f"[BUTTONS] START={state_start} A={state_a} B={state_b}")
-        if device:
-            try:
-                with canvas(device) as draw:
-                    draw.rectangle(device.bounding_box, fill="black")
-                    draw.text((5, 8), "Button Debug", fill="white")
-                    draw.text((5, 26), f"Start: {state_start}", fill="white")
-                    draw.text((5, 42), f"A/B: {state_a}/{state_b}", fill="white")
-            except Exception:
-                pass
-        time.sleep(0.5)
 
 
 def show_idle():
@@ -967,9 +945,6 @@ if __name__ == '__main__':
         sys.exit(1)
     # Run hardware health check on boot
     hardware_health_check(device)
-    # Optional: quick button wiring test (set env KIOSK_BUTTON_DEBUG=1 or pass --button-debug)
-    if os.environ.get("KIOSK_BUTTON_DEBUG") == "1" or "--button-debug" in sys.argv:
-        button_debug(15)
     print("--- VOTECHAIN KIOSK LIVE (V3) ---")
     beep(count=2)
     # Track idle state

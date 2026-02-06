@@ -4,7 +4,7 @@
 
 Four-layer cyber-physical voting system combining biometrics with blockchain:
 
-1. **Edge Layer**: Raspberry Pi kiosk (`kiosk/kiosk_main.py`) with R307 fingerprint scanner, OLED display, GPIO buttons
+1. **Edge Layer**: Raspberry Pi kiosk (`kiosk/kiosk/kiosk_main.py`) with R307 fingerprint scanner, OLED display, GPIO buttons
 2. **Trust Layer**: Node.js backend (`backend/server.js`) - signs transactions, validates voters, generates receipts
 3. **Data Layer**: Supabase PostgreSQL - stores voter mappings, biometric templates, service discovery config
 4. **Verification Layer**: Ethereum Sepolia smart contract (`contracts/VotingV2.sol`) - immutable vote ledger
