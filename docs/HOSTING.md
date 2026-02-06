@@ -366,7 +366,7 @@ python3 bin/start_tunnel.py
 
 **Not a Problem**: Service discovery automatically detects new URL and frontend adapts
 
-**If you need a stable URL**: Upgrade to paid Cloudflare plan or use Ngrok ($8/month for fixed subdomain)
+**If you need a stable URL**: Upgrade to paid Cloudflare plan or use Ngrok (₹665/month for fixed subdomain)
 
 ### Problem: "Backend connection timeout"
 
@@ -496,7 +496,7 @@ ngrok config add-authtoken YOUR_TOKEN
 # Start tunnel
 ngrok http 3000
 
-# For fixed subdomain ($8/month):
+# For fixed subdomain (₹665/month):
 ngrok http 3000 --domain=YOUR-FIXED-DOMAIN.ngrok-free.app
 
 # Modify bin/start_tunnel.py to use ngrok instead of cloudflared

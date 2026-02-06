@@ -304,7 +304,7 @@ This is normal for free Cloudflare Tunnel. Each restart gets a new URL. The syst
 **For stable demos:**
 - Start tunnel 5 minutes before presentation
 - Don't restart Pi during demo
-- Consider upgrading to paid ngrok ($8/month) for fixed subdomain
+- Consider upgrading to paid ngrok (₹665/month) for fixed subdomain
 
 ---
 
