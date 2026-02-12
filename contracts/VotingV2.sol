@@ -17,10 +17,10 @@ contract VotingV2 {
     uint public totalVotes;
 
     mapping(uint => Candidate) public candidates;
-    // Tracks if a specific Voter ID (e.g., Aadhaar) has already voted on-chain
-    mapping(string => bool) public hasVoted;
+    // Tracks if a specific Voter ID (e.g., Aadhaar Hash) has already voted on-chain
+    mapping(bytes32 => bool) public hasVoted;
 
-    event VoteCast(string indexed voterId, uint indexed candidateId);
+    event VoteCast(bytes32 indexed voterHash, uint indexed candidateId);
     event ElectionEnded(uint totalVotes);
 
     modifier onlyAdmin() {
@@ -63,15 +63,15 @@ contract VotingV2 {
 
     // --- CORE VOTING ---
     // This is the magic function. Only your server can call it.
-    function vote(uint _candidateId, string memory _voterId) external onlySigner whenActive {
-        require(!hasVoted[_voterId], "This voter ID has already voted.");
+    function vote(uint _candidateId, bytes32 _voterHash) external onlySigner whenActive {
+        require(!hasVoted[_voterHash], "This voter ID has already voted.");
         require(_candidateId > 0 && _candidateId <= totalCandidates, "Invalid candidate.");
 
-        hasVoted[_voterId] = true;
+        hasVoted[_voterHash] = true;
         candidates[_candidateId].voteCount++;
         totalVotes++;
 
-        emit VoteCast(_voterId, _candidateId);
+        emit VoteCast(_voterHash, _candidateId);
     }
 
     // --- LIFECYCLE ---

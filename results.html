@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -27,25 +29,32 @@
         }
     </script>
 </head>
-<body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 min-h-screen flex flex-col transition-colors duration-300">
+
+<body
+    class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 min-h-screen flex flex-col transition-colors duration-300">
     <!-- NAVBAR -->
-    <nav class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800">
+    <nav
+        class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+                    <div
+                        class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
                         <span class="material-symbols-rounded text-2xl">how_to_vote</span>
                     </div>
                     <div>
-                        <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">VoteChain</h1>
+                        <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
+                            VoteChain</h1>
                         <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Public Ledger Interface</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
-                    <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-800">
+                    <div
+                        class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-800">
                         <span class="live-indicator"></span> Live Data: Sepolia
                     </div>
-                    <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
+                    <button onclick="toggleTheme()"
+                        class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
                         <span id="theme-icon" class="material-symbols-rounded text-xl">light_mode</span>
                     </button>
                 </div>
@@ -56,7 +65,8 @@
     <main class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
         <!-- HEADER STATS -->
         <div class="text-center mb-12">
-            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Official Election Results</h2>
+            <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">Official Election
+                Results</h2>
             <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
                 Real-time data directly from the Ethereum Blockchain. Verified, immutable, and transparent.
             </p>
@@ -65,7 +75,8 @@
         <!-- SUMMARY CARDS -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <!-- Status Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div
+                class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
                 <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
                     <span class="material-symbols-rounded text-3xl">pending_actions</span>
                 </div>
@@ -76,7 +87,8 @@
             </div>
 
             <!-- Votes Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div
+                class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
                 <div class="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
                     <span class="material-symbols-rounded text-3xl">ballot</span>
                 </div>
@@ -87,7 +99,8 @@
             </div>
 
             <!-- Candidates Card -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
+            <div
+                class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 flex items-center gap-4 hover:shadow-md transition-shadow">
                 <div class="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
                     <span class="material-symbols-rounded text-3xl">groups</span>
                 </div>
@@ -102,19 +115,22 @@
         <div id="winner-display" class="hidden mb-12 fade-in"></div>
 
         <!-- LIVE TALLY TABLE -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm mb-12">
-            <div class="px-6 py-5 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+        <div
+            class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm mb-12">
+            <div
+                class="px-6 py-5 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
                 <h3 class="text-lg font-bold text-slate-900 dark:text-white">Candidate Standings</h3>
                 <div class="flex items-center gap-3">
                     <span class="text-xs text-slate-400 flex items-center gap-1">
                         <span class="material-symbols-rounded text-sm">sync</span> Auto-refreshing
                     </span>
-                    <button onclick="exportResults()" class="flex items-center gap-1 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-brand-500/20">
+                    <button onclick="exportResults()"
+                        class="flex items-center gap-1 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-brand-500/20">
                         <span class="material-symbols-rounded text-sm">download</span> Export CSV
                     </button>
                 </div>
             </div>
-            
+
             <div class="p-6">
                 <div id="resultsList" class="space-y-6">
                     <!-- Results will be injected here -->
@@ -129,8 +145,10 @@
         <!-- ANALYTICS SECTION -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
             <!-- Vote Distribution Chart -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+            <div
+                class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <div
+                    class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-rounded text-brand-600">pie_chart</span>
                         Vote Distribution
@@ -142,8 +160,10 @@
             </div>
 
             <!-- Turnout & Stats -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+            <div
+                class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <div
+                    class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-rounded text-brand-600">bar_chart</span>
                         Voter Analytics
@@ -154,28 +174,34 @@
                     <div>
                         <div class="flex justify-between items-end mb-2">
                             <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Voter Turnout</span>
-                            <span id="turnoutPercentage" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</span>
+                            <span id="turnoutPercentage"
+                                class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</span>
                         </div>
                         <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
-                            <div id="turnoutBar" class="bg-gradient-to-r from-green-600 to-green-500 h-3 rounded-full transition-all duration-1000 turnout-bar-width"></div>
+                            <div id="turnoutBar"
+                                class="bg-gradient-to-r from-green-600 to-green-500 h-3 rounded-full transition-all duration-1000 turnout-bar-width">
+                            </div>
                         </div>
                         <p id="turnoutText" class="text-xs text-slate-400 mt-1">-- votes from -- registered voters</p>
                     </div>
 
                     <!-- Participation Stats -->
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                        <div
+                            class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
                             <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Registered Voters</p>
                             <p id="registeredVoters" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
                         </div>
-                        <div class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
+                        <div
+                            class="p-4 bg-gray-50 dark:bg-slate-700/30 rounded-xl border border-gray-100 dark:border-slate-600">
                             <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Avg Votes/Candidate</p>
                             <p id="avgVotes" class="text-2xl font-bold text-slate-900 dark:text-white">--</p>
                         </div>
                     </div>
 
                     <!-- Winner Margin (if election ended) -->
-                    <div id="winnerMarginSection" class="hidden p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800">
+                    <div id="winnerMarginSection"
+                        class="hidden p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800">
                         <p class="text-xs font-medium text-brand-700 dark:text-brand-400 mb-1">Victory Margin</p>
                         <p id="winnerMargin" class="text-2xl font-bold text-brand-600 dark:text-brand-400">--</p>
                         <p class="text-xs text-brand-600/70 dark:text-brand-400/70 mt-1">votes ahead of 2nd place</p>
@@ -189,8 +215,9 @@
     <footer class="border-t border-gray-200 dark:border-slate-800 mt-auto py-8 bg-white dark:bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-slate-500 text-sm">
-                VoteChain System • Secured by Ethereum Sepolia • 
-                <a id="etherscan-link" href="#" target="_blank" rel="noopener" class="text-brand-600 hover:underline">View Contract</a>
+                VoteChain System • Secured by Ethereum Sepolia •
+                <a id="etherscan-link" href="#" target="_blank" rel="noopener"
+                    class="text-brand-600 hover:underline">View Contract</a>
             </p>
         </div>
     </footer>
@@ -204,8 +231,8 @@
         // --- 1. CONFIGURATION ---
         // Service Discovery Configuration
         const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
-        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjUxMDU1OSwiZXhwIjoyMDc4MDg2NTU5fQ.Z29FfApBXiKSb7d5f2HSbUghgtliXHaAE4dLs2mDerk";
-        
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc";
+
         let API_BASE = 'http://localhost:3000'; // Fallback for local development
         let CONTRACT_ADDRESS = null;
         let CONFIG_LOADED = false;
@@ -241,25 +268,25 @@
                 { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' },
                 { name: 'corsproxy.io', url: 'https://corsproxy.io/?' }
             ];
-            
+
             for (const proxy of proxies) {
                 try {
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 3000);
-                    
+
                     let proxyURL;
                     if (proxy.name === 'allorigins') {
                         proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
                     } else {
                         proxyURL = proxy.url + encodeURIComponent(tunnelURL + '/api/health');
                     }
-                    
+
                     const response = await fetch(proxyURL, { signal: controller.signal });
                     clearTimeout(timeoutId);
-                    
+
                     if (response.ok) {
                         const data = await response.json();
-                        const isHealthy = proxy.name === 'allorigins' 
+                        const isHealthy = proxy.name === 'allorigins'
                             ? (data.status === 200 || data.contents?.includes('ok'))
                             : (data.status === 200 || data.contents?.includes('ok'));
                         if (isHealthy) {
@@ -271,19 +298,19 @@
                     console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
                 }
             }
-            
+
             return false;
         }
-        
+
         async function discoverBackendURL() {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 console.log('🔧 Running locally - using localhost backend');
                 serviceDiscovered = true;
                 return API_BASE;
             }
-            
+
             console.log('🔄 Discovering backend URL...');
-            
+
             let tunnelURL = null;
             try {
                 const response = await fetch(
@@ -295,7 +322,7 @@
                         }
                     }
                 );
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.length > 0 && data[0].value && data[0].value !== 'https://waiting-for-tunnel.com') {
@@ -310,7 +337,7 @@
             } catch (e) {
                 console.warn('⚠️ Could not fetch tunnel URL:', e.message);
             }
-            
+
             if (window.location.hostname !== 'cainebenoy.github.io') {
                 console.log('🔍 Scanning local network...');
                 const localIPs = ['http://192.168.1.100:3000', 'http://192.168.1.1:3000', 'http://192.168.0.100:3000', 'http://10.0.0.100:3000', 'http://raspberrypi.local:3000'];
@@ -323,7 +350,7 @@
                     }
                 }
             }
-            
+
             // Tunnel DNS resolution failed - try proxy-based approach
             if (tunnelURL) {
                 console.log('⚠️ Direct tunnel access failed - attempting via CORS proxy...');
@@ -334,14 +361,14 @@
                     return API_BASE;
                 }
             }
-            
+
             if (tunnelURL) {
                 console.log('⚠️ DNS resolution failing - using tunnel URL anyway (will retry with fallback)');
                 API_BASE = tunnelURL;
                 serviceDiscovered = true;
                 return API_BASE;
             }
-            
+
             throw new Error('Could not discover backend');
         }
 
@@ -398,7 +425,7 @@
                             },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
+                                    label: function (context) {
                                         const label = context.label || '';
                                         const value = context.parsed || 0;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);
@@ -499,31 +526,31 @@
             } catch (e) {
                 console.log('⚠️ Direct fetch failed, trying CORS proxies...');
             }
-            
+
             // Fall back to CORS proxy for DNS failures
             const proxies = [
                 { name: 'allorigins', url: 'https://api.allorigins.win/get?url=' }
             ];
-            
+
             for (const proxy of proxies) {
                 try {
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 4000);
-                    
+
                     let proxyURL;
                     if (proxy.name === 'allorigins') {
                         proxyURL = proxy.url + encodeURIComponent(url);
                     } else {
                         proxyURL = proxy.url + encodeURIComponent(url);
                     }
-                    
+
                     const response = await fetch(proxyURL, { signal: controller.signal });
                     clearTimeout(timeoutId);
-                    
+
                     if (response.ok) {
                         const data = await response.json();
                         console.log(`✅ Proxy ${proxy.name} succeeded`);
-                        
+
                         // Return a response-like object with the proxy data
                         return {
                             ok: true,
@@ -537,7 +564,7 @@
                     console.log(`⚠️ Proxy ${proxy.name} failed:`, e.message);
                 }
             }
-            
+
             // If all proxies fail, throw error
             throw new Error('All fetch attempts failed (direct + CORS proxies)');
         }
@@ -566,29 +593,29 @@
         async function init() {
             try {
                 console.log('🔗 Connecting to VoteChain backend...');
-                
+
                 // Show loading state
                 document.getElementById('electionStatus').innerText = "Connecting...";
-                document.getElementById('resultsList').innerHTML = 
+                document.getElementById('resultsList').innerHTML =
                     `<div class="text-center py-12">
                         <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
                         <p class="text-slate-500 dark:text-slate-400">🔍 Discovering backend server...</p>
                         <p class="text-xs text-slate-400 mt-2">This may take a few seconds</p>
                     </div>`;
-                
+
                 // Discover backend URL first
                 const backendUrl = await discoverBackendURL();
                 if (!backendUrl) {
                     throw new Error('Cannot discover backend URL. Please ensure the Raspberry Pi is online and the tunnel is running.');
                 }
-                
+
                 // Update loading message
-                document.getElementById('resultsList').innerHTML = 
+                document.getElementById('resultsList').innerHTML =
                     `<div class="text-center py-12">
                         <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mb-4"></div>
                         <p class="text-slate-500 dark:text-slate-400">✅ Backend found! Loading election data...</p>
                     </div>`;
-                
+
                 // Load contract config
                 await loadConfig();
                 // Fetch initial data
@@ -601,7 +628,7 @@
                 document.getElementById('electionStatus').innerText = "Connection Error";
                 document.getElementById('totalVotes').innerText = "—";
                 document.getElementById('totalCandidates').innerText = "—";
-                document.getElementById('resultsList').innerHTML = 
+                document.getElementById('resultsList').innerHTML =
                     `<div class="text-center py-12 px-4">
                         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
                             <span class="material-symbols-rounded text-3xl text-red-600 dark:text-red-400">error</span>
@@ -654,7 +681,7 @@
                 renderResults(candidates, totalVotes, electionActive);
                 // Update analytics
                 await updateAnalytics(candidates, totalVotes);
-            } catch (e) { 
+            } catch (e) {
                 console.error("❌ Refresh failed:", e);
                 document.getElementById('electionStatus').innerText = "Connection Error";
                 document.getElementById('electionStatus').className = "text-xl font-bold text-red-600 dark:text-red-400";
@@ -678,7 +705,7 @@
                 const percent = maxVotes > 0 ? (c.voteCount / maxVotes) * 100 : 0;
                 // Winner badge for top candidate (if votes > 0)
                 const isLeader = index === 0 && c.voteCount > 0;
-                const leaderBadge = isLeader ? 
+                const leaderBadge = isLeader ?
                     '<span class="ml-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-0.5 rounded">Leading</span>' : '';
                 const html = `
                     <div class="relative">
@@ -747,4 +774,5 @@
         init();
     </script>
 </body>
+
 </html>
