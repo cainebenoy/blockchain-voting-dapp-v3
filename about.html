@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoteChain | Our Mission</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
+                    colors: {
+                        black: '#050505',
+                        white: '#ffffff',
+                        subtle: '#888888',
+                        border: '#eaeaea',
+                        darkBorder: '#1a1a1a',
+                        accent: '#1351ec'
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+
+        .grid-bg {
+            background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
+            background-size: 32px 32px;
+            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        }
+
+        .dark .grid-bg {
+            background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
+        }
+
+        .bento-item {
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s;
+        }
+
+        .bento-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .light .bento-item:hover {
+            border-color: #000;
+        }
+
+        .dark .bento-item:hover {
+            border-color: #fff;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-white dark:bg-black text-black dark:text-white antialiased selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300">
+
+    <!-- NAVBAR -->
+    <nav
+        class="fixed w-full z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-border dark:border-darkBorder">
+        <div class="max-w-[1400px] mx-auto px-6 h-16 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-2 group">
+                <div
+                    class="w-5 h-5 bg-black dark:bg-white rounded-sm group-hover:rotate-45 transition-transform duration-500">
+                </div>
+                <span class="font-bold tracking-tight text-lg">VoteChain</span>
+            </a>
+
+            <div class="flex items-center gap-6 text-sm font-medium">
+                <a href="about.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Mission</a>
+                <a href="results.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Results</a>
+                <a href="verify.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Verify</a>
+                <a href="auditor.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Auditor</a>
+
+                <button onclick="toggleTheme()"
+                    class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors">
+                    <span id="theme-icon" class="material-symbols-rounded text-xl">dark_mode</span>
+                </button>
+
+                <a href="admin.html"
+                    class="bg-black dark:bg-white text-white dark:text-black px-5 py-2 rounded-full hover:opacity-80 transition-all font-semibold text-sm">Admin
+                    Portal</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="pt-32 pb-24">
+
+        <!-- HERO / MISSION -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32 relative">
+            <div class="absolute inset-0 grid-bg -z-10 h-[500px]"></div>
+
+            <div class="max-w-4xl animate-fade-in">
+                <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-subtle mb-4 block">Our Mission</span>
+                <h1 class="text-6xl md:text-8xl font-bold tracking-tighter leading-[0.95] mb-12">
+                    Restoring Faith in <br>
+                    <span class="text-subtle">The Ballot Box.</span>
+                </h1>
+
+                <p class="text-2xl md:text-3xl text-black dark:text-white max-w-3xl leading-snug font-medium">
+                    VoteChain was born from a simple realization: in the digital age, democracy cannot survive on
+                    "Institutional Trust" alone. It requires "Cryptographic Truth."
+                </p>
+            </div>
+        </section>
+
+        <!-- THE PROBLEM -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32">
+            <div
+                class="grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-t border-border dark:border-darkBorder pt-16">
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-subtle mb-8">The Challenge</h2>
+                    <h3 class="text-4xl font-bold tracking-tight mb-8">The "Black Box" Problem</h3>
+                    <p class="text-subtle text-lg leading-relaxed mb-6">
+                        Traditional Electronic Voting Machines (EVMs) are efficient, but they are opaque. Voters press a
+                        button and trust that a hidden chip records their choice correctly.
+                    </p>
+                    <p class="text-subtle text-lg leading-relaxed">
+                        This opacity fuels allegations of "Vote Chori"—voter roll manipulation, phantom entries, and
+                        silent deletions. Without a public audit trail, these doubts undermine the stability of modern
+                        nations.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 gap-6">
+                    <div
+                        class="bento-item bg-neutral-50 dark:bg-neutral-900 p-8 rounded-2xl border border-border dark:border-darkBorder">
+                        <span class="material-symbols-rounded text-3xl mb-4">visibility_off</span>
+                        <h4 class="font-bold mb-2 text-xl">Lack of Verifiability</h4>
+                        <p class="text-subtle text-sm">Citizens cannot independently verify that their specific vote was
+                            counted as recorded without relying on a central authority.</p>
+                    </div>
+                    <div
+                        class="bento-item bg-neutral-50 dark:bg-neutral-900 p-8 rounded-2xl border border-border dark:border-darkBorder">
+                        <span class="material-symbols-rounded text-3xl mb-4">database</span>
+                        <h4 class="font-bold mb-2 text-xl">Centralized Risk</h4>
+                        <p class="text-subtle text-sm">A single compromise in a centralized voter database can alter an
+                            entire election's outcome without leaving a public trace.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- THE STACK -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="flex justify-between items-end mb-12 border-b border-border dark:border-darkBorder pb-6">
+                <h2 class="text-3xl font-bold tracking-tight">The Stack</h2>
+                <p class="text-subtle uppercase text-[10px] font-bold tracking-widest">Technological Foundation</p>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div
+                    class="bento-item bg-neutral-50 dark:bg-neutral-900 p-8 rounded-2xl border border-border dark:border-darkBorder text-center">
+                    <div class="h-10 flex items-center justify-center mb-4">
+                        <span class="text-xl font-bold tracking-tighter">Solidity</span>
+                    </div>
+                    <p class="text-[10px] font-bold uppercase text-subtle tracking-widest">Smart Contracts</p>
+                </div>
+                <div
+                    class="bento-item bg-neutral-50 dark:bg-neutral-900 p-8 rounded-2xl border border-border dark:border-darkBorder text-center">
+                    <div class="h-10 flex items-center justify-center mb-4">
+                        <span class="text-xl font-bold tracking-tighter">Node.js</span>
+                    </div>
+                    <p class="text-[10px] font-bold uppercase text-subtle tracking-widest">Trust Layer</p>
+                </div>
+                <div
+                    class="bento-item bg-neutral-50 dark:bg-neutral-900 p-8 rounded-2xl border border-border dark:border-darkBorder text-center">
+                    <div class="h-10 flex items-center justify-center mb-4">
+                        <span class="text-xl font-bold tracking-tighter">Supabase</span>
+                    </div>
+                    <p class="text-[10px] font-bold uppercase text-subtle tracking-widest">Voter Registry</p>
+                </div>
+                <div
+                    class="bento-item bg-neutral-50 dark:bg-neutral-900 p-8 rounded-2xl border border-border dark:border-darkBorder text-center">
+                    <div class="h-10 flex items-center justify-center mb-4">
+                        <span class="text-xl font-bold tracking-tighter">Raspberry Pi</span>
+                    </div>
+                    <p class="text-[10px] font-bold uppercase text-subtle tracking-widest">Edge Hardware</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- THE SOLUTION -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32">
+            <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-subtle mb-12">The Solution</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div
+                    class="bento-item md:col-span-2 bg-black text-white p-12 rounded-3xl border border-border dark:border-darkBorder relative overflow-hidden">
+                    <div
+                        class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+                    </div>
+                    <div class="relative z-10">
+                        <h3 class="text-4xl font-bold tracking-tight mb-6">The Kiosk Model</h3>
+                        <p class="text-neutral-400 text-xl leading-relaxed max-w-xl">
+                            We bridge the "Digital Divide" by removing the need for smartphones or wallets. Our physical
+                            kiosk handles the blockchain complexity, providing an interface as simple as an ATM but as
+                            secure as a vault.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    class="bento-item bg-neutral-50 dark:bg-neutral-900 p-12 rounded-3xl border border-border dark:border-darkBorder flex flex-col justify-between">
+                    <span class="material-symbols-rounded text-5xl">hub</span>
+                    <div>
+                        <h4 class="text-2xl font-bold mb-2">4-Tier System</h4>
+                        <p class="text-subtle text-sm">Separating identity from the ballot to ensure absolute privacy
+                            while maintaining public auditability.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ROADMAP SECTION -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="flex justify-between items-end mb-16 border-b border-border dark:border-darkBorder pb-6">
+                <h2 class="text-3xl font-bold tracking-tight">Project Evolution</h2>
+                <p class="text-subtle uppercase text-[10px] font-bold tracking-widest">Our Strategic Roadmap</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div class="space-y-4">
+                    <div
+                        class="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs">
+                        01</div>
+                    <h4 class="font-bold uppercase text-xs tracking-wider">Digital Genesis</h4>
+                    <p class="text-subtle text-sm leading-relaxed italic">Completed</p>
+                    <p class="text-subtle text-sm leading-relaxed">Smart contract deployment on Sepolia, Backend-DB
+                        integration, and Public Dashboard release.</p>
+                </div>
+                <div class="space-y-4">
+                    <div
+                        class="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs">
+                        02</div>
+                    <h4 class="font-bold uppercase text-xs tracking-wider">The Edge Kiosk</h4>
+                    <p class="text-subtle text-sm leading-relaxed italic">Completed</p>
+                    <p class="text-subtle text-sm leading-relaxed">Hardware prototyping with Raspberry Pi 5, R307 sensor
+                        integration, and tactile input logic.</p>
+                </div>
+                <div class="space-y-4">
+                    <div
+                        class="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center font-bold text-xs">
+                        03</div>
+                    <h4 class="font-bold uppercase text-xs tracking-wider">Privacy Layer</h4>
+                    <p class="text-accent text-sm leading-relaxed font-bold">In Development</p>
+                    <p class="text-subtle text-sm leading-relaxed">Implementation of Zero-Knowledge Proofs (ZKP) to
+                        ensure receipt-freeness while keeping auditability.</p>
+                </div>
+                <div class="space-y-4 opacity-50">
+                    <div
+                        class="w-8 h-8 rounded-full border border-border dark:border-darkBorder flex items-center justify-center font-bold text-xs">
+                        04</div>
+                    <h4 class="font-bold uppercase text-xs tracking-wider">National Pilot</h4>
+                    <p class="text-subtle text-sm leading-relaxed italic">Concept</p>
+                    <p class="text-subtle text-sm leading-relaxed">Transitioning to custom PCBs (Industrial Grade) for
+                        large-scale urban constituency stress tests.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ / INTEGRITY SECTION -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32">
+            <div
+                class="grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-t border-border dark:border-darkBorder pt-16">
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-subtle mb-8">Integrity FAQ</h2>
+                    <h3 class="text-4xl font-bold tracking-tight mb-8">Common Questions</h3>
+                </div>
+                <div class="space-y-10">
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">How is ballot secrecy maintained?</h4>
+                        <p class="text-subtle text-sm leading-relaxed">Identity verification happens entirely off-chain.
+                            The link between your Aadhaar ID and your candidate choice is broken at the Trust Layer
+                            (Tier 2) before the transaction is signed, ensuring only the "fact of a vote" is public, not
+                            the choice.</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">Can the Kiosk hardware be hacked?</h4>
+                        <p class="text-subtle text-sm leading-relaxed">The Kiosk is a stateless input device. No votes
+                            are stored locally. Even if a physical device is compromised, the ledger remains intact on
+                            the blockchain, and our Merkle Anchor detects any unauthorized attempts to alter the
+                            underlying voter roll.</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-lg mb-2">What happens if the internet goes out?</h4>
+                        <p class="text-subtle text-sm leading-relaxed">Our future roadmap includes a "Store-and-Forward"
+                            protocol where votes are stored in a local Hardware Security Module (HSM) and synchronized
+                            to the blockchain once connectivity is restored.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LEGAL FEASIBILITY -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="max-w-4xl border-l-2 border-black dark:border-white pl-12 py-8">
+                <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-subtle mb-8">Legal Feasibility</h2>
+                <div class="space-y-12">
+                    <div>
+                        <h4 class="text-2xl font-bold mb-4">IT Act, 2000 Compliance</h4>
+                        <p class="text-subtle leading-relaxed">
+                            VoteChain leverages Section 4 and 5 of the IT Act, which recognizes electronic records and
+                            cryptographic digital signatures as legally binding. Our immutable ledger satisfies and
+                            exceeds standard legal recognition of digital evidence.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 class="text-2xl font-bold mb-4">DPDP Act, 2023 & Privacy</h4>
+                        <p class="text-subtle leading-relaxed">
+                            Designed with "Privacy by Design," VoteChain ensures that Personally Identifiable
+                            Information (PII) never touches the public ledger. We use 1:1 biometric matching at the
+                            edge, complying with Indian data minimization mandates.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TEAM SECTION -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="flex justify-between items-end mb-16 border-b border-border dark:border-darkBorder pb-6">
+                <h2 class="text-3xl font-bold tracking-tight">The Architects</h2>
+                <p class="text-subtle uppercase text-[10px] font-bold tracking-widest">Core Development Team</p>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-12">
+                <div class="text-center group">
+                    <div
+                        class="w-20 h-20 bg-neutral-100 dark:bg-neutral-900 rounded-2xl mx-auto mb-4 border border-border dark:border-darkBorder group-hover:border-black dark:group-hover:border-white transition-colors flex items-center justify-center">
+                        <span class="material-symbols-rounded text-neutral-400">person</span>
+                    </div>
+                    <h5 class="font-bold text-sm tracking-tight uppercase">Caine Benoy</h5>
+                </div>
+                <div class="text-center group">
+                    <div
+                        class="w-20 h-20 bg-neutral-100 dark:bg-neutral-900 rounded-2xl mx-auto mb-4 border border-border dark:border-darkBorder group-hover:border-black dark:group-hover:border-white transition-colors flex items-center justify-center">
+                        <span class="material-symbols-rounded text-neutral-400">person</span>
+                    </div>
+                    <h5 class="font-bold text-sm tracking-tight uppercase">Mohamed P M</h5>
+                </div>
+                <div class="text-center group">
+                    <div
+                        class="w-20 h-20 bg-neutral-100 dark:bg-neutral-900 rounded-2xl mx-auto mb-4 border border-border dark:border-darkBorder group-hover:border-black dark:group-hover:border-white transition-colors flex items-center justify-center">
+                        <span class="material-symbols-rounded text-neutral-400">person</span>
+                    </div>
+                    <h5 class="font-bold text-sm tracking-tight uppercase">Cyril Joju</h5>
+                </div>
+                <div class="text-center group">
+                    <div
+                        class="w-20 h-20 bg-neutral-100 dark:bg-neutral-900 rounded-2xl mx-auto mb-4 border border-border dark:border-darkBorder group-hover:border-black dark:group-hover:border-white transition-colors flex items-center justify-center">
+                        <span class="material-symbols-rounded text-neutral-400">person</span>
+                    </div>
+                    <h5 class="font-bold text-sm tracking-tight uppercase">Adhityan Vembanat</h5>
+                </div>
+            </div>
+        </section>
+
+        <!-- CALL TO ACTION -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-12">
+            <div
+                class="bg-neutral-50 dark:bg-neutral-900 rounded-3xl p-16 text-center border border-border dark:border-darkBorder">
+                <h2 class="text-4xl font-bold tracking-tighter mb-8">Ready to explore the ledger?</h2>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="results.html"
+                        class="h-14 px-10 bg-black dark:bg-white text-white dark:text-black rounded-full font-bold flex items-center justify-center gap-3 hover:opacity-80 transition-all">
+                        View Live Data <span class="material-symbols-rounded">arrow_forward</span>
+                    </a>
+                    <a href="index.html"
+                        class="h-14 px-10 border border-border dark:border-darkBorder rounded-full font-bold flex items-center justify-center hover:border-black dark:hover:border-white transition-all">
+                        Back Home
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-border dark:border-darkBorder py-12 bg-neutral-50 dark:bg-black">
+        <div class="max-w-[1400px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-black dark:bg-white rounded-sm"></div>
+                <span class="font-bold text-sm">VoteChain</span>
+            </div>
+
+            <div class="flex gap-8 text-xs font-bold uppercase tracking-widest text-subtle">
+                <a href="about.html" class="hover:text-black dark:hover:text-white transition-colors">Mission</a>
+                <a href="results.html" class="hover:text-black dark:hover:text-white transition-colors">Results</a>
+                <a href="verify.html" class="hover:text-black dark:hover:text-white transition-colors">Verify</a>
+                <a href="auditor.html" class="hover:text-black dark:hover:text-white transition-colors">Auditor</a>
+                <a href="#" class="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
+            </div>
+
+            <p class="text-xs text-subtle font-mono uppercase tracking-widest">© 2026. SECURE DEMOCRACY.</p>
+        </div>
+    </footer>
+
+    <!-- LOGIC -->
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            const isDark = html.classList.toggle('dark');
+
+            if (icon) icon.innerText = isDark ? 'light_mode' : 'dark_mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+            const icon = document.getElementById('theme-icon');
+            if (icon) icon.innerText = 'light_mode';
+        }
+    </script>
+</body>
+
+</html>

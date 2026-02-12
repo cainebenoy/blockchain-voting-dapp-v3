@@ -1,28 +1,37 @@
-
 <!DOCTYPE html>
 <html lang="en" class="light">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoteChain | Secure. Transparent. Decentralized.</title>
-    
-    <!-- Fonts & Icons -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
-    
-    <!-- Tailwind CSS -->
+    <title>VoteChain | The Future of Democracy</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
                     colors: {
-                        brand: {
-                            50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81',
+                        black: '#050505',
+                        white: '#ffffff',
+                        subtle: '#888888',
+                        border: '#eaeaea',
+                        darkBorder: '#1a1a1a'
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
                         }
                     }
                 }
@@ -30,223 +39,297 @@
         }
     </script>
     <style>
-        .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; opacity: 0; transform: translateY(20px); }
-        .delay-100 { animation-delay: 0.1s; }
-        .delay-200 { animation-delay: 0.2s; }
-        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
-        
-        .glass-card {
-            background: rgba(255, 255, 255, 0.7);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
         }
-        .dark .glass-card {
-            background: rgba(15, 23, 42, 0.7);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        /* Custom delicate grid - adapts to theme */
+        .grid-bg {
+            background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
+            background-size: 32px 32px;
+            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        }
+
+        .dark .grid-bg {
+            background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
+        }
+
+        /* Hover effects for bento items */
+        .bento-item {
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s, background-color 0.2s;
+        }
+
+        .bento-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .light .bento-item:hover {
+            border-color: #000;
+        }
+
+        .dark .bento-item:hover {
+            border-color: #fff;
+        }
+
+        /* Minimal button hover */
+        .btn-minimal:hover span {
+            transform: translateX(4px);
+        }
+
+        /* Hide scrollbar for bento container if needed */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 transition-colors duration-300 min-h-screen flex flex-col">
+
+<body
+    class="bg-white dark:bg-black text-black dark:text-white antialiased selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300">
 
     <!-- NAVBAR -->
-    <nav class="fixed w-full z-50 transition-all duration-300" id="navbar">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-20 items-center">
-                <!-- Logo -->
-                <div class="flex items-center gap-2">
-                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-600/20">
-                        <span class="material-symbols-rounded text-2xl">how_to_vote</span>
-                    </div>
-                    <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">VoteChain</span>
+    <nav
+        class="fixed w-full z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-border dark:border-darkBorder">
+        <div class="max-w-[1400px] mx-auto px-6 h-16 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-2 group">
+                <div
+                    class="w-5 h-5 bg-black dark:bg-white rounded-sm group-hover:rotate-45 transition-transform duration-500">
                 </div>
+                <span class="font-bold tracking-tight text-lg">VoteChain</span>
+            </a>
 
-                <!-- Actions -->
-                <div class="flex items-center gap-4">
-                    <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                        <span id="theme-icon" class="material-symbols-rounded text-xl">dark_mode</span>
-                    </button>
-                    <a href="admin.html" class="hidden md:flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-white transition-colors">
-                        <span class="material-symbols-rounded text-lg">lock</span> Admin Login
-                    </a>
-                </div>
+            <div class="flex items-center gap-6 text-sm font-medium">
+                <a href="about.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Mission</a>
+                <a href="results.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Results</a>
+                <a href="verify.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Verify</a>
+                <a href="auditor.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Auditor</a>
+
+                <button onclick="toggleTheme()"
+                    class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors">
+                    <span id="theme-icon" class="material-symbols-rounded text-xl">dark_mode</span>
+                </button>
+
+                <a href="admin.html"
+                    class="bg-black dark:bg-white text-white dark:text-black px-5 py-2 rounded-full hover:opacity-80 transition-all font-semibold text-sm">Admin
+                    Portal</a>
             </div>
         </div>
     </nav>
 
-    <!-- HERO SECTION -->
-    <section class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-        <!-- Background Blobs -->
-        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full z-0 pointer-events-none">
-            <div class="absolute top-20 left-10 w-72 h-72 bg-brand-500/20 rounded-full blur-[100px]"></div>
-            <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-[100px]"></div>
-        </div>
+    <main class="pt-32 pb-24">
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300 text-xs font-bold uppercase tracking-wide mb-6 border border-brand-100 dark:border-brand-700/50 fade-in-up">
-                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                Live on Sepolia Testnet
-            </div>
-            
-            <h1 class="text-5xl md:text-7xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-6 fade-in-up delay-100">
-                Democracy, <br class="hidden md:block" />
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600">Verified by Code.</span>
-            </h1>
-            
-            <p class="text-xl text-slate-500 dark:text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed fade-in-up delay-200">
-                A next-generation voting system combining the physical security of biometric kiosks with the absolute transparency of the Ethereum blockchain.
-            </p>
-            
-            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center fade-in-up delay-200">
-                <a href="results.html" class="group relative flex items-center gap-3 bg-brand-600 hover:bg-brand-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-brand-500/30 hover:shadow-brand-500/50 hover:-translate-y-1">
-                    <span>View Live Results</span>
-                    <span class="material-symbols-rounded group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                </a>
-                <a href="admin.html" class="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-white border border-slate-200 dark:border-slate-700 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all hover:-translate-y-1">
-                    <span class="material-symbols-rounded text-slate-400">admin_panel_settings</span>
-                    Admin Console
-                </a>
-                <a href="verify.html" class="flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-green-100 dark:hover:bg-green-800 transition-all hover:-translate-y-1">
-                    <span class="material-symbols-rounded text-green-400">verified</span>
-                    Verify Your Vote
-                </a>
-            </div>
-        </div>
-    </section>
+        <!-- HERO -->
+        <section class="max-w-[1400px] mx-auto px-6 mb-32 relative">
+            <div class="absolute inset-0 grid-bg -z-10 h-[600px]"></div>
 
-    <!-- FEATURES GRID -->
-    <section class="py-20 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <!-- Feature 1 -->
-                <div class="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-brand-200 dark:hover:border-brand-700 transition-colors group">
-                    <div class="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-rounded">fingerprint</span>
-                    </div>
-                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Biometric Security</h3>
-                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Voters authenticate via fingerprint scan at a physical kiosk. No phone, wallet, or technical knowledge required.
-                    </p>
+            <div class="max-w-4xl animate-fade-in">
+                <div
+                    class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border dark:border-darkBorder bg-white dark:bg-neutral-900 text-xs font-medium mb-8">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                    <span class="text-black dark:text-white">Operational on Sepolia Testnet</span>
                 </div>
 
-                <!-- Feature 2 -->
-                <div class="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-brand-200 dark:hover:border-brand-700 transition-colors group">
-                    <div class="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-rounded">deployed_code</span>
-                    </div>
-                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Blockchain Ledger</h3>
-                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Every vote is cryptographically signed and recorded on Ethereum Sepolia. Immutable, permanent, and unhackable.
-                    </p>
-                </div>
+                <h1 class="text-6xl md:text-8xl font-bold tracking-tighter leading-[0.95] mb-8">
+                    Democracy,<br>
+                    <span class="text-subtle">Mathematically Verified.</span>
+                </h1>
 
-                <!-- Feature 3 -->
-                <div class="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-brand-200 dark:hover:border-brand-700 transition-colors group">
-                    <div class="w-14 h-14 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-rounded">public</span>
-                    </div>
-                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Public Audit</h3>
-                    <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Results are live-streamed to a public dashboard. Anyone can verify the election integrity in real-time.
-                    </p>
+                <p class="text-xl md:text-2xl text-subtle max-w-2xl leading-relaxed mb-12">
+                    VoteChain replaces trust with proof. A cyber-physical infrastructure that bridges biometric identity
+                    with immutable blockchain ledgers.
+                </p>
+
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <a href="results.html"
+                        class="btn-minimal h-14 px-8 bg-black dark:bg-white text-white dark:text-black rounded-lg flex items-center justify-center gap-3 font-medium transition-all hover:opacity-90">
+                        View Live Ledger <span
+                            class="material-symbols-rounded text-sm transition-transform">arrow_forward</span>
+                    </a>
+                    <a href="verify.html"
+                        class="h-14 px-8 border border-border dark:border-darkBorder bg-white dark:bg-black text-black dark:text-white rounded-lg flex items-center justify-center gap-2 font-medium hover:border-black dark:hover:border-white transition-all">
+                        Verify Receipt
+                    </a>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- HOW IT WORKS -->
-    <section class="py-24">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-16">
-                <h2 class="text-3xl font-bold text-slate-900 dark:text-white">The VoteChain Architecture</h2>
-                <p class="text-slate-500 mt-4">A 4-Tier System bridging the physical and digital worlds.</p>
+        <!-- CONCEPT (Bento Grid) -->
+        <section id="concept" class="max-w-[1400px] mx-auto px-6 mb-32">
+            <div class="flex justify-between items-end mb-12 border-b border-border dark:border-darkBorder pb-6">
+                <h2 class="text-3xl font-bold tracking-tight">The Architecture</h2>
+                <p class="text-subtle text-right hidden sm:block">4-Tier Design<br>Zero Knowledge Gap</p>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                <!-- Large Item: Kiosk -->
+                <div
+                    class="bento-item md:col-span-2 bg-neutral-50 dark:bg-neutral-900 rounded-2xl p-10 border border-border dark:border-darkBorder flex flex-col justify-between relative overflow-hidden group">
+                    <div
+                        class="absolute right-10 top-10 w-32 h-32 bg-black/5 dark:bg-white/5 rounded-full blur-2xl group-hover:bg-black/10 dark:group-hover:bg-white/10 transition-colors">
+                    </div>
+                    <div>
+                        <span class="material-symbols-rounded text-4xl mb-4 block">fingerprint</span>
+                        <h3 class="text-2xl font-bold mb-2">The Smart Kiosk</h3>
+                        <p class="text-subtle max-w-md">
+                            A standalone edge device. It captures biometric data and verifies identity against a secure
+                            off-chain database. No phones required.
+                        </p>
+                    </div>
+                    <div class="mt-8 flex gap-2">
+                        <span
+                            class="px-3 py-1 bg-white dark:bg-black border border-border dark:border-darkBorder rounded-full text-xs font-mono">Raspberry
+                            Pi 5</span>
+                        <span
+                            class="px-3 py-1 bg-white dark:bg-black border border-border dark:border-darkBorder rounded-full text-xs font-mono">R307
+                            Sensor</span>
+                    </div>
+                </div>
+
+                <!-- Tall Item: Blockchain -->
+                <div
+                    class="bento-item bg-black dark:bg-white text-white dark:text-black rounded-2xl p-10 flex flex-col justify-between relative overflow-hidden border border-border dark:border-darkBorder">
+                    <div
+                        class="absolute inset-0 opacity-10 dark:opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+                    </div>
+                    <div class="relative z-10">
+                        <span class="material-symbols-rounded text-4xl mb-4 block opacity-60">deployed_code</span>
+                        <h3 class="text-2xl font-bold mb-2">Immutable Ledger</h3>
+                        <p class="opacity-60 text-sm leading-relaxed">
+                            Every vote is a signed transaction on Ethereum Sepolia. Once mined, it cannot be deleted,
+                            altered, or censored.
+                        </p>
+                    </div>
+                    <div class="relative z-10 pt-8 border-t border-neutral-800 dark:border-neutral-200 mt-auto">
+                        <div class="flex justify-between text-xs font-mono opacity-50">
+                            <span>Status</span>
+                            <span class="text-green-500 font-bold uppercase">Active</span>
+                        </div>
+                        <div class="flex justify-between text-xs font-mono opacity-50 mt-2">
+                            <span>TPS</span>
+                            <span>~100k (L2)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wide Item: Trust Layer -->
+                <div
+                    class="bento-item md:col-span-3 bg-white dark:bg-black rounded-2xl p-10 border border-border dark:border-darkBorder flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div class="max-w-xl">
+                        <span class="material-symbols-rounded text-4xl mb-4 block">security</span>
+                        <h3 class="text-2xl font-bold mb-2">The Trust Layer (Backend)</h3>
+                        <p class="text-subtle">
+                            A secure Node.js signer acts as the bridge. It validates eligibility off-chain and executes
+                            the transaction on-chain, abstracting complexity from the voter.
+                        </p>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="text-center min-w-[80px]">
+                            <div class="text-3xl font-bold tracking-tighter">12ms</div>
+                            <div class="text-[10px] text-subtle uppercase font-bold mt-1 tracking-widest">Latency</div>
+                        </div>
+                        <div class="w-px bg-border dark:bg-darkBorder h-12"></div>
+                        <div class="text-center min-w-[80px]">
+                            <div class="text-3xl font-bold tracking-tighter">100%</div>
+                            <div class="text-[10px] text-subtle uppercase font-bold mt-1 tracking-widest">Uptime</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- WORKFLOW -->
+        <section id="technology" class="max-w-[1400px] mx-auto px-6">
+            <div class="flex justify-between items-end mb-16 border-b border-border dark:border-darkBorder pb-6">
+                <h2 class="text-3xl font-bold tracking-tight">The Flow</h2>
+                <p class="text-subtle hidden sm:block uppercase text-xs font-bold tracking-widest">End-to-End
+                    Verification</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
                 <!-- Step 1 -->
-                <div class="text-center">
-                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
-                        <span class="material-symbols-rounded text-4xl text-slate-400 mb-2">touch_app</span>
-                        <span class="text-xs font-bold text-slate-500 uppercase">Kiosk</span>
-                    </div>
-                    <h4 class="font-bold text-slate-900 dark:text-white">1. Voter Scans</h4>
+                <div
+                    class="bg-neutral-50 dark:bg-neutral-900/50 p-8 border-t-2 border-black dark:border-white rounded-b-xl">
+                    <span class="text-xs font-bold font-mono mb-4 block opacity-40 uppercase tracking-widest">Stage
+                        01</span>
+                    <h4 class="text-lg font-bold mb-2">Check-In</h4>
+                    <p class="text-sm text-subtle">Voter enters ID at the Kiosk. System checks eligibility against
+                        database.</p>
                 </div>
-                
+
                 <!-- Step 2 -->
-                <div class="text-center">
-                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
-                        <span class="material-symbols-rounded text-4xl text-brand-500 mb-2">dns</span>
-                        <span class="text-xs font-bold text-brand-500 uppercase">Backend</span>
-                    </div>
-                    <h4 class="font-bold text-slate-900 dark:text-white">2. Identity Check</h4>
+                <div class="bg-white dark:bg-black p-8 border-t-2 border-border dark:border-darkBorder">
+                    <span class="text-xs font-bold font-mono mb-4 block opacity-40 uppercase tracking-widest">Stage
+                        02</span>
+                    <h4 class="text-lg font-bold mb-2">Verify</h4>
+                    <p class="text-sm text-subtle">Biometric scanner performs 1:1 match. Identity confirmed physically.
+                    </p>
                 </div>
 
                 <!-- Step 3 -->
-                <div class="text-center">
-                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
-                        <span class="material-symbols-rounded text-4xl text-purple-500 mb-2">key</span>
-                        <span class="text-xs font-bold text-purple-500 uppercase">Signer</span>
-                    </div>
-                    <h4 class="font-bold text-slate-900 dark:text-white">3. Vote Signed</h4>
+                <div class="bg-white dark:bg-black p-8 border-t-2 border-border dark:border-darkBorder">
+                    <span class="text-xs font-bold font-mono mb-4 block opacity-40 uppercase tracking-widest">Stage
+                        03</span>
+                    <h4 class="text-lg font-bold mb-2">Vote</h4>
+                    <p class="text-sm text-subtle">Physical button interaction. Selection sent to Backend Signer
+                        securely.</p>
                 </div>
 
                 <!-- Step 4 -->
-                <div class="text-center">
-                    <div class="w-full aspect-video bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center mb-4 shadow-sm">
-                        <span class="material-symbols-rounded text-4xl text-orange-500 mb-2">deployed_code</span>
-                        <span class="text-xs font-bold text-orange-500 uppercase">Blockchain</span>
-                    </div>
-                    <h4 class="font-bold text-slate-900 dark:text-white">4. Immutable Record</h4>
+                <div class="bg-white dark:bg-black p-8 border-t-2 border-border dark:border-darkBorder">
+                    <span class="text-xs font-bold font-mono mb-4 block opacity-40 uppercase tracking-widest">Stage
+                        04</span>
+                    <h4 class="text-lg font-bold mb-2">Audit</h4>
+                    <p class="text-sm text-subtle">Transaction mined on-chain. Public dashboard updates with total
+                        tallies.</p>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+
+    </main>
 
     <!-- FOOTER -->
-    <footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-12">
-        <div class="max-w-7xl mx-auto px-4 text-center">
-            <div class="flex justify-center items-center gap-2 mb-4 text-slate-900 dark:text-white font-bold">
-                <span class="material-symbols-rounded">how_to_vote</span> VoteChain
+    <footer class="border-t border-border dark:border-darkBorder py-12 bg-neutral-50 dark:bg-black">
+        <div class="max-w-[1400px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 bg-black dark:bg-white rounded-sm"></div>
+                <span class="font-bold text-sm">VoteChain</span>
             </div>
-            <p class="text-slate-500 text-sm mb-8">
-                Final Year Project • 2025 • Sahrdaya College of Advanced Studies
-            </p>
-            <div class="flex justify-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-400">
-                <a href="results.html" class="hover:text-brand-600 transition-colors">Live Results</a>
-                <a href="admin.html" class="hover:text-brand-600 transition-colors">Admin Console</a>
-                <a href="#" class="hover:text-brand-600 transition-colors">GitHub Repo</a>
+
+            <div class="flex gap-8 text-xs font-bold uppercase tracking-widest text-subtle">
+                <a href="about.html" class="hover:text-black dark:hover:text-white transition-colors">Mission</a>
+                <a href="results.html" class="hover:text-black dark:hover:text-white transition-colors">Results</a>
+                <a href="verify.html" class="hover:text-black dark:hover:text-white transition-colors">Verify</a>
+                <a href="auditor.html" class="hover:text-black dark:hover:text-white transition-colors">Auditor</a>
+                <a href="#" class="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
             </div>
+
+            <p class="text-xs text-subtle font-mono uppercase tracking-widest">© 2026. SECURE DEMOCRACY.</p>
         </div>
     </footer>
 
+    <!-- LOGIC -->
     <script>
-        // Simple Theme Logic
         function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
+            const html = document.documentElement;
             const icon = document.getElementById('theme-icon');
-            icon.innerText = document.documentElement.classList.contains('dark') ? 'light_mode' : 'dark_mode';
-            
-            // Optional: Persist preference
-            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            const isDark = html.classList.toggle('dark');
+
+            if (icon) icon.innerText = isDark ? 'light_mode' : 'dark_mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
-        // Check preference on load
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
             document.documentElement.classList.add('dark');
-            document.getElementById('theme-icon').innerText = 'light_mode';
+            const icon = document.getElementById('theme-icon');
+            if (icon) icon.innerText = 'light_mode';
         }
-        
-        // Navbar Scroll Effect
-        window.addEventListener('scroll', () => {
-            const nav = document.getElementById('navbar');
-            if (window.scrollY > 10) {
-                nav.classList.add('bg-white/90', 'dark:bg-slate-900/90', 'backdrop-blur-md', 'shadow-sm');
-            } else {
-                nav.classList.remove('bg-white/90', 'dark:bg-slate-900/90', 'backdrop-blur-md', 'shadow-sm');
-            }
-        });
     </script>
 </body>
+
 </html>
