@@ -13,7 +13,6 @@
  * - Prevents transaction nonce conflicts
  */
 
-import { ethers } from 'ethers';
 import { supabase } from '../services/db.js';
 
 class SimpleVoteQueue {
@@ -52,7 +51,7 @@ class SimpleVoteQueue {
       });
 
       this.stats.queued++;
-      console.log(`[VOTE QUEUE] Added vote for ${aadhaarId}. Queue size: ${this.queue.length}`);
+      console.log(`[VOTE QUEUE] Added vote for ${voterHash}. Queue size: ${this.queue.length}`);
 
       // Immediately resolve (vote is queued, will be processed soon)
       resolve({

@@ -8,12 +8,12 @@ import { network } from "hardhat";
  */
 
 describe("VotingV2 Protocol Hardening", function () {
-    let admin, signer, voter;
+    let admin, signer;
     let votingV2;
 
     beforeEach(async function () {
         const { ethers } = await network.connect();
-        [admin, signer, voter] = await ethers.getSigners();
+        [admin, signer] = await ethers.getSigners();
         const Factory = await ethers.getContractFactory("VotingV2", admin);
         votingV2 = await Factory.deploy();
         await votingV2.setOfficialSigner(signer.address);

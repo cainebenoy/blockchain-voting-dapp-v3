@@ -142,7 +142,7 @@ router.post('/verify-code', async (req, res) => {
             .single();
         if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
         res.json({ status: 'success', tx_hash: data.tx_hash });
-    } catch (_e) {
+    } catch (e) {
         res.status(500).json({ status: 'error' });
     }
 });
@@ -158,7 +158,7 @@ router.post('/lookup-receipt', async (req, res) => {
             .single();
         if (error || !data) return res.status(404).json({ status: 'error', message: 'Receipt not found.' });
         res.json({ status: 'success', code: data.code });
-    } catch (e) {
+    } catch (err) {
         res.status(500).json({ status: 'error', message: 'Lookup failed.' });
     }
 });
@@ -185,7 +185,7 @@ router.post('/verify-transaction', async (req, res) => {
         } else {
             res.status(404).json({ status: 'error', message: 'Transaction not found or not confirmed.' });
         }
-    } catch (e) {
+    } catch (err) {
         res.status(500).json({ status: 'error', message: 'Failed to fetch transaction.' });
     }
 });

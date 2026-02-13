@@ -1,4 +1,4 @@
-import request from 'supertest';
+import { expect } from 'chai';
 // Note: This is a skeleton. Implementing full Jesters/Mocks would require 
 // installing 'jest' and 'supertest' in the backend directory.
 
