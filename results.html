@@ -259,7 +259,8 @@
 
 
     <!-- SCRIPTS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <!-- SCRIPTS -->
+    <script src="ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         // --- CONFIG ---
@@ -269,7 +270,8 @@
 
         let BACKEND_URL = "http://127.0.0.1:3000";
         let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
-        const providerUrl = "https://rpc.sepolia.org";
+        // Use Alchemy for reliable read-only access (same as Admin)
+        const providerUrl = "https://eth-sepolia.g.alchemy.com/v2/U--2deFkV2sB2Ui12j-yG";
         const ABI = [
             "function electionActive() view returns (bool)",
             "function totalCandidates() view returns (uint)",
@@ -334,6 +336,7 @@
                 const filter = contract.filters.VoteCast();
                 provider.on(filter, (log) => {
                     updateAuditLedger(log.transactionHash);
+                    fetchData(); // Trigger immediate visual update
                 });
 
             } catch (e) {
@@ -365,11 +368,19 @@
 
                 renderResults(list, totalVotes);
 
-                if (!active && totalVotes > 0) {
-                    const sorted = [...list].sort((a, b) => b.voteCount - a.voteCount);
-                    const winner = sorted[0];
-                    document.getElementById('winnerAlert').innerText = `WINNER DECLARED: ${winner.name.toUpperCase()}`;
-                    document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-green-500 animate-pulse";
+                if (active) {
+                    document.getElementById('winnerAlert').innerText = "Election in progress...";
+                    document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-subtle";
+                } else {
+                    if (totalVotes > 0) {
+                        const sorted = [...list].sort((a, b) => b.voteCount - a.voteCount);
+                        const winner = sorted[0];
+                        document.getElementById('winnerAlert').innerText = `WINNER DECLARED: ${winner.name.toUpperCase()}`;
+                        document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-green-500 animate-pulse";
+                    } else {
+                        document.getElementById('winnerAlert').innerText = "Election Ended (No Votes Cast)";
+                        document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-red-500";
+                    }
                 }
             } catch (e) {
                 console.warn("Sync error:", e.message);

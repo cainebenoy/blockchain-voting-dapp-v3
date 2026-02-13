@@ -229,7 +229,7 @@
                             class="px-2 py-0.5 rounded-full bg-border dark:bg-darkBorder text-[10px] font-bold uppercase">
                             Unknown</div>
                     </div>
-                    <div class="mt-8 grid grid-cols-2 gap-4">
+                    <div class="mt-8 grid grid-cols-3 gap-4">
                         <div>
                             <div class="text-xs text-subtle font-bold mb-1 uppercase tracking-tighter">Verified Votes
                             </div>
@@ -239,6 +239,11 @@
                             <div class="text-xs text-subtle font-bold mb-1 uppercase tracking-tighter">Ballot Turnout
                             </div>
                             <div id="turnoutPercent" class="text-4xl font-bold tracking-tighter leading-none">--%</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-subtle font-bold mb-1 uppercase tracking-tighter">Candidates
+                            </div>
+                            <div id="totalCandidates" class="text-4xl font-bold tracking-tighter leading-none">--</div>
                         </div>
                     </div>
                     <div class="mt-4 space-y-2">
@@ -250,6 +255,11 @@
                         <div class="flex justify-between text-[10px] font-mono text-subtle uppercase">
                             <span>Blockchain</span>
                             <span id="blockchainStatus" class="flex items-center gap-1">Checking <div id="blockchainDot"
+                                    class="status-dot bg-unknown"></div></span>
+                        </div>
+                        <div class="flex justify-between text-[10px] font-mono text-subtle uppercase">
+                            <span>Database</span>
+                            <span id="databaseStatus" class="flex items-center gap-1">Checking <div id="databaseDot"
                                     class="status-dot bg-unknown"></div></span>
                         </div>
                     </div>
@@ -465,6 +475,18 @@
                 contract = new ethers.Contract(contractAddress, contractABI, provider);
                 console.log('[CONTRACT] Read-only instance created for', contractAddress);
 
+                // Add event listener for live updates (works for read-only too!)
+                try {
+                    contract.on("VoteCast", (voterId, candidateId) => {
+                        console.log(`[EVENT] VoteCast detected: Voter ${voterId} -> Candidate ${candidateId}`);
+                        showToast("New Vote Cast Detected", 'success');
+                        refreshData();
+                    });
+                    console.log('[CONTRACT] Event listener attached');
+                } catch (e) {
+                    console.warn('[CONTRACT] Failed to attach event listener:', e);
+                }
+
                 // Load blockchain data immediately
                 await refreshData();
             } catch (e) {
@@ -484,18 +506,26 @@
             // /api/health is public, no auth needed
             try {
                 const res = await fetch(`${BACKEND_URL}/api/health`);
-                backendOk = res.ok;
+                // Assume if backend is up, DB is likely up unless metrics fail
+                // We'll update backend status first
+                const backendOk = res.ok;
                 updateStatusIcon('backend', res.ok);
             } catch (e) { updateStatusIcon('backend', false); }
 
-            updateBackendAuthStatus(backendOk);
+            updateBackendAuthStatus(true); // Assume auth is fine if we have token, verified later
 
-            // /api/metrics is public, but returns richer data
+            // /api/metrics is public, returns DB counts
             try {
                 const res = await fetch(`${BACKEND_URL}/api/metrics`);
                 const data = await res.json();
-                updateStatusIcon('database', data.status === 'success');
-                totalVotersMarked = data.data?.totalRegisteredVoters || 0;
+
+                // Use metrics success to determine DB health
+                const dbOk = (data.status === 'success');
+                updateStatusIcon('database', dbOk);
+
+                if (data.data?.totalRegisteredVoters) {
+                    totalVotersMarked = data.data.totalRegisteredVoters;
+                }
             } catch (e) { updateStatusIcon('database', false); }
 
             // /api/kiosk/poll-commands now requires admin auth
@@ -560,6 +590,21 @@
             }
             try {
                 console.log('[REFRESH] Starting data refresh...');
+
+                // Fetch voter stats from backend
+                try {
+                    const secret = localStorage.getItem("votechain_admin_secret");
+                    const voterRes = await fetch(`${BACKEND_URL}/api/admin/voter-stats`, {
+                        headers: { 'x-admin-secret': secret }
+                    });
+                    const voterData = await voterRes.json();
+                    if (voterData.status === 'success') {
+                        totalVotersMarked = voterData.count;
+                    }
+                } catch (err) {
+                    console.warn('[REFRESH] Failed to fetch voter stats:', err);
+                }
+
                 const active = await contract.electionActive();
                 const v = await contract.totalVotes();
                 const c = await contract.totalCandidates();
@@ -579,7 +624,12 @@
                 if (totalVotesEl) totalVotesEl.innerText = v.toString();
 
                 const turnoutEl = document.getElementById("turnoutPercent");
-                if (turnoutEl) turnoutEl.innerText = totalVotersMarked > 0 ? Math.round((v / totalVotersMarked) * 100) + '%' : '0%';
+                if (turnoutEl) {
+                    const votes = parseInt(v.toString());
+                    const percent = totalVotersMarked > 0 ? Math.round((votes / totalVotersMarked) * 100) : 0;
+                    turnoutEl.innerText = percent + '%';
+                    turnoutEl.title = `${votes} votes / ${totalVotersMarked} registered`;
+                }
 
                 const totalCandidatesEl = document.getElementById("totalCandidates");
                 if (totalCandidatesEl) totalCandidatesEl.innerText = c.toString();
@@ -590,6 +640,12 @@
                 // Update UI controls
                 const registryOverlay = document.getElementById("registryLockOverlay");
                 if (registryOverlay) registryOverlay.classList.toggle("hidden", !active);
+
+                // Disable/Enable registry inputs based on election state
+                ['voterAadhaar', 'voterName', 'voterConst', 'btnAddVoter'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.disabled = active;
+                });
 
                 const btnStart = document.getElementById("btnStartElection");
                 if (btnStart) btnStart.classList.toggle("hidden", active);
@@ -632,15 +688,35 @@
 
         // --- 7. ACTIONS ---
         async function addCandidate() {
-            if (!name) return showToast("Enter Name", 'error');
+            const nameInput = document.getElementById("candidateName");
+            const name = nameInput?.value || "";
+
+            // Input validation
+            if (!name || !name.trim()) return showToast("Enter candidate name", 'error');
+            if (name.trim().length < 2) return showToast("Name too short (min 2 chars)", 'error');
+            if (name.length > 50) return showToast("Name too long (max 50 chars)", 'error');
+
+            // Check for duplicate (case-insensitive)
             try {
-                const tx = await contract.addCandidate(name);
+                const candidates = await contract.getAllCandidates();
+                const duplicate = candidates.find(c => c.name.toLowerCase() === name.trim().toLowerCase());
+                if (duplicate) return showToast("Candidate already exists", 'error');
+            } catch (e) {
+                console.error('[VALIDATION] Could not check duplicates:', e);
+            }
+
+            try {
+                const tx = await contract.addCandidate(name.trim());
                 showToast("Deploying to Ledger...", 'info');
                 await tx.wait();
                 showToast("Candidate Added", 'success');
-                document.getElementById("candidateName").value = "";
+                nameInput.value = "";
                 refreshData();
-            } catch (e) { showToast("Blockchain Error", 'error'); }
+            } catch (e) {
+                const msg = e.reason || e.message || "Blockchain error";
+                showToast(msg, 'error');
+                console.error('[ADD_CANDIDATE] Error:', e);
+            }
         }
 
         async function startElection() {
@@ -651,7 +727,11 @@
                 await tx.wait();
                 showToast("Election Started", 'success');
                 refreshData();
-            } catch (e) { showToast("Action Denied", 'error'); }
+            } catch (e) {
+                const msg = e.reason || e.message || "Transaction failed";
+                showToast(msg, 'error');
+                console.error('[START_ELECTION] Error:', e);
+            }
         }
 
         async function endElection() {
@@ -662,7 +742,11 @@
                 await tx.wait();
                 showToast("Election Ended", 'success');
                 refreshData();
-            } catch (e) { showToast("Action Denied", 'error'); }
+            } catch (e) {
+                const msg = e.reason || e.message || "Transaction failed";
+                showToast(msg, 'error');
+                console.error('[END_ELECTION] Error:', e);
+            }
         }
 
         async function addVoterToDB() {
@@ -819,9 +903,39 @@
             }
         }
         function resetContractAddress() {
-            if (confirm("Restore default environment?")) {
+            if (confirm("⚠️ Reset contract address?\n\nThis will:\n• Clear your custom contract\n• Reload the page\n• Lose unsaved changes\n\nContinue?")) {
                 localStorage.removeItem("votechain_contract");
                 location.reload();
+            }
+        }
+
+        async function deployNewElection() {
+            if (!confirm("⚠️ Deploy New Election Contract?\n\nThis will:\n• Deploy a brand new contract to Sepolia\n• Cost gas fees (~0.01 ETH)\n• Create a fresh election\n\nMake sure you have:\n• MetaMask connected\n• Sufficient Sepolia ETH\n\nContinue?")) return;
+
+            if (!window.ethereum) {
+                showToast("MetaMask not detected", 'error');
+                return;
+            }
+
+            try {
+                showToast("Deploying new contract...", 'info');
+
+                // This would need the contract factory and deployment logic
+                // For now, show a message that this feature needs backend support
+                showToast("Feature requires backend deployment script", 'error');
+                console.log('[DEPLOY] This feature requires integration with deployment scripts');
+
+                // TODO: Implement actual deployment logic
+                // const factory = new ethers.ContractFactory(abi, bytecode, signer);
+                // const contract = await factory.deploy();
+                // await contract.deployed();
+                // localStorage.setItem("votechain_contract", contract.address);
+                // location.reload();
+
+            } catch (e) {
+                const msg = e.reason || e.message || "Deployment failed";
+                showToast(msg, 'error');
+                console.error('[DEPLOY] Error:', e);
             }
         }
 

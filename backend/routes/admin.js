@@ -154,6 +154,22 @@ router.get('/enrollment-status', async (req, res) => {
     res.json(status);
 });
 
+// VOTER STATS (Turnout Base)
+router.get('/voter-stats', async (req, res) => {
+    try {
+        const { count, error } = await supabase
+            .from('voters')
+            .select('*', { count: 'exact', head: true });
+
+        if (error) throw error;
+
+        res.json({ status: 'success', count });
+    } catch (err) {
+        console.error('[ADMIN] Failed to get voter stats:', err);
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
 // MANUAL ENROLLMENT BYPASS (Hardware Offline)
 router.post('/enroll-manual-confirm', async (req, res) => {
     const { request_id, fingerprint_id } = req.body;

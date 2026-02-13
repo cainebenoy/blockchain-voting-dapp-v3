@@ -255,14 +255,15 @@
         </div>
     </footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         // --- 1. CONFIGURATION ---
         const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
         const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc";
         const DEFAULT_CONTRACT = "0x6A713E81B192d5352f56560e2b575D075296dA32";
-        const RPC_URL = "https://rpc.sepolia.org";
+        // Use Alchemy for reliable read-only access (same as Admin/Results)
+        const RPC_URL = "https://eth-sepolia.g.alchemy.com/v2/U--2deFkV2sB2Ui12j-yG";
 
         let BACKEND_URL = "http://127.0.0.1:3000";
         let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
