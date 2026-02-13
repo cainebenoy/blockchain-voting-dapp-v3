@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Contract Test</title>
+    <script src="./ethers.umd.min.js"></script>
+</head>
+
+<body>
+    <h1>Testing Sepolia Contract</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        async function test() {
+            try {
+                output.innerHTML += '<p>Starting test...</p>';
+
+                const contractAddress = '0x5C7656aeb236de59c347E01fA8a0E7868B2E9bA4';
+                const rpcUrl = 'https://eth-sepolia.g.alchemy.com/v2/U--2deFkV2sB2Ui12j-yG';
+
+                output.innerHTML += `<p>RPC: ${rpcUrl}</p>`;
+                output.innerHTML += `<p>Contract: ${contractAddress}</p>`;
+
+                const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+                output.innerHTML += '<p>✅ Provider created</p>';
+
+                const abi = [
+                    "function electionActive() external view returns (bool)",
+                    "function totalVotes() external view returns (uint256)",
+                    "function totalCandidates() external view returns (uint256)",
+                    "function getAllCandidates() external view returns (tuple(uint256 id, string name, uint256 voteCount)[])"
+                ];
+
+                const contract = new ethers.Contract(contractAddress, abi, provider);
+                output.innerHTML += '<p>✅ Contract created</p>';
+
+                const active = await contract.electionActive();
+                output.innerHTML += `<p>Election Active: ${active}</p>`;
+
+                const votes = await contract.totalVotes();
+                output.innerHTML += `<p>Total Votes: ${votes.toString()}</p>`;
+
+                const candidates = await contract.totalCandidates();
+                output.innerHTML += `<p>Total Candidates: ${candidates.toString()}</p>`;
+
+                const list = await contract.getAllCandidates();
+                output.innerHTML += `<p>Candidates:</p><ul>`;
+                list.forEach(c => {
+                    output.innerHTML += `<li>#${c.id} - ${c.name} (${c.voteCount} votes)</li>`;
+                });
+                output.innerHTML += '</ul>';
+
+                output.innerHTML += '<p style="color: green; font-weight: bold;">✅ ALL TESTS PASSED!</p>';
+
+            } catch (e) {
+                output.innerHTML += `<p style="color: red;">❌ ERROR: ${e.message}</p>`;
+                console.error(e);
+            }
+        }
+
+        test();
+    </script>
+</body>
+
+</html>

@@ -8,17 +8,39 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
-    const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
-    const pk = process.env.SERVER_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    const rpcUrl = process.env.SEPOLIA_RPC_URL || "http://127.0.0.1:8545";
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const pk = process.env.SEPOLIA_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
     const wallet = new ethers.Wallet(pk, provider);
 
-    console.log("🚀 Deploying VotingV2 directly to local node...");
+    console.log(`🚀 Deploying VotingV2 to Sepolia...`);
+    console.log(`📍 Deployer address: ${wallet.address}`);
+
+    // Check balance
+    const balance = await provider.getBalance(wallet.address);
+    console.log(`💰 Balance: ${ethers.formatEther(balance)} ETH`);
 
     const artifactPath = path.join(__dirname, "../backend/VotingV2.json");
     const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 
     const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, wallet);
+
+    // Estimate gas
+    const deployTx = await factory.getDeployTransaction();
+    const gasEstimate = await provider.estimateGas(deployTx);
+    const feeData = await provider.getFeeData();
+    const gasCost = gasEstimate * (feeData.gasPrice || 0n);
+
+    console.log(`⛽ Estimated gas: ${gasEstimate.toString()}`);
+    console.log(`💸 Estimated cost: ${ethers.formatEther(gasCost)} ETH`);
+
+    if (balance < gasCost) {
+        throw new Error(`Insufficient balance! Need ${ethers.formatEther(gasCost)} ETH, have ${ethers.formatEther(balance)} ETH`);
+    }
+
+    console.log('📤 Sending deployment transaction...');
     const contract = await factory.deploy();
+    console.log('⏳ Waiting for deployment...');
     await contract.waitForDeployment();
 
     const address = await contract.getAddress();

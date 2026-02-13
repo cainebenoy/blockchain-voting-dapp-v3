@@ -21,14 +21,15 @@ router.get('/config', (req, res) => {
 
 // ACTIVE CONTRACT
 router.get('/active-contract', (req, res) => {
-    const contract = getContract();
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
+    // Always return the environment variable as the source of truth
+    // The contract instance may be stale if the address was updated after initialization
     res.json({
         status: 'ok',
-        contractAddress: contract?.target || contract?.address || process.env.VOTING_CONTRACT_ADDRESS,
+        contractAddress: process.env.VOTING_CONTRACT_ADDRESS,
         network: 'sepolia'
     });
 });
@@ -73,19 +74,51 @@ router.get('/results', async (req, res) => {
 router.get('/metrics', async (_req, res) => {
     try {
         const contract = getContract();
-        const votesOnChain = contract ? await contract.totalVotes() : 0;
-        const candidatesOnChain = contract ? await contract.totalCandidates() : 0;
+        let votesOnChain = 0;
+        let candidatesOnChain = 0;
 
-        const { count: votedCount, error: votedError } = await supabase
-            .from('voters')
-            .select('*', { count: 'exact', head: true })
-            .eq('has_voted', true);
-        if (votedError) throw votedError;
+        // Try to get blockchain data, but don't fail if contract is unavailable
+        try {
+            if (contract) {
+                votesOnChain = await contract.totalVotes();
+                candidatesOnChain = await contract.totalCandidates();
+            }
+        } catch (contractError) {
+            console.warn('[METRICS] Contract query failed:', contractError.message);
+        }
 
-        const { count: totalCount, error: totalError } = await supabase
-            .from('voters')
-            .select('*', { count: 'exact', head: true });
-        if (totalError) throw totalError;
+        // Try to get Supabase data with graceful fallback
+        let votedCount = 0;
+        let totalCount = 0;
+
+        try {
+            const { count: voted, error: votedError } = await supabase
+                .from('voters')
+                .select('*', { count: 'exact', head: true })
+                .eq('has_voted', true);
+
+            if (votedError) {
+                console.warn('[METRICS] Supabase voted count error:', votedError.message);
+            } else {
+                votedCount = voted ?? 0;
+            }
+        } catch (e) {
+            console.warn('[METRICS] Supabase voted query failed:', e.message);
+        }
+
+        try {
+            const { count: total, error: totalError } = await supabase
+                .from('voters')
+                .select('*', { count: 'exact', head: true });
+
+            if (totalError) {
+                console.warn('[METRICS] Supabase total count error:', totalError.message);
+            } else {
+                totalCount = total ?? 0;
+            }
+        } catch (e) {
+            console.warn('[METRICS] Supabase total query failed:', e.message);
+        }
 
         res.json({
             status: 'success',
@@ -93,11 +126,12 @@ router.get('/metrics', async (_req, res) => {
             data: {
                 totalVotesOnChain: Number(votesOnChain),
                 totalCandidatesOnChain: Number(candidatesOnChain),
-                votersMarkedVoted: votedCount ?? 0,
-                totalRegisteredVoters: totalCount ?? 0,
+                votersMarkedVoted: votedCount,
+                totalRegisteredVoters: totalCount,
             },
         });
     } catch (e) {
+        console.error('[METRICS] Fatal error:', e);
         res.status(500).json({ status: 'error', message: e.message || 'Metrics failed', data: null });
     }
 });

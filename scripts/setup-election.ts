@@ -8,13 +8,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+  const rpcUrl = process.env.SEPOLIA_RPC_URL || "http://127.0.0.1:8545";
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
 
   try {
     const network = await provider.getNetwork();
     console.log(`📡 Connected to network: ${network.name} (ChainID: ${network.chainId})`);
   } catch (e) {
-    console.error("❌ Failed to connect to provider at http://127.0.0.1:8545");
+    console.error(`❌ Failed to connect to provider at ${rpcUrl}`);
     process.exit(1);
   }
 

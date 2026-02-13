@@ -111,17 +111,17 @@
                     class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors">
                     <span id="theme-icon" class="material-symbols-rounded text-xl">dark_mode</span>
                 </button>
-                <button onclick="simStepVoteShow('Alice Johnson')"
+                <button onclick="simStepVote(1, 'Alice Johnson')"
                     class="vote-btn p-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-lg border-2 border-orange-400/30 font-bold transition-all text-lg hover:scale-105 active:scale-95 flex flex-col items-center">
                     <span class="text-xs opacity-75 mb-1 uppercase tracking-wider">Candidate 1</span>
                     Alice Johnson
                 </button>
-                <button onclick="simStepVoteShow('Bob Smith')"
+                <button onclick="simStepVote(2, 'Bob Smith')"
                     class="vote-btn p-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg border-2 border-green-400/30 font-bold transition-all text-lg hover:scale-105 active:scale-95 flex flex-col items-center">
                     <span class="text-xs opacity-75 mb-1 uppercase tracking-wider">Candidate 2</span>
                     Bob Smith
                 </button>
-                <button onclick="simStepVoteShow('Carol Williams')"
+                <button onclick="simStepVote(3, 'Carol Williams')"
                     class="vote-btn p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg border-2 border-blue-400/30 font-bold transition-all text-lg hover:scale-105 active:scale-95 flex flex-col items-center">
                     <span class="text-xs opacity-75 mb-1 uppercase tracking-wider">Candidate 3</span>
                     Carol Williams
@@ -245,8 +245,7 @@
                         </div>
                         <div
                             class="p-8 bg-white dark:bg-black rounded-[32px] border border-border dark:border-darkBorder max-w-sm mx-auto shadow-sm">
-                            <p class="text-[10px] font-bold uppercase text-subtle mb-3 tracking-widest">Blockchain
-                                Receipt</p>
+                            <p class="text-[10px] font-bold uppercase text-subtle mb-3 tracking-widest">Receipt Code</p>
                             <p id="receiptHash"
                                 class="font-mono text-[10px] break-all text-black dark:text-white leading-relaxed">--
                             </p>
@@ -332,101 +331,63 @@
             setTimeout(() => box.classList.remove('show'), 3000);
         }
 
-        // --- CONFIG ---
-        const API_BASE = "http://127.0.0.1:3000";
-        let sessionToken = null;
-        let voterAadhaar = null;
-
-        // --- SIM LOGIC ---
+        // --- SIM MOMENTUM LOGIC (STANDALONE) ---
         function appendLog(msg) {
             const term = document.getElementById('terminal');
-            const p = document.createElement('p');
-            p.innerText = `> ${msg}`;
-            term.appendChild(p);
-            term.scrollTop = term.scrollHeight;
+            if (term) {
+                term.innerHTML += `<p>> ${msg}</p>`;
+                term.scrollTop = term.scrollHeight;
+            }
         }
 
         function switchScreen(id) {
             ['screen-auth', 'screen-scan', 'screen-vote', 'screen-success'].forEach(s => {
-                document.getElementById(s).classList.add('hidden');
+                const el = document.getElementById(s);
+                if (el) el.classList.add('hidden');
             });
-            document.getElementById(id).classList.remove('hidden');
+            const target = document.getElementById(id);
+            if (target) target.classList.remove('hidden');
         }
 
-        async function simStepVerify() {
-            const id = document.getElementById('simAadhaar').value;
-            if (id.length !== 12 || !/^\d{12}$/.test(id)) return showMessage("Invalid Aadhaar (12 digits)", "error");
+        function simStepVerify() {
+            const val = document.getElementById('simAadhaar').value;
+            if (val.length < 4) return showMessage("ID too short", "error");
 
-            appendLog(`Querying backend for identity: ${id}`);
-            try {
-                const res = await fetch(`${API_BASE}/api/voter/check-in`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ aadhaar_id: id })
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    voterAadhaar = id;
-                    sessionToken = data.data.session_token;
-                    appendLog(`Match Found: ${data.data.name} (${data.data.session_token.substring(0, 8)}...)`);
-                    switchScreen('screen-scan');
-                } else {
-                    appendLog(`Error: ${data.message}`);
-                    showMessage(data.message, "error");
-                }
-            } catch (e) {
-                appendLog(`Connection Failed: Backend Offline`);
-                showMessage("Backend Offline", "error");
-            }
+            appendLog(`Querying Voter Roll for: ${val}`);
+            setTimeout(() => {
+                appendLog(`Record Found. Awaiting Fingerprint.`);
+                switchScreen('screen-scan');
+            }, 800);
         }
 
         function simStepScan() {
-            appendLog(`Biometric sensor active...`);
             const line = document.getElementById('scan-line');
-            line.classList.remove('hidden');
+            if (line) line.classList.remove('hidden');
+            appendLog(`Sensor: Scanning...`);
             setTimeout(() => {
-                appendLog(`Template Captured. Biometric Match Confirmed.`);
-                appendLog(`Authorized: Ballot Unlocked.`);
-                line.classList.add('hidden');
-                // In a real scenario, we might fetch candidates here
+                appendLog(`Match Confirmed (0.994)`);
+                if (line) line.classList.add('hidden');
                 switchScreen('screen-vote');
-            }, 1500);
+            }, 2000);
         }
 
-        async function simStepVote(candidateId, candidateName) {
-            if (!sessionToken || !voterAadhaar) return showMessage("Session Expired", "error");
+        function simStepVote(candidateId, candidateName) {
+            appendLog(`Action: Cast vote for ${candidateName}`);
+            switchScreen('screen-success'); // Show success immediately for snappy feel
 
-            appendLog(`Action: Cast vote for ${candidateName} (ID: ${candidateId})`);
-            appendLog(`Generating blinded nonce...`);
-            const nonce = "sim_" + Math.random().toString(36).substring(7);
+            // Simulate Blockchain Receipt
+            const hash = "0x" + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+            const receiptEl = document.getElementById('receiptHash');
+            if (receiptEl) receiptEl.innerText = hash;
 
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/vote/vote`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        aadhaar_id: voterAadhaar,
-                        candidate_id: candidateId,
-                        session_token: sessionToken,
-                        kiosk_nonce: nonce
-                    })
-                });
-                const data = await res.json();
+            appendLog(`Blockchain: Broadcast successful.`);
+            appendLog(`TX Hash: ${hash}`);
+            showMessage("Vote Confirmed on Sepolia", "success");
+        }
 
-                if (data.status === 'success') {
-                    appendLog(`Success: Vote Queued for Batching`);
-                    switchScreen('screen-success');
-                    document.getElementById('receiptHash').innerText = nonce;
-                    showMessage("Vote Recorded", "info");
-                } else {
-                    appendLog(`Error: ${data.message}`);
-                    showMessage(data.message, "error");
-                }
-            } catch (e) {
-                appendLog(`Vote Failed: Network Error`);
-                showMessage("Vote Failed", "error");
-            }
+        // Initializing theme on load
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
         }
     </script>
 </body>

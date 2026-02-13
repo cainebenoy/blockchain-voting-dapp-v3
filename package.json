@@ -10,6 +10,7 @@
     "authorize:signer:sepolia": "hardhat run scripts/authorize-signer.ts --network sepolia",
     "test:e2e": "playwright test",
     "serve": "node backend/server.js",
+    "check:health": "ts-node scripts/check-health.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "build:css": "tailwindcss -i ./src/styles.css -o ./dist/output.css --minify"
