@@ -43,4 +43,52 @@ insert into public.voters (aadhaar_id, name, fingerprint_id, photo_url, has_vote
 - Ensure your service role key is used server-side only and not exposed to browsers.
 - Use Row Level Security (RLS) as appropriate; backend uses the service role to update `has_voted`.
 
-See also: `docs/RECEIPTS.md` for the `receipts` table schema and RLS notes.
+## Table: `enrollment_requests`
+*Used to queue enrollment commands for kiosks.*
+
+Columns:
+- `id` SERIAL PRIMARY KEY
+- `aadhaar_id` TEXT NOT NULL
+- `name` TEXT NOT NULL
+- `constituency` TEXT
+- `target_finger_id` INTEGER NOT NULL
+- `status` TEXT DEFAULT 'PENDING' (PENDING, WAITING_FOR_KIOSK, COMPLETED, FAILED)
+- `created_at` TIMESTAMPTZ DEFAULT NOW()
+
+### SQL
+```sql
+create table if not exists public.enrollment_requests (
+  id serial primary key,
+  aadhaar_id text not null,
+  name text not null,
+  constituency text,
+  target_finger_id integer not null,
+  status text not null default 'PENDING',
+  created_at timestamptz not null default now()
+);
+```
+
+## Table: `receipts`
+*Maps human-friendly short codes to blockchain transactions.*
+
+Columns:
+- `id` BIGSERIAL PRIMARY KEY
+- `code` VARCHAR(32) UNIQUE NOT NULL
+- `tx_hash` VARCHAR(66) UNIQUE NOT NULL (May be 'PENDING_nonce' during processing)
+- `is_confirmed` BOOLEAN DEFAULT FALSE
+- `inserted_at` TIMESTAMPTZ DEFAULT NOW()
+
+### SQL
+```sql
+create table if not exists public.receipts (
+  id bigserial primary key,
+  code varchar(32) not null unique,
+  tx_hash varchar(66) not null unique,
+  is_confirmed boolean default false,
+  inserted_at timestamptz default now()
+);
+```
+
+### Notes
+- The backend uses a server-side `voteQueue` to sign and submit transactions sequentially.
+- Voters marked with `has_voted = true` are blocked from further attempts, even if the blockchain transaction is still pending.

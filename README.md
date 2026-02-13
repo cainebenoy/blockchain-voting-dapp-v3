@@ -12,10 +12,11 @@ VoteChain V3 is a secure, cyber-physical voting system that combines biometric a
 - Server-signed transactions (no voter wallet required)
 - API endpoints for results, health, and configuration
 - Modular architecture: kiosk, backend, database, blockchain
-- Security: double-vote prevention, rate limiting, CORS, audit logging
+- Security: double-vote prevention, rate limiting, CORS, audit logging, **one-person-one-vote enforcement (kiosk nonce)**
 - Automated deployment and contract management via backend API
 - Auto-restart capability for production environments
-- **Automatic service discovery**: Frontend auto-discovers backend URL via Supabase, enabling seamless hybrid hosting (GitHub Pages + Pi backend)
+- **Automatic service discovery**: Frontend and Kiosk auto-discover backend URL via Supabase, enabling seamless hybrid hosting (GitHub Pages + Pi backend)
+- **Hardened Biometrics**: Fingerprint retry limit (2) and session-token gated voting
 
 ## System Architecture
 
@@ -256,6 +257,7 @@ WantedBy=multi-user.target
 
 ## Changelog (short)
 
+- 2026-02-13 — **Final Security Hardening (V3.1)**: Implemented on-chain idempotency (kiosk nonces), session-token check-in flow, hardened RLS policies (PII protection), and embedded systems audit for Raspberry Pi kiosks.
 - 2025-12-04 — Service discovery system complete: Cloudflare Tunnel, Supabase config table, frontend auto-discovery, hybrid hosting support (GitHub Pages + Pi backend)
 - 2025-11-30 — Added short-code receipt system, `/api/verify-code`, `/api/lookup-receipt`, kiosk polling improvements, and verify UI updates.
 

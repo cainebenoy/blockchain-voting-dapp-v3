@@ -7,6 +7,7 @@ create table if not exists public.receipts (
   id bigserial primary key,
   code varchar(32) not null unique,
   tx_hash varchar(66) not null unique,
+  is_confirmed boolean default false,
   inserted_at timestamptz default now()
 );
 ```
