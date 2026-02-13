@@ -19,8 +19,11 @@ contract VotingV2 {
     mapping(uint => Candidate) public candidates;
     // Tracks if a specific Voter ID (e.g., Aadhaar Hash) has already voted on-chain
     mapping(bytes32 => bool) public hasVoted;
+    // Tracks kiosk-level nonces to prevent backend replay / double-click submission
+    mapping(bytes32 => bool) public kioskNonces;
 
     event VoteCast(bytes32 indexed voterHash, uint indexed candidateId);
+    event ElectionStarted(uint256 timestamp);
     event ElectionEnded(uint totalVotes);
 
     modifier onlyAdmin() {
@@ -46,6 +49,7 @@ contract VotingV2 {
     // --- SETUP FUNCTIONS ---
     // Tell the contract which backend server address to trust
     function setOfficialSigner(address _signer) external onlyAdmin {
+        require(_signer != address(0), "Invalid signer address");
         officialSigner = _signer;
     }
 
@@ -59,14 +63,17 @@ contract VotingV2 {
         require(!electionActive, "Election already active");
         require(totalCandidates > 0, "Must have at least one candidate");
         electionActive = true;
+        emit ElectionStarted(block.timestamp);
     }
 
     // --- CORE VOTING ---
     // This is the magic function. Only your server can call it.
-    function vote(uint _candidateId, bytes32 _voterHash) external onlySigner whenActive {
+    function vote(uint _candidateId, bytes32 _voterHash, bytes32 _kioskNonce) external onlySigner whenActive {
+        require(!kioskNonces[_kioskNonce], "This transaction nonce has already been used.");
         require(!hasVoted[_voterHash], "This voter ID has already voted.");
         require(_candidateId > 0 && _candidateId <= totalCandidates, "Invalid candidate.");
 
+        kioskNonces[_kioskNonce] = true;
         hasVoted[_voterHash] = true;
         candidates[_candidateId].voteCount++;
         totalVotes++;

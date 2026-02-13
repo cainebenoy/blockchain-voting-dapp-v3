@@ -48,42 +48,45 @@ describe("VotingV2 contract (Kiosk model)", function () {
 
     it("authorized signer can cast a vote for a voterId", async function () {
       await expect(
-        votingV2.connect(signer1).vote(1, "voter-uuid-123")
+        votingV2.connect(signer1).vote(1, ethers.encodeBytes32String("voter1"), ethers.encodeBytes32String("nonce1"))
       ).to.emit(votingV2, "VoteCast")
-       .withArgs("voter-uuid-123", 1);
+        .withArgs(ethers.encodeBytes32String("voter1"), 1);
 
       const candidate = await votingV2.candidates(1);
+
       expect(candidate[2]).to.equal(1); // voteCount
       expect(await votingV2.totalVotes()).to.equal(1);
-      expect(await votingV2.hasVoted("voter-uuid-123")).to.equal(true);
+      expect(await votingV2.hasVoted(ethers.encodeBytes32String("voter1"))).to.equal(true);
+      expect(await votingV2.kioskNonces(ethers.encodeBytes32String("nonce1"))).to.equal(true);
     });
 
     it("non-authorized address cannot cast vote", async function () {
       await expect(
-        votingV2.connect(attacker).vote(1, "voter-uuid-123")
-      ).to.be.revertedWith("Not authorized kiosk signer");
+        votingV2.connect(attacker).vote(1, ethers.encodeBytes32String("voter1"), ethers.encodeBytes32String("nonce1"))
+      ).to.revertedWith("Not authorized kiosk signer");
     });
 
     it("same voterId cannot vote twice (double-vote prevention)", async function () {
-      await votingV2.connect(signer1).vote(1, "voter-uuid-123");
+      await votingV2.connect(signer1).vote(1, ethers.encodeBytes32String("voter1"), ethers.encodeBytes32String("nonce1"));
       await expect(
-        votingV2.connect(signer1).vote(2, "voter-uuid-123")
+        votingV2.connect(signer1).vote(2, ethers.encodeBytes32String("voter1"), ethers.encodeBytes32String("nonce2"))
       ).to.be.revertedWith("This voter ID has already voted.");
     });
 
     it("rejects invalid candidate id", async function () {
       await expect(
-        votingV2.connect(signer1).vote(0, "voter-uuid-999")
+        votingV2.connect(signer1).vote(0, ethers.encodeBytes32String("voter999"), ethers.encodeBytes32String("nonce999"))
       ).to.be.revertedWith("Invalid candidate.");
       await expect(
-        votingV2.connect(signer1).vote(999, "voter-uuid-999")
+        votingV2.connect(signer1).vote(999, ethers.encodeBytes32String("voter999"), ethers.encodeBytes32String("nonce999"))
       ).to.be.revertedWith("Invalid candidate.");
     });
 
     it("allows empty voterId (edge case - should be handled by backend)", async function () {
-      // The contract doesn't validate empty strings, backend should prevent this
-      await votingV2.connect(signer1).vote(1, "");
-      expect(await votingV2.hasVoted("")).to.equal(true);
+      // The contract doesn't validate empty bytes32, backend should prevent this
+      const empty = ethers.ZeroHash;
+      await votingV2.connect(signer1).vote(1, empty, ethers.encodeBytes32String("nonce-empty"));
+      expect(await votingV2.hasVoted(empty)).to.equal(true);
     });
   });
 
@@ -96,7 +99,7 @@ describe("VotingV2 contract (Kiosk model)", function () {
 
     it("admin can end election", async function () {
       // Cast one vote first
-      await votingV2.connect(signer1).vote(1, "voter-uuid-abc");
+      await votingV2.connect(signer1).vote(1, ethers.encodeBytes32String("abc"), ethers.encodeBytes32String("nonce-abc"));
       await expect(votingV2.connect(admin).endElection())
         .to.emit(votingV2, "ElectionEnded")
         .withArgs(1);
@@ -116,7 +119,7 @@ describe("VotingV2 contract (Kiosk model)", function () {
     it("cannot vote when election is inactive", async function () {
       await votingV2.connect(admin).endElection();
       await expect(
-        votingV2.connect(signer1).vote(1, "voter-uuid-xyz")
+        votingV2.connect(signer1).vote(1, ethers.encodeBytes32String("xyz"), ethers.encodeBytes32String("nonce-xyz"))
       ).to.be.revertedWith("Election is not active");
     });
   });
