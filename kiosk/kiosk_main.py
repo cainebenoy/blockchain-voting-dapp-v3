@@ -15,7 +15,11 @@ from hardware import hardware
 # --- CONFIGURATION ---
 import os
 import logging
+from dotenv import load_dotenv
 from requests.exceptions import RequestException
+
+# Load environment variables
+load_dotenv()
 
 # Configure Logging (P1 Improvement)
 logging.basicConfig(
@@ -25,8 +29,8 @@ logging.basicConfig(
 )
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
-SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 def discover_backend():
     """Discover backend URL via Supabase (Service Discovery)"""
