@@ -9,8 +9,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"
-        rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <script>
+        // Immediately apply theme before page render
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
 
     <script>
         tailwind.config = {
@@ -245,23 +254,132 @@
         </div>
     </footer>
 
-    <!-- LOGIC -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        // --- 1. CONFIGURATION ---
+        const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc";
+        const DEFAULT_CONTRACT = "0x6A713E81B192d5352f56560e2b575D075296dA32";
+        const RPC_URL = "https://rpc.sepolia.org";
+
+        let BACKEND_URL = "http://127.0.0.1:3000";
+        let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
+        let provider;
+
+        // --- 2. THEME ---
         function toggleTheme() {
             const html = document.documentElement;
             const icon = document.getElementById('theme-icon');
             const isDark = html.classList.toggle('dark');
-
             if (icon) icon.innerText = isDark ? 'light_mode' : 'dark_mode';
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        if (savedTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-            const icon = document.getElementById('theme-icon');
-            if (icon) icon.innerText = 'light_mode';
+        // --- 3. SERVICE DISCOVERY ---
+        async function discoverBackend() {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
+            try {
+                const response = await fetch(`${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value`, {
+                    headers: { 'apikey': CONFIG_SUPABASE_KEY, 'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}` }
+                });
+                const data = await response.json();
+                if (data?.[0]?.value && !data[0].value.includes('waiting')) {
+                    BACKEND_URL = data[0].value;
+                    console.log('✅ Discovered Backend:', BACKEND_URL);
+                }
+            } catch (e) { console.error("Discovery failed", e); }
         }
+
+        // --- 4. VERIFICATION LOGIC ---
+        async function verifyTx() {
+            const input = document.getElementById('txInput').value.trim();
+            const btn = document.getElementById('btnVerify');
+            const btnText = document.getElementById('btnText');
+            const resultCard = document.getElementById('resultCard');
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (!input) return alert("Please enter a code or hash.");
+
+            // Reset UI
+            resultCard.classList.add('hidden');
+            errorMsg.classList.add('hidden');
+            btn.disabled = true;
+            btnText.innerText = "Verifying...";
+
+            try {
+                let txHash = input;
+
+                // 1. Resolve Short Code if necessary
+                if (!input.startsWith('0x')) {
+                    const res = await fetch(`${BACKEND_URL}/api/verify-code`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: input.toUpperCase() })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success' && data.tx_hash) {
+                        txHash = data.tx_hash;
+                    } else {
+                        throw new Error(data.message || "Invalid receipt code.");
+                    }
+                }
+
+                // 2. Query Blockchain
+                if (!provider) provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+                const tx = await provider.getTransaction(txHash);
+
+                if (!tx) throw new Error("Transaction hash not found on the network.");
+
+                const receipt = await provider.getTransactionReceipt(txHash);
+
+                // 3. Populate UI
+                document.getElementById('blockNum').innerText = tx.blockNumber ? `#${tx.blockNumber}` : "Pending...";
+                document.getElementById('fromAddr').innerText = tx.from;
+                document.getElementById('toAddr').innerText = tx.to;
+                document.getElementById('etherscanLink').href = `https://sepolia.etherscan.io/tx/${txHash}`;
+
+                if (receipt) {
+                    document.getElementById('statusMessage').innerText = receipt.status === 1
+                        ? "This transaction is mined and irreversible. It represents a verified biometric session from an authorized VoteChain hardware kiosk."
+                        : "This transaction failed on the blockchain. The vote was not recorded.";
+                } else {
+                    document.getElementById('statusMessage').innerText = "Transaction is currently pending in the mempool.";
+                }
+
+                resultCard.classList.remove('hidden');
+
+            } catch (e) {
+                document.getElementById('errorText').innerText = e.message;
+                errorMsg.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btnText.innerText = "Verify";
+            }
+        }
+
+        // --- 5. INITIALIZATION ---
+        window.addEventListener('load', async () => {
+            // Theme sync
+            const icon = document.getElementById('theme-icon');
+            if (icon && document.documentElement.classList.contains('dark')) {
+                icon.innerText = 'light_mode';
+            }
+
+            await discoverBackend();
+
+            // Try to sync contract address from backend
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/active-contract`);
+                const data = await res.json();
+                if (data.contractAddress) {
+                    contractAddress = data.contractAddress;
+                    localStorage.setItem("votechain_contract", contractAddress);
+                }
+            } catch (e) { }
+
+            provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+        });
     </script>
 </body>
 

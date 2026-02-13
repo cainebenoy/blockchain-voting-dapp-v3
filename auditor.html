@@ -9,8 +9,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"
-        rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <script>
+        // Immediately apply theme before page render
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
 
     <script>
         tailwind.config = {
@@ -260,12 +269,18 @@
     <!-- SCRIPTS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script>
-        const contractAddress = "0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c";
+        // --- 1. CONFIGURATION ---
+        const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc";
+        const DEFAULT_CONTRACT = "0x6A713E81B192d5352f56560e2b575D075296dA32";
         const providerUrl = "https://rpc.sepolia.org";
         const ABI = ["function voterListRoot() view returns (bytes32)"];
 
+        let BACKEND_URL = "http://127.0.0.1:3000";
+        let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
         let provider, contract;
 
+        // --- 2. THEME ---
         function toggleTheme() {
             const html = document.documentElement;
             const icon = document.getElementById('theme-icon');
@@ -275,14 +290,22 @@
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        if (savedTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-            const icon = document.getElementById('theme-icon');
-            if (icon) icon.innerText = 'light_mode';
+        // --- 3. SERVICE DISCOVERY ---
+        async function discoverBackend() {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
+            try {
+                const response = await fetch(`${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value`, {
+                    headers: { 'apikey': CONFIG_SUPABASE_KEY, 'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}` }
+                });
+                const data = await response.json();
+                if (data?.[0]?.value && !data[0].value.includes('waiting')) {
+                    BACKEND_URL = data[0].value;
+                    console.log('✅ Discovered Backend:', BACKEND_URL);
+                }
+            } catch (e) { console.error("Discovery failed", e); }
         }
 
-        // --- BLOCKCHAIN FETCH ---
+        // --- 4. BLOCKCHAIN FETCH ---
         async function fetchRoot() {
             try {
                 if (!provider) provider = new ethers.providers.JsonRpcProvider(providerUrl);
@@ -294,7 +317,7 @@
             }
         }
 
-        // --- LOCAL AUDIT LOGIC (Merkle Proof Verification) ---
+        // --- 5. LOCAL AUDIT LOGIC (Merkle Proof Verification) ---
         function runLocalAudit() {
             const voterId = document.getElementById('voterIdInput').value.trim();
             const proofStr = document.getElementById('proofInput').value.trim();
@@ -308,17 +331,12 @@
 
             try {
                 const proof = JSON.parse(proofStr);
-
-                // 1. Initial Leaf Hash
                 let currentHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(voterId));
-
-                // 2. Compute Path to Root
                 for (let sibling of proof) {
                     const nodes = [currentHash, sibling].sort();
                     currentHash = ethers.utils.keccak256(ethers.utils.concat(nodes));
                 }
 
-                // 3. Compare
                 resultBox.classList.remove('hidden');
                 if (currentHash.toLowerCase() === onChainRoot.toLowerCase()) {
                     resultBox.className = "p-8 rounded-xl border border-green-500 bg-green-50 dark:bg-green-900/10 text-center animate-fade-in";
@@ -340,8 +358,28 @@
             }
         }
 
-        // Init
-        window.addEventListener('load', fetchRoot);
+        // --- 6. INITIALIZATION ---
+        window.addEventListener('load', async () => {
+            // Theme sync on load
+            const icon = document.getElementById('theme-icon');
+            if (icon && document.documentElement.classList.contains('dark')) {
+                icon.innerText = 'light_mode';
+            }
+
+            await discoverBackend();
+
+            // Sync contract address from backend
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/active-contract`);
+                const data = await res.json();
+                if (data.contractAddress) {
+                    contractAddress = data.contractAddress;
+                    localStorage.setItem("votechain_contract", contractAddress);
+                }
+            } catch (e) { }
+
+            fetchRoot();
+        });
     </script>
 </body>
 
