@@ -17,23 +17,27 @@ let ABI;
 // Initialize
 export const initEthereum = () => {
     if (!process.env.SEPOLIA_RPC_URL || !process.env.SERVER_PRIVATE_KEY || !process.env.VOTING_CONTRACT_ADDRESS) {
-        console.error("Missing Ethereum env vars");
+        console.error("⚠️ Missing Ethereum env vars");
         return;
     }
 
-    provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL, null, {
-        staticNetwork: true,
-        batchMaxCount: 1
-    });
-    provider.pollingInterval = 4000;
+    try {
+        console.log(`[ETH SERVICE] Initializing provider on ${process.env.SEPOLIA_RPC_URL}...`);
 
-    wallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
+        // Use a simpler initialization that won't throw immediately if the node is starting up
+        provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
 
-    const abiPath = path.join(backendRoot, 'VotingV2.json');
-    const contractJson = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
-    ABI = contractJson.abi;
+        wallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
 
-    contract = new ethers.Contract(process.env.VOTING_CONTRACT_ADDRESS, ABI, wallet);
+        const abiPath = path.join(backendRoot, 'VotingV2.json');
+        const contractJson = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+        ABI = contractJson.abi;
+
+        contract = new ethers.Contract(process.env.VOTING_CONTRACT_ADDRESS, ABI, wallet);
+        console.log(`[ETH SERVICE] Ethereum service initialized (Contract: ${process.env.VOTING_CONTRACT_ADDRESS})`);
+    } catch (e) {
+        console.error("[ETH SERVICE] Fatal error during initialization:", e.message);
+    }
 };
 
 export const getProvider = () => provider;

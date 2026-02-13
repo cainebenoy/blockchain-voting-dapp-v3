@@ -111,6 +111,21 @@
                     class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors">
                     <span id="theme-icon" class="material-symbols-rounded text-xl">dark_mode</span>
                 </button>
+                <button onclick="simStepVoteShow('Alice Johnson')"
+                    class="vote-btn p-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-lg border-2 border-orange-400/30 font-bold transition-all text-lg hover:scale-105 active:scale-95 flex flex-col items-center">
+                    <span class="text-xs opacity-75 mb-1 uppercase tracking-wider">Candidate 1</span>
+                    Alice Johnson
+                </button>
+                <button onclick="simStepVoteShow('Bob Smith')"
+                    class="vote-btn p-4 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg border-2 border-green-400/30 font-bold transition-all text-lg hover:scale-105 active:scale-95 flex flex-col items-center">
+                    <span class="text-xs opacity-75 mb-1 uppercase tracking-wider">Candidate 2</span>
+                    Bob Smith
+                </button>
+                <button onclick="simStepVoteShow('Carol Williams')"
+                    class="vote-btn p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg border-2 border-blue-400/30 font-bold transition-all text-lg hover:scale-105 active:scale-95 flex flex-col items-center">
+                    <span class="text-xs opacity-75 mb-1 uppercase tracking-wider">Candidate 3</span>
+                    Carol Williams
+                </button>
                 <div
                     class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border border-border dark:border-darkBorder bg-neutral-50 dark:bg-neutral-900 text-[10px] font-bold uppercase tracking-widest text-subtle">
                     <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
@@ -204,10 +219,10 @@
                                     class="w-6 h-6 rounded-full border-2 border-border group-hover:bg-black dark:group-hover:bg-white transition-all">
                                 </div>
                             </button>
-                            <button onclick="simStepVote(2, 'Bob Williams')"
+                            <button onclick="simStepVote(2, 'Bob Smith')"
                                 class="h-20 border border-border dark:border-darkBorder bg-white dark:bg-black rounded-2xl flex items-center justify-between px-8 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all group">
                                 <div class="text-left">
-                                    <span class="block font-bold text-lg">Bob Williams</span>
+                                    <span class="block font-bold text-lg">Bob Smith</span>
                                     <span class="text-[10px] uppercase text-subtle font-bold tracking-widest">Liberty
                                         Union</span>
                                 </div>
@@ -318,7 +333,7 @@
         }
 
         // --- CONFIG ---
-        const BACKEND_URL = "http://127.0.0.1:3000";
+        const API_BASE = "http://127.0.0.1:3000";
         let sessionToken = null;
         let voterAadhaar = null;
 
@@ -344,7 +359,7 @@
 
             appendLog(`Querying backend for identity: ${id}`);
             try {
-                const res = await fetch(`${BACKEND_URL}/api/auth/check-in`, {
+                const res = await fetch(`${API_BASE}/api/voter/check-in`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ aadhaar_id: id })

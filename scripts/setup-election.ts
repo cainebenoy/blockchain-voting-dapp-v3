@@ -1,66 +1,79 @@
-import { network } from "hardhat";
+import { ethers } from "ethers";
+import "dotenv/config";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const { ethers } = await network.connect();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function main() {
+  const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+
+  try {
+    const network = await provider.getNetwork();
+    console.log(`📡 Connected to network: ${network.name} (ChainID: ${network.chainId})`);
+  } catch (e) {
+    console.error("❌ Failed to connect to provider at http://127.0.0.1:8545");
+    process.exit(1);
+  }
+
   const contractAddress = process.env.VOTING_CONTRACT_ADDRESS;
-  console.log("📋 Setting up election with candidates...");
-  console.log("Contract:", contractAddress);
-  
-  const [deployer] = await ethers.getSigners();
-  console.log("Admin address:", deployer.address);
-  
-  const VotingV2 = await ethers.getContractFactory("VotingV2");
-  const contract = VotingV2.attach(contractAddress);
-  
-  // Add candidates
-  console.log("\n1️⃣ Adding Candidate: Alice Johnson");
-  let tx = await contract.addCandidate("Alice Johnson");
-  await tx.wait();
-  console.log("✅ Alice added");
-  
-  console.log("\n2️⃣ Adding Candidate: Bob Smith");
-  tx = await contract.addCandidate("Bob Smith");
-  await tx.wait();
-  console.log("✅ Bob added");
-  
-  console.log("\n3️⃣ Adding Candidate: Carol Williams");
-  tx = await contract.addCandidate("Carol Williams");
-  await tx.wait();
-  console.log("✅ Carol added");
-  
-  // Set official signer
-  console.log("\n4️⃣ Setting official signer...");
-  const signerAddress = deployer.address;
-  tx = await contract.setOfficialSigner(signerAddress);
-  await tx.wait();
-  console.log("✅ Official signer set:", signerAddress);
-  
-  // Start election
-  console.log("\n5️⃣ Starting election...");
-  tx = await contract.startElection();
-  await tx.wait();
-  console.log("✅ Election started!");
-  
-  // Verify setup
-  const totalCandidates = await contract.totalCandidates();
-  const isActive = await contract.electionActive();
-  const candidates = await contract.getAllCandidates();
-  
-  console.log("\n📊 Election Setup Complete:");
-  console.log("  Status: Active =", isActive);
-  console.log("  Total Candidates:", Number(totalCandidates));
-  console.log("\n  Candidates:");
-  candidates.forEach((c, i) => {
-    console.log(`    ${i + 1}. ${c.name} (ID: ${c.id})`);
-  });
-  
-  console.log("\n✅ Election is ready for voting!");
+  console.log(`🔍 Checking contract at address: ${contractAddress}`);
+
+  if (!contractAddress) {
+    console.error("❌ VOTING_CONTRACT_ADDRESS is not defined in .env");
+    process.exit(1);
+  }
+
+  const code = await provider.getCode(contractAddress);
+  console.log(`📄 Contract code length: ${code.length}`);
+  if (code === "0x") {
+    console.log("⚠️  NO CODE FOUND at this address.");
+
+    // List some accounts to see if we are on the right node
+    const accounts = await provider.listAccounts();
+    console.log(`🏦 Node has ${accounts.length} accounts. First account: ${accounts[0].address}`);
+
+    process.exit(1);
+  }
+
+  console.log("✅ Code found! Proceeding with setup...");
+
+  const pk = process.env.SERVER_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+  const wallet = new ethers.Wallet(pk, provider);
+  const artifactPath = path.join(__dirname, "../backend/VotingV2.json");
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+  const contract = new ethers.Contract(contractAddress, artifact.abi, wallet);
+
+  let nonce = await wallet.getNonce();
+  const waitTx = async (txResponse: any) => {
+    console.log(`> Sending TX... ${txResponse.hash} (Nonce: ${nonce})`);
+    const receipt = await txResponse.wait();
+    console.log(`> Confirmed in block ${receipt.blockNumber}`);
+    nonce++;
+    return receipt;
+  };
+
+  const total = await contract.totalCandidates();
+  console.log(`Current candidates: ${total}`);
+
+  if (Number(total) === 0) {
+    await waitTx(await contract.addCandidate("Alice Johnson", { nonce }));
+    await waitTx(await contract.addCandidate("Bob Smith", { nonce }));
+    await waitTx(await contract.addCandidate("Carol Williams", { nonce }));
+  }
+
+  await waitTx(await contract.setOfficialSigner(wallet.address, { nonce }));
+
+  if (!(await contract.electionActive())) {
+    await waitTx(await contract.startElection({ nonce }));
+  }
+
+  console.log("✅ Election Ready!");
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("❌ Setup failed:", error);
-    process.exit(1);
-  });
+main().catch(err => {
+  console.error("❌ Fatal error:", err);
+  process.exit(1);
+});

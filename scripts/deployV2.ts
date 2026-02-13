@@ -1,6 +1,7 @@
 // This script forwards deploy requests to the backend admin endpoint so the backend
 // (which has the server private key) performs the contract deployment centrally.
 import http from 'http';
+import 'dotenv/config';
 
 function postJson(url: string, body: any, timeout = 60000): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -13,7 +14,8 @@ function postJson(url: string, body: any, timeout = 60000): Promise<any> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data)
+        'Content-Length': Buffer.byteLength(data),
+        'X-Admin-Secret': process.env.ADMIN_SECRET || ''
       }
     };
     const req = http.request(opts, (res) => {
@@ -34,6 +36,7 @@ function postJson(url: string, body: any, timeout = 60000): Promise<any> {
 
 async function main() {
   console.log('➡️  Requesting backend to deploy new VotingV2 contract...');
+  console.log(`[DEBUG] Sending X-Admin-Secret: "${process.env.ADMIN_SECRET}"`);
   try {
     const json = await postJson('http://localhost:3000/api/admin/deploy-contract', {});
     console.log('✅ Backend deploy response:');

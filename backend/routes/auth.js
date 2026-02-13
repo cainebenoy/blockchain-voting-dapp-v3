@@ -17,14 +17,26 @@ router.post('/check-in', checkInLimiter, async (req, res) => {
     try {
         const salt = process.env.AADHAAR_SALT || 'default-salt';
         const aadhaar_hash = crypto.createHash('sha256').update(aadhaar_id + salt).digest('hex');
-        const { data: voter, error } = await supabase
+
+        // Try hashed first, then plain (for local dev test IDs)
+        let { data: voter, error } = await supabase
             .from('voters')
             .select('*')
             .eq('aadhaar_id', aadhaar_hash)
             .single();
 
         if (error || !voter) {
-            return res.status(404).json({ status: 'error', message: 'Voter not found.', data: null });
+            const { data: plainVoter, error: plainError } = await supabase
+                .from('voters')
+                .select('*')
+                .eq('aadhaar_id', aadhaar_id)
+                .single();
+
+            if (!plainError && plainVoter) {
+                voter = plainVoter;
+            } else {
+                return res.status(404).json({ status: 'error', message: 'Voter not found.', data: null });
+            }
         }
 
         if (voter.has_voted) {

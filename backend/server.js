@@ -41,6 +41,12 @@ if (missing.length) {
 const app = express();
 const port = 3000;
 
+// GLOBAL LOGGER for debugging
+app.use((req, res, next) => {
+    console.log(`[DEBUG_API] Incoming Request: ${req.method} ${req.url}`);
+    next();
+});
+
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -51,6 +57,7 @@ app.use(express.json());
 // Auth Middleware
 const adminAuth = (req, res, next) => {
     const secret = req.headers['x-admin-secret'];
+    console.log(`[DEBUG] Received secret: "${secret}", Expected: "${process.env.ADMIN_SECRET}"`);
     if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
         return res.status(401).json({ status: 'error', message: 'Unauthorized Admin Access' });
     }
@@ -107,12 +114,17 @@ app.use((req, res, next) => {
     next();
 });
 
-// Startup Checks
-(async () => {
-    const addr = process.env.VOTING_CONTRACT_ADDRESS;
-    console.log('[AUTHZ] Startup check for contract', addr);
-    await ensureAuthorizedSignerFor(addr);
-})();
+// Startup Checks (with delay and safety)
+setTimeout(async () => {
+    try {
+        const addr = process.env.VOTING_CONTRACT_ADDRESS;
+        console.log('[AUTHZ] Running startup checks for', addr);
+        await ensureAuthorizedSignerFor(addr);
+        console.log('[AUTHZ] Startup checks completed.');
+    } catch (e) {
+        console.warn('[AUTHZ] Startup check failed (node may be starting up):', e.message);
+    }
+}, 5000);
 
 // Start Server
 app.listen(port, () => {
