@@ -1,0 +1,41 @@
+
+Running 2 tests using 2 workers
+
+[1A[2K[1/2] [chromium] ΓÇ║ e2e\verify.spec.ts:9:5 ΓÇ║ Verification Flow ΓÇ║ should handle invalid receipt code
+[1A[2K[2/2] [chromium] ΓÇ║ e2e\verify.spec.ts:4:5 ΓÇ║ Verification Flow ΓÇ║ should load verify page
+
+[1A[2K[WebServer] (node:78744) [DEP0066] DeprecationWarning: OutgoingMessage.prototype._headers is deprecated
+[WebServer] (Use `node --trace-deprecation ...` to show where the warning was created)
+[1A[2K  1) [chromium] ΓÇ║ e2e\verify.spec.ts:9:5 ΓÇ║ Verification Flow ΓÇ║ should handle invalid receipt code ΓöÇΓöÇ
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('#errorText')
+    Expected pattern: [32m/Invalid receipt code/i[39m
+    Received string:  [31m"Invalid Code"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for locator('#errorText')[22m
+    [2m    9 ├ù locator resolved to <p id="errorText" class="text-subtle text-sm">Invalid Code</p>[22m
+    [2m      - unexpected value "Invalid Code"[22m
+
+
+      14 |         const errorMsg = page.locator('#errorMsg');
+      15 |         await expect(errorMsg).toBeVisible();
+    > 16 |         await expect(page.locator('#errorText')).toContainText(/Invalid receipt code/i);
+         |                                                  ^
+      17 |     });
+      18 | });
+      19 |
+        at C:\Users\caine\OneDrive\Desktop\Project\blockchain-voting-dapp-v3-main\e2e\verify.spec.ts:16:50
+
+    Error Context: test-results\verify-Verification-Flow-should-handle-invalid-receipt-code-chromium\error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] ΓÇ║ e2e\verify.spec.ts:9:5 ΓÇ║ Verification Flow ΓÇ║ should handle invalid receipt code ΓöÇΓöÇΓöÇ
+  1 passed (15.8s)
+
+[36m  Serving HTML report at http://localhost:49493. Press Ctrl+C to quit.[39m
