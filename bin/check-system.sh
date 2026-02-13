@@ -26,18 +26,38 @@ echo ""
 
 # Check Kiosk
 echo "🖥️  Kiosk Terminal:"
-if sudo systemctl is-active --quiet votechain-kiosk.service; then
+if systemctl is-active --quiet votechain-kiosk.service; then
     echo "   ✅ RUNNING"
 else
-    echo "   ⚠️  STOPPED (may need fingerprint scanner connected)"
+    echo "   ❌ STOPPED (Check journalctl -u votechain-kiosk)"
+fi
+echo ""
+
+# Check Tunnel
+echo "🔒 Cloudflare Tunnel:"
+if systemctl is-active --quiet votechain-tunnel.service; then
+    echo "   ✅ ACTIVE"
+else
+    echo "   ⚠️  INACTIVE (Remote access disabled)"
 fi
 echo ""
 
 # Service Status
 echo "📊 System Services:"
-sudo systemctl status votechain.service --no-pager | grep "Active:"
-sudo systemctl status votechain-frontend.service --no-pager | grep "Active:"
-sudo systemctl status votechain-kiosk.service --no-pager | grep "Active:"
+for svc in votechain-backend votechain-tunnel votechain-kiosk; do
+    printf "   %-20s " "$svc:"
+    systemctl is-active --quiet "$svc" && echo "✅" || echo "❌"
+done
+echo ""
+
+# Hardware Diagnostics
+echo "🌡️  Hardware Telemetry:"
+if command -v vcgencmd >/dev/null; then
+    echo "   CPU Temp: $(vcgencmd measure_temp | cut -d "=" -f2)"
+else
+    echo "   CPU Temp: EMULATION (No vcgencmd)"
+fi
+echo "   Uptime:   $(uptime -p)"
 echo ""
 
 # Access URLs
@@ -48,12 +68,9 @@ echo "   Backend API:  http://localhost:3000"
 echo ""
 
 # Log Files
-echo "📝 Recent Logs:"
-echo "   Backend:"
-tail -3 /home/cainepi/votechain-backend.log 2>/dev/null || echo "   No logs yet"
-echo ""
-echo "   Kiosk:"
-tail -3 /home/cainepi/votechain-kiosk.log 2>/dev/null || echo "   No logs yet"
+echo "📝 Recent Journal Logs (Journald):"
+echo "   Backend: $(sudo journalctl -u votechain-backend --no-pager -n 3 | tail -n 1)"
+echo "   Kiosk:   $(sudo journalctl -u votechain-kiosk --no-pager -n 3 | tail -n 1)"
 echo ""
 
 echo "========================================"

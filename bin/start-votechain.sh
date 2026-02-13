@@ -4,13 +4,15 @@
 # Wait for network to be ready
 sleep 10
 
-# Navigate to project directory
-cd /home/cainepi/Desktop/FInal\ Year\ Project/blockchain-voting-dapp-v3
+# Navigate to project directory (base on script location)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
 
 # Start Backend Server (Port 3000)
 echo "Starting Backend Server..."
 cd backend
-node server.js > /home/cainepi/votechain-backend.log 2>&1 &
+node server.js > ../backend.log 2>&1 &
 BACKEND_PID=$!
 echo "Backend PID: $BACKEND_PID"
 cd ..

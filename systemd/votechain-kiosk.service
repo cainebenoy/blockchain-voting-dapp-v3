@@ -1,18 +1,28 @@
 [Unit]
-Description=VoteChain V3 - Kiosk Terminal (Headless Ready)
-After=multi-user.target votechain.service
-Requires=votechain.service
+Description=VoteChain V3 - Kiosk Terminal (Headless)
+After=network-online.target votechain-backend.service
+Requires=votechain-backend.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/cainepi/Desktop/FInal Year Project/blockchain-voting-dapp-v3
-ExecStartPre=/bin/sleep 10
+# Kiosk often needs root for hardware (GPIO/SPI) access on older kernels
+# Recommended path
+WorkingDirectory=/opt/votechain/kiosk
+
+# Health Check: Wait for backend API to be ready
+ExecStartPre=/usr/bin/curl -s --connect-timeout 2 http://localhost:3000/api/health > /dev/null
+
 ExecStart=/usr/bin/python3 kiosk_main.py
+
+# Restart Strategy
+Restart=always
+RestartSec=10
+
+# Logging
 StandardOutput=journal
 StandardError=journal
-Restart=always
-RestartSec=15
+SyslogIdentifier=votechain-kiosk
 
 [Install]
 WantedBy=multi-user.target

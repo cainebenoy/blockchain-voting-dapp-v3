@@ -1,0 +1,31 @@
+[Unit]
+Description=VoteChain V3 - Backend Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+# Use EnvironmentFile for secrets isolation (recommended)
+# Ensure this file exists on the Pi: /etc/votechain/backend.env
+EnvironmentFile=-/etc/votechain/backend.env
+WorkingDirectory=/opt/votechain/backend
+
+# Proactive Health Check: Verify Supabase reachability
+ExecStartPre=/usr/bin/curl -s -I --connect-timeout 5 https://supabase.co > /dev/null
+
+ExecStart=/usr/bin/node server.js
+
+# Restart Strategy
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+
+# Professional Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=votechain-backend
+
+[Install]
+WantedBy=multi-user.target

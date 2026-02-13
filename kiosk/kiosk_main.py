@@ -9,10 +9,53 @@ import sys
 import threading
 import requests
 import atexit
+import uuid
 from hardware import hardware
 
 # --- CONFIGURATION ---
-BACKEND_URL = "http://localhost:3000"
+import os
+import logging
+from requests.exceptions import RequestException
+
+# Configure Logging (P1 Improvement)
+logging.basicConfig(
+    filename='/var/log/votechain_kiosk.log' if os.path.exists('/var/log') else 'kiosk.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
+SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc"
+
+def discover_backend():
+    """Discover backend URL via Supabase (Service Discovery)"""
+    global BACKEND_URL
+    logging.info("Attempting service discovery...")
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value"
+        headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            if data and data[0].get('value'):
+                BACKEND_URL = data[0]['value']
+                logging.info(f"Discovered backend: {BACKEND_URL}")
+                return True
+    except Exception as e:
+        logging.error(f"Discovery failed: {e}")
+    return False
+
+def get_friendly_error(e):
+    """Map technical exceptions to user-friendly messages"""
+    if "timeout" in str(e).lower():
+        return "Network Busy", "Please Wait..."
+    if "connection" in str(e).lower():
+        return "Server Offline", "Contact Admin"
+    return "System Error", "Try Later"
+
+# Session State
+SESSION_TOKEN = None
 
 # --- HELPER FUNCTIONS ---
 
@@ -24,19 +67,24 @@ def check_backend_connection():
         return False
 
 def check_in_voter(aadhaar_id):
+    global SESSION_TOKEN
     hardware.show_msg("Checking DB...", aadhaar_id)
     try:
         response = requests.post(f"{BACKEND_URL}/api/voter/check-in", 
                                  json={"aadhaar_id": aadhaar_id}, timeout=5)
         if response.status_code == 200:
-            return response.json()['data']
+            data = response.json().get('data', {})
+            SESSION_TOKEN = data.get('session_token')
+            return data
         else:
             hardware.show_msg("Check-in Failed", "Not Found/Voted", "Press START")
             hardware.beep(count=1, duration=0.5)
             wait_for_reset()
             return None
-    except:
-        hardware.show_msg("Network Error", "Check Server", "Press START")
+    except Exception as e:
+        logging.error(f"Check-in network error: {e}")
+        line1, line2 = get_friendly_error(e)
+        hardware.show_msg(line1, line2, "Press START")
         wait_for_reset()
         return None
 
@@ -57,9 +105,17 @@ def submit_vote(aadhaar_id, candidate_id):
     t = threading.Thread(target=spinner)
     t.start()
 
+    # Generate unique transaction nonce (P0 Security)
+    kiosk_nonce = str(uuid.uuid4())
+
     try:
         response = requests.post(f"{BACKEND_URL}/api/vote", 
-                                 json={"aadhaar_id": aadhaar_id, "candidate_id": candidate_id}, timeout=90)
+                                 json={
+                                     "aadhaar_id": aadhaar_id, 
+                                     "candidate_id": candidate_id,
+                                     "session_token": SESSION_TOKEN,
+                                     "kiosk_nonce": kiosk_nonce
+                                 }, timeout=90)
         stop_event.set()
         t.join()
 
@@ -88,7 +144,9 @@ def submit_vote(aadhaar_id, candidate_id):
     except Exception as e:
         stop_event.set()
         t.join()
-        hardware.show_msg("Error", str(e), "")
+        logging.error(f"Vote submission error: {e}")
+        line1, line2 = get_friendly_error(e)
+        hardware.show_msg(line1, line2, "Check Receipt Later")
         wait_for_reset()
 
 def show_receipt(code):
@@ -154,10 +212,15 @@ def enroll_finger(id):
     
     return True
 
+POLL_INTERVAL = 1
+MAX_POLL_INTERVAL = 16
+
 def poll_admin_commands():
+    global POLL_INTERVAL
     try:
         res = requests.get(f"{BACKEND_URL}/api/kiosk/poll-commands", timeout=1)
         if res.status_code == 200:
+            POLL_INTERVAL = 1 # Reset on success
             data = res.json()
             if data.get('command') == 'ENROLL':
                 voter_name = data.get('name')
@@ -178,9 +241,11 @@ def poll_admin_commands():
                 else:
                     hardware.show_msg("Enrollment", "FAILED", "")
                 time.sleep(2)
+        else:
+            POLL_INTERVAL = min(POLL_INTERVAL * 2, MAX_POLL_INTERVAL)
 
     except:
-        pass
+        POLL_INTERVAL = min(POLL_INTERVAL * 2, MAX_POLL_INTERVAL)
 
 # --- MAIN LOOP ---
 
@@ -198,7 +263,9 @@ def main():
         # Check backend
         if not check_backend_connection():
             hardware.show_msg("Connecting...", "Checking Server", "")
-            time.sleep(2)
+            if not discover_backend():
+                logging.warning("Backend unreachable and discovery failed.")
+                time.sleep(5)
             continue
             
         # Idle Screen
@@ -222,17 +289,17 @@ def main():
             if aadhaar:
                 voter = check_in_voter(aadhaar)
                 if voter:
-                    hardware.show_msg(f"Hi {voter['name']}", "Scan Finger...", "")
-                    
-                    # Fingerprint Verification Loop
+                    # Fingerprint Verification Loop (Hardened: Max 2 attempts)
                     verified = False
-                    for _ in range(3):
+                    for attempt in range(1, 3):
+                        hardware.show_msg(f"Hi {voter['name']}", f"Scan Finger... ({attempt}/2)", "")
                         fid = hardware.scan_finger()
                         if fid == voter['fingerprint_id']:
                             verified = True
+                            logging.info(f"Voter {aadhaar} verified on attempt {attempt}")
                             break
                         elif fid:
-                            hardware.show_msg("Mismatch", "Try Again", "")
+                            hardware.show_msg("Mismatch", "Try Again", f"Attempt {attempt}/2")
                             hardware.beep(1, 0.5)
                         time.sleep(1)
                         
@@ -247,8 +314,10 @@ def main():
                                 break
                             time.sleep(0.1)
                     else:
-                        hardware.show_msg("Auth Failed", "Fingerprint Mismatch", "")
-                        time.sleep(2)
+                        logging.warning(f"Auth failed for voter {aadhaar}")
+                        hardware.show_msg("Auth Failed", "Contact Polling", "Officer for Help")
+                        hardware.beep(3, 0.2)
+                        time.sleep(5)
 
         time.sleep(0.1)
 

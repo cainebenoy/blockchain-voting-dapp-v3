@@ -29,9 +29,10 @@ ON public.system_config FOR SELECT
 USING (true);
 
 -- 6. Policy: Allow SERVICE ROLE (Backend) Update Access
--- Note: Service role key bypasses RLS, but this policy documents intent
+-- Note: Service role key bypasses RLS
 CREATE POLICY "Allow backend update" 
 ON public.system_config FOR UPDATE 
+TO service_role
 USING (true) 
 WITH CHECK (true);
 

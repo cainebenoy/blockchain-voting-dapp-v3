@@ -4,18 +4,18 @@
 case "$1" in
     start)
         echo "🚀 Starting all VoteChain services..."
-        sudo systemctl start votechain votechain-frontend votechain-kiosk
+        sudo systemctl start votechain-backend votechain-tunnel votechain-kiosk
         sleep 3
         ./check-system.sh
         ;;
     stop)
         echo "🛑 Stopping all VoteChain services..."
-        sudo systemctl stop votechain votechain-frontend votechain-kiosk
+        sudo systemctl stop votechain-backend votechain-tunnel votechain-kiosk
         echo "✅ All services stopped"
         ;;
     restart)
         echo "🔄 Restarting all VoteChain services..."
-        sudo systemctl restart votechain votechain-frontend votechain-kiosk
+        sudo systemctl restart votechain-backend votechain-tunnel votechain-kiosk
         sleep 3
         ./check-system.sh
         ;;
@@ -24,33 +24,33 @@ case "$1" in
         ;;
     logs)
         if [ -z "$2" ]; then
-            echo "Usage: $0 logs [backend|frontend|kiosk]"
+            echo "Usage: $0 logs [backend|tunnel|kiosk]"
             exit 1
         fi
         case "$2" in
             backend)
-                tail -f /home/cainepi/votechain-backend.log
+                sudo journalctl -u votechain-backend -f
                 ;;
-            frontend)
-                tail -f /home/cainepi/votechain-frontend.log
+            tunnel)
+                sudo journalctl -u votechain-tunnel -f
                 ;;
             kiosk)
-                tail -f /home/cainepi/votechain-kiosk.log
+                sudo journalctl -u votechain-kiosk -f
                 ;;
             *)
                 echo "Unknown service: $2"
-                echo "Available: backend, frontend, kiosk"
+                echo "Available: backend, tunnel, kiosk"
                 ;;
         esac
         ;;
     enable)
         echo "✅ Enabling auto-start on boot..."
-        sudo systemctl enable votechain votechain-frontend votechain-kiosk
+        sudo systemctl enable votechain-backend votechain-tunnel votechain-kiosk
         echo "✅ Services will start automatically on boot"
         ;;
     disable)
         echo "❌ Disabling auto-start on boot..."
-        sudo systemctl disable votechain votechain-frontend votechain-kiosk
+        sudo systemctl disable votechain-backend votechain-tunnel votechain-kiosk
         echo "✅ Auto-start disabled"
         ;;
     *)

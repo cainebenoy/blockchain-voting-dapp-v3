@@ -1,0 +1,25 @@
+[Unit]
+Description=VoteChain V3 - Cloudflare Tunnel Manager
+After=network-online.target votechain-backend.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+EnvironmentFile=-/etc/votechain/backend.env
+WorkingDirectory=/opt/votechain/bin
+
+# Tunnel manager handles registration to Supabase
+ExecStart=/usr/bin/python3 start_tunnel.py
+
+# Restart Strategy
+Restart=always
+RestartSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=votechain-tunnel
+
+[Install]
+WantedBy=multi-user.target
