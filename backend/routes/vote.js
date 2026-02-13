@@ -96,14 +96,14 @@ router.post('/vote', voteLimiter, async (req, res) => {
         const nonceBytes32 = ethers.isBytesLike(kiosk_nonce) ? kiosk_nonce : ethers.keccak256(ethers.toUtf8Bytes(kiosk_nonce));
 
         // 4. Queue Vote (Hardened Nonce Mgmt)
-        console.log(`[API] Queuing vote for ${aadhaar_id} with nonce ${kiosk_nonce}...`);
+        console.log(`[API] Queuing vote with nonce ${kiosk_nonce}...`);
 
         // We set has_voted in DB to "true" (or we could use PENDING if we had the column)
         // to prevent immediate double-vote attempts while queue processes.
         await supabase
             .from('voters')
             .update({ has_voted: true })
-            .eq('aadhaar_id', aadhaar_id);
+            .eq('aadhaar_id', voterHash);
 
         // Queue it
         const qResult = await voteQueue.queueVote(cidNum, voterHashBytes32, nonceBytes32);

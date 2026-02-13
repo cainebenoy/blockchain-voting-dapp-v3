@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoteChain | Hardware Simulator</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"
+        rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
+                    colors: {
+                        black: '#050505',
+                        white: '#ffffff',
+                        subtle: '#888888',
+                        border: '#eaeaea',
+                        darkBorder: '#1a1a1a',
+                        accent: '#1351ec'
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'scan-line': 'scanning 2s linear infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        scanning: {
+                            '0%': { top: '0%' },
+                            '100%': { top: '100%' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .grid-bg {
+            background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
+            background-size: 32px 32px;
+            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        }
+
+        .dark .grid-bg {
+            background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
+        }
+
+        .bento-item {
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .bento-item:hover {
+            transform: translateY(-2px);
+            border-color: #000;
+        }
+
+        .dark .bento-item:hover {
+            border-color: #fff;
+        }
+
+        #msgBox {
+            transition: all 0.3s ease;
+            transform: translate(-50%, 100px);
+            opacity: 0;
+        }
+
+        #msgBox.show {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        input {
+            background: transparent !important;
+            border: none;
+            outline: none;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-white dark:bg-black text-black dark:text-white antialiased selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300 min-h-screen">
+
+    <!-- NAV -->
+    <nav
+        class="fixed w-full z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-border dark:border-darkBorder">
+        <div class="max-w-[1400px] mx-auto px-6 h-16 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-2 group">
+                <div
+                    class="w-5 h-5 bg-black dark:bg-white rounded-sm group-hover:rotate-45 transition-transform duration-500">
+                </div>
+                <span class="font-bold tracking-tight text-lg">VoteChain <span
+                        class="text-subtle font-medium ml-1 text-sm uppercase tracking-widest">Simulator</span></span>
+            </a>
+
+            <div class="flex items-center gap-6">
+                <button onclick="toggleTheme()"
+                    class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors">
+                    <span id="theme-icon" class="material-symbols-rounded text-xl">dark_mode</span>
+                </button>
+                <div
+                    class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border border-border dark:border-darkBorder bg-neutral-50 dark:bg-neutral-900 text-[10px] font-bold uppercase tracking-widest text-subtle">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                    Kiosk Node: Online
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="pt-24 pb-20 max-w-[1400px] mx-auto px-6">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- HARDWARE LOGS (LEFT) -->
+            <div
+                class="lg:col-span-3 bento-item bg-neutral-50 dark:bg-neutral-900 rounded-2xl p-6 border border-border dark:border-darkBorder h-[650px] flex flex-col overflow-hidden">
+                <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-subtle mb-4">Live Serial
+                    Terminal</span>
+                <div id="terminal"
+                    class="flex-1 font-mono text-[11px] leading-relaxed space-y-2 overflow-y-auto no-scrollbar text-subtle">
+                    <p class="text-black dark:text-white">> VoteChain BIOS v3.2</p>
+                    <p>> CPU: Broadcom BCM2712... OK</p>
+                    <p>> R307 Fingerprint... OK</p>
+                    <p>> Booting virtual trusted environment...</p>
+                </div>
+            </div>
+
+            <!-- VIRTUAL KIOSK DISPLAY (CENTER) -->
+            <div
+                class="lg:col-span-6 bento-item bg-white dark:bg-black rounded-[40px] p-2 border border-border dark:border-darkBorder shadow-2xl h-[650px] relative overflow-hidden">
+                <div
+                    class="bg-neutral-50 dark:bg-neutral-900 rounded-[34px] h-full flex flex-col items-center justify-center text-center p-8">
+
+                    <!-- STEP 1: AUTHENTICATION -->
+                    <div id="screen-auth" class="w-full space-y-10 animate-fade-in">
+                        <div
+                            class="w-20 h-20 bg-white dark:bg-black border border-border dark:border-darkBorder rounded-3xl mx-auto flex items-center justify-center shadow-sm">
+                            <span class="material-symbols-rounded text-4xl">fingerprint</span>
+                        </div>
+                        <div>
+                            <h2 class="text-3xl font-bold tracking-tight mb-2">Voter Identity</h2>
+                            <p class="text-subtle text-sm">Please provide your Aadhaar ID to check eligibility.</p>
+                        </div>
+                        <div class="max-w-xs mx-auto space-y-4">
+                            <div
+                                class="border-b-2 border-border dark:border-darkBorder focus-within:border-black dark:focus-within:border-white transition-colors">
+                                <input type="text" id="simAadhaar" placeholder="12 Digit ID"
+                                    class="w-full py-4 text-center text-2xl font-mono text-black dark:text-white placeholder:opacity-20">
+                            </div>
+                            <button onclick="simStepVerify()"
+                                class="w-full h-16 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold hover:opacity-90 transition-all uppercase tracking-[0.2em] text-xs">Verify
+                                Aadhaar</button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: SCANNING -->
+                    <div id="screen-scan" class="hidden w-full space-y-10 animate-fade-in">
+                        <h2 class="text-3xl font-bold tracking-tight">Biometric Verification</h2>
+                        <div class="relative w-44 h-56 mx-auto bg-white dark:bg-black border-2 border-border dark:border-darkBorder rounded-3xl flex items-center justify-center cursor-pointer group hover:border-accent transition-all overflow-hidden"
+                            onclick="simStepScan()">
+                            <div id="scan-line"
+                                class="hidden absolute left-0 w-full h-1 bg-accent/60 shadow-[0_0_15px_rgba(19,81,236,0.8)] z-20 animate-scan-line">
+                            </div>
+                            <span
+                                class="material-symbols-rounded text-8xl text-neutral-100 dark:text-neutral-800 group-hover:text-accent/20 transition-colors">fingerprint</span>
+                        </div>
+                        <div class="space-y-2">
+                            <p class="text-xs text-subtle uppercase font-bold tracking-[0.2em] animate-pulse">Waiting
+                                for biometric match...</p>
+                            <p class="text-[10px] text-subtle italic">Tap the scanner to simulate biometric input</p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: BALLOT -->
+                    <div id="screen-vote" class="hidden w-full space-y-8 animate-fade-in">
+                        <div
+                            class="flex justify-between items-center max-w-sm mx-auto border-b border-border dark:border-darkBorder pb-4">
+                            <h2 class="text-2xl font-bold tracking-tight">Official Ballot</h2>
+                            <span
+                                class="text-[10px] font-bold px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full uppercase">Verified</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4 w-full max-w-sm mx-auto">
+                            <button onclick="simStepVote(1, 'Alice Johnson')"
+                                class="h-20 border border-border dark:border-darkBorder bg-white dark:bg-black rounded-2xl flex items-center justify-between px-8 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all group">
+                                <div class="text-left">
+                                    <span class="block font-bold text-lg">Alice Johnson</span>
+                                    <span class="text-[10px] uppercase text-subtle font-bold tracking-widest">Progress
+                                        Party</span>
+                                </div>
+                                <div
+                                    class="w-6 h-6 rounded-full border-2 border-border group-hover:bg-black dark:group-hover:bg-white transition-all">
+                                </div>
+                            </button>
+                            <button onclick="simStepVote(2, 'Bob Williams')"
+                                class="h-20 border border-border dark:border-darkBorder bg-white dark:bg-black rounded-2xl flex items-center justify-between px-8 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all group">
+                                <div class="text-left">
+                                    <span class="block font-bold text-lg">Bob Williams</span>
+                                    <span class="text-[10px] uppercase text-subtle font-bold tracking-widest">Liberty
+                                        Union</span>
+                                </div>
+                                <div
+                                    class="w-6 h-6 rounded-full border-2 border-border group-hover:bg-black dark:group-hover:bg-white transition-all">
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 4: SUCCESS -->
+                    <div id="screen-success" class="hidden w-full space-y-8 animate-fade-in text-center">
+                        <div
+                            class="w-24 h-24 bg-green-500 rounded-full mx-auto flex items-center justify-center text-white shadow-2xl shadow-green-500/20">
+                            <span class="material-symbols-rounded text-6xl">check_circle</span>
+                        </div>
+                        <div>
+                            <h2 class="text-4xl font-bold tracking-tighter">Vote Finalized</h2>
+                            <p class="text-subtle text-sm mt-2">Recorded immutably on Sepolia.</p>
+                        </div>
+                        <div
+                            class="p-8 bg-white dark:bg-black rounded-[32px] border border-border dark:border-darkBorder max-w-sm mx-auto shadow-sm">
+                            <p class="text-[10px] font-bold uppercase text-subtle mb-3 tracking-widest">Blockchain
+                                Receipt</p>
+                            <p id="receiptHash"
+                                class="font-mono text-[10px] break-all text-black dark:text-white leading-relaxed">--
+                            </p>
+                        </div>
+                        <button onclick="location.reload()"
+                            class="text-[10px] font-bold uppercase tracking-[0.4em] text-subtle hover:text-black dark:hover:text-white transition-colors">Start
+                            New Session</button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- HARDWARE SPECS (RIGHT) -->
+            <div class="lg:col-span-3 space-y-6 flex flex-col h-[650px]">
+                <div
+                    class="bento-item bg-neutral-50 dark:bg-neutral-900 rounded-2xl p-8 border border-border dark:border-darkBorder flex-1">
+                    <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-subtle block mb-6">Device
+                        Specs</span>
+                    <div class="space-y-6">
+                        <div class="flex justify-between items-center text-[10px] font-bold uppercase">
+                            <span class="text-subtle">Core</span>
+                            <span>Pi 5 8GB</span>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px] font-bold uppercase">
+                            <span class="text-subtle">Identity</span>
+                            <span>R307 Optical</span>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px] font-bold uppercase">
+                            <span class="text-subtle">Network</span>
+                            <span class="text-green-500 font-bold tracking-widest">Connected</span>
+                        </div>
+                        <div class="pt-6 border-t border-border dark:border-darkBorder">
+                            <p class="text-[11px] leading-relaxed text-subtle">
+                                This simulation interacts with the Tier 2 Trust Layer APIs just like the physical
+                                Raspberry Pi hardware.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="bento-item bg-black text-white rounded-2xl p-8 border border-border dark:border-darkBorder h-[200px] flex flex-col justify-center">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.3em] text-neutral-500 mb-4">Architecture Info
+                    </p>
+                    <p class="text-sm text-neutral-400 leading-relaxed italic">
+                        "Decoupling the physical booth from the tally ledger removes the single point of failure."
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- NOTIFICATION -->
+    <div id="msgBox"
+        class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] max-w-xs w-full bg-black dark:bg-white text-white dark:text-black p-5 rounded-2xl shadow-2xl flex items-center gap-4">
+        <span class="material-symbols-rounded text-xl" id="msgIcon">info</span>
+        <p class="text-xs font-bold uppercase tracking-widest leading-none mt-0.5" id="msgText">Message</p>
+    </div>
+
+    <script>
+        // --- THEME ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.replace('dark', 'light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.replace('light', 'dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.replace('light', 'dark');
+
+        // --- NOTIFS ---
+        function showMessage(text, type = 'info') {
+            const box = document.getElementById('msgBox');
+            const icon = document.getElementById('msgIcon');
+            const txt = document.getElementById('msgText');
+            txt.innerText = text;
+            icon.innerText = type === 'error' ? 'report' : 'info';
+            box.classList.add('show');
+            setTimeout(() => box.classList.remove('show'), 3000);
+        }
+
+        // --- CONFIG ---
+        const BACKEND_URL = "http://127.0.0.1:3000";
+        let sessionToken = null;
+        let voterAadhaar = null;
+
+        // --- SIM LOGIC ---
+        function appendLog(msg) {
+            const term = document.getElementById('terminal');
+            const p = document.createElement('p');
+            p.innerText = `> ${msg}`;
+            term.appendChild(p);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function switchScreen(id) {
+            ['screen-auth', 'screen-scan', 'screen-vote', 'screen-success'].forEach(s => {
+                document.getElementById(s).classList.add('hidden');
+            });
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        async function simStepVerify() {
+            const id = document.getElementById('simAadhaar').value;
+            if (id.length !== 12 || !/^\d{12}$/.test(id)) return showMessage("Invalid Aadhaar (12 digits)", "error");
+
+            appendLog(`Querying backend for identity: ${id}`);
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/auth/check-in`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ aadhaar_id: id })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    voterAadhaar = id;
+                    sessionToken = data.data.session_token;
+                    appendLog(`Match Found: ${data.data.name} (${data.data.session_token.substring(0, 8)}...)`);
+                    switchScreen('screen-scan');
+                } else {
+                    appendLog(`Error: ${data.message}`);
+                    showMessage(data.message, "error");
+                }
+            } catch (e) {
+                appendLog(`Connection Failed: Backend Offline`);
+                showMessage("Backend Offline", "error");
+            }
+        }
+
+        function simStepScan() {
+            appendLog(`Biometric sensor active...`);
+            const line = document.getElementById('scan-line');
+            line.classList.remove('hidden');
+            setTimeout(() => {
+                appendLog(`Template Captured. Biometric Match Confirmed.`);
+                appendLog(`Authorized: Ballot Unlocked.`);
+                line.classList.add('hidden');
+                // In a real scenario, we might fetch candidates here
+                switchScreen('screen-vote');
+            }, 1500);
+        }
+
+        async function simStepVote(candidateId, candidateName) {
+            if (!sessionToken || !voterAadhaar) return showMessage("Session Expired", "error");
+
+            appendLog(`Action: Cast vote for ${candidateName} (ID: ${candidateId})`);
+            appendLog(`Generating blinded nonce...`);
+            const nonce = "sim_" + Math.random().toString(36).substring(7);
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/vote/vote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        aadhaar_id: voterAadhaar,
+                        candidate_id: candidateId,
+                        session_token: sessionToken,
+                        kiosk_nonce: nonce
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    appendLog(`Success: Vote Queued for Batching`);
+                    switchScreen('screen-success');
+                    document.getElementById('receiptHash').innerText = nonce;
+                    showMessage("Vote Recorded", "info");
+                } else {
+                    appendLog(`Error: ${data.message}`);
+                    showMessage(data.message, "error");
+                }
+            } catch (e) {
+                appendLog(`Vote Failed: Network Error`);
+                showMessage("Vote Failed", "error");
+            }
+        }
+    </script>
+</body>
+
+</html>

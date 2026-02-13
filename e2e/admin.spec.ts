@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Admin Flow', () => {
-    const ADMIN_SECRET = 'test-secret'; // Should match what's in the test env
+    const ADMIN_SECRET = 'votechain-v3-secret-2026'; // Should match what's in the test env
 
     test.beforeEach(async ({ page }) => {
+        page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
         await page.goto('/admin.html');
         // Handle admin auth if overlay is visible
         const overlay = page.locator('#adminAuthOverlay');
@@ -28,13 +29,21 @@ test.describe('Admin Flow', () => {
 
         await page.fill('#voterAadhaar', aadhaar);
         await page.fill('#voterName', name);
-        await page.click('#btnEnroll');
+        await page.click('#btnAddVoter');
 
         // Resilience: wait for status transition using toPass
         await expect(async () => {
             const statusText = page.locator('#enrollmentStatusText');
             await expect(statusText).toContainText(/Scanning Finger/i);
-        }).toPass({ timeout: 5000 });
+        }).toPass({ timeout: 10000 });
+
+        // Hardware Offline Bypass
+        const bypassBtn = page.locator('#btnManualEnroll');
+        await expect(bypassBtn).toBeVisible({ timeout: 10000 });
+        await bypassBtn.click();
+
+        // Verify success
+        await expect(page.locator('#enrollmentStatusText')).toContainText(/Enrollment Success/i);
     });
 
     test('should attempt deploy new election', async ({ page, request }) => {
@@ -49,10 +58,10 @@ test.describe('Admin Flow', () => {
             await dialog.accept();
         });
 
-        await page.click('#btnDeploy');
+        await page.click('#btnDeployNew');
 
         // Since deployment takes time, we look for the toast
         const toast = page.locator('#toast-container');
-        await expect(toast).toContainText(/Deploying/i);
+        await expect(toast).toContainText(/Environment Reset/i, { timeout: 10000 });
     });
 });

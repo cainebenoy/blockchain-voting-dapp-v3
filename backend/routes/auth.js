@@ -15,10 +15,12 @@ router.post('/check-in', checkInLimiter, async (req, res) => {
         return res.status(400).json({ status: 'error', message: 'Invalid Aadhaar ID format.' });
     }
     try {
+        const salt = process.env.AADHAAR_SALT || 'default-salt';
+        const aadhaar_hash = crypto.createHash('sha256').update(aadhaar_id + salt).digest('hex');
         const { data: voter, error } = await supabase
             .from('voters')
             .select('*')
-            .eq('aadhaar_id', aadhaar_id)
+            .eq('aadhaar_id', aadhaar_hash)
             .single();
 
         if (error || !voter) {

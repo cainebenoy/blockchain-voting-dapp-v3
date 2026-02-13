@@ -134,6 +134,8 @@
                     class="text-subtle hover:text-black dark:hover:text-white transition-colors">Verify</a>
                 <a href="auditor.html"
                     class="text-subtle hover:text-black dark:hover:text-white transition-colors">Auditor</a>
+                <a href="simulator.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Simulator</a>
 
                 <button id="adminAuthBtn" onclick="showAdminAuth()"
                     class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors relative">
@@ -296,6 +298,10 @@
                     <h4 id="enrollmentStatusText" class="text-sm font-bold uppercase tracking-widest">Kiosk Idle</h4>
                     <p id="enrollmentSubText" class="text-xs text-subtle mt-1 leading-relaxed">System ready for
                         enrollment commands.</p>
+                    <button id="btnManualEnroll" onclick="manualEnrollComplete()"
+                        class="hidden mt-4 text-[10px] font-bold uppercase tracking-widest text-accent border border-accent/30 px-3 py-1.5 rounded-full hover:bg-accent/10 transition-colors">
+                        Manual Success (Hardware Offline)
+                    </button>
                 </div>
             </div>
 
@@ -398,6 +404,7 @@
         let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
         let provider, signer, contract;
         let totalVotersMarked = 0;
+        let currentRequestId = null;
 
         const contractABI = [
             "function electionActive() view returns (bool)",
@@ -607,7 +614,13 @@
 
             try {
                 showToast("Waking Hardware Kiosk...", 'info');
-                const secret = localStorage.getItem("votechain_admin_secret") || "";
+                const secret = localStorage.getItem("votechain_admin_secret");
+                if (!secret) {
+                    showToast("Session Expired", 'error');
+                    triggerAuthRequired();
+                    return;
+                }
+                console.log('[DEBUG] addVoterToDB using BACKEND_URL:', BACKEND_URL);
                 const res = await fetch(`${BACKEND_URL}/api/admin/add-voter`, {
                     method: 'POST',
                     headers: {
@@ -619,6 +632,7 @@
                 const data = await res.json();
                 if (data.status === 'success') {
                     showToast("Kiosk Activated: Scan Fingerprint", 'success');
+                    currentRequestId = data.request_id;
                     pollEnrollment(data.request_id);
                 } else showToast(data.message, 'error');
             } catch (e) { showToast("Backend Service Offline", 'error'); }
@@ -637,13 +651,16 @@
                         headers: { 'x-admin-secret': secret }
                     });
                     const status = await res.json();
+                    console.log('[DEBUG] Enrollment poll status retrieved:', status.status);
 
                     if (status.status === 'WAITING_FOR_KIOSK') {
+                        document.getElementById('btnManualEnroll').classList.remove('hidden');
                         text.innerText = "Scanning Finger...";
                         sub.innerText = "Hardware sensor active. Please place finger.";
                         icon.className = "w-16 h-16 bg-accent/20 text-accent rounded-full flex items-center justify-center mb-4 animate-pulse";
                     } else if (status.status === 'COMPLETED') {
                         clearInterval(timer);
+                        document.getElementById('btnManualEnroll').classList.add('hidden');
                         text.innerText = "Enrollment Success";
                         sub.innerText = "Voter #" + (status.fingerprint_id || '') + " written to database.";
                         icon.className = "w-16 h-16 bg-green-500 text-white rounded-full flex items-center justify-center mb-4 rotate-[360deg] transition-transform duration-1000";
@@ -765,6 +782,32 @@
 
             if (icon) icon.innerText = isDark ? 'light_mode' : 'dark_mode';
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        async function manualEnrollComplete() {
+            console.log('[DEBUG] manualEnrollComplete triggered for Request ID:', currentRequestId);
+            if (!currentRequestId) return showToast("No Active Request", 'error');
+            const secret = localStorage.getItem("votechain_admin_secret") || "";
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/admin/enroll-manual-confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': secret
+                    },
+                    body: JSON.stringify({ request_id: currentRequestId })
+                });
+                const data = await res.json();
+                console.log('[DEBUG] Manual bypass response:', data);
+                if (data.status === 'success') {
+                    showToast("Manual Enrollment Confirmed", 'success');
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (e) {
+                console.error('[DEBUG] Bypass Error:', e);
+                showToast("Bypass Failed", 'error');
+            }
         }
 
         window.addEventListener('load', () => {

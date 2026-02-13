@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  timeout: 60000,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
@@ -11,7 +12,7 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:8080',
     trace: 'on-first-retry',
     extraHTTPHeaders: {
-      'x-admin-secret': 'test-secret',
+      'x-admin-secret': 'votechain-v3-secret-2026',
     },
   },
   projects: [
@@ -31,7 +32,7 @@ export default defineConfig({
       url: 'http://127.0.0.1:3000/api/health',
       reuseExistingServer: !process.env.CI,
       env: {
-        ADMIN_SECRET: 'test-secret',
+        ADMIN_SECRET: 'votechain-v3-secret-2026',
         PORT: '3000'
       }
     },

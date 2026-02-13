@@ -32,7 +32,7 @@ router.post('/enrollment-complete', async (req, res) => {
     if (success) {
         // Save to DB
         const { error } = await supabase.from('voters').insert([{
-            aadhaar_id: pending.aadhaar_id,
+            aadhaar_id: pending.aadhaar_hash,
             name: pending.name,
             constituency: pending.constituency,
             fingerprint_id: fingerprint_id,
