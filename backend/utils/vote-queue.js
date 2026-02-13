@@ -14,6 +14,7 @@
  */
 
 import { ethers } from 'ethers';
+import { supabase } from '../services/db.js';
 
 class SimpleVoteQueue {
   constructor(contract, processInterval = 15000) {
@@ -27,7 +28,7 @@ class SimpleVoteQueue {
       failed: 0,
       avgProcessTime: 0
     };
-    
+
     // Start processing timer
     this.startProcessing();
   }
@@ -35,22 +36,24 @@ class SimpleVoteQueue {
   /**
    * Add vote to queue
    * @param {number} candidateId - Candidate to vote for
-   * @param {string} aadhaarId - Voter identifier
+   * @param {string} voterHash - Hashed voter identifier
+   * @param {string} kioskNonce - Unique nonce from kiosk
    * @returns {Promise} Resolves when vote is queued (NOT when processed)
    */
-  async queueVote(candidateId, aadhaarId) {
+  async queueVote(candidateId, voterHash, kioskNonce) {
     return new Promise((resolve, reject) => {
       this.queue.push({
         candidateId,
-        aadhaarId,
+        voterHash,
+        kioskNonce,
         timestamp: Date.now(),
         resolve,
         reject
       });
-      
+
       this.stats.queued++;
       console.log(`[VOTE QUEUE] Added vote for ${aadhaarId}. Queue size: ${this.queue.length}`);
-      
+
       // Immediately resolve (vote is queued, will be processed soon)
       resolve({
         success: true,
@@ -70,7 +73,7 @@ class SimpleVoteQueue {
         await this.processNext();
       }
     }, this.processInterval);
-    
+
     console.log(`[VOTE QUEUE] Started processing (interval: ${this.processInterval}ms)`);
   }
 
@@ -87,22 +90,35 @@ class SimpleVoteQueue {
     const startTime = Date.now();
 
     try {
-      console.log(`[VOTE QUEUE] Processing vote for ${vote.aadhaarId} (${this.queue.length} remaining)`);
-      
+      console.log(`[VOTE QUEUE] Processing vote for hash ${vote.voterHash} (${this.queue.length} remaining)`);
+
       // Submit to blockchain
-      const tx = await this.contract.vote(vote.candidateId, vote.aadhaarId);
+      const tx = await this.contract.vote(vote.candidateId, vote.voterHash, vote.kioskNonce);
       const receipt = await tx.wait(1);
-      
+
+      // RECONCILIATION: Update receipt table with real TX hash
+      try {
+        await supabase
+          .from('receipts')
+          .update({
+            tx_hash: receipt.hash,
+            is_confirmed: true
+          })
+          .eq('tx_hash', `PENDING_${vote.kioskNonce}`);
+      } catch (dbErr) {
+        console.error(`[VOTE QUEUE] ⚠️ Reconcile failed for ${vote.voterHash}:`, dbErr);
+      }
+
       const processTime = Date.now() - startTime;
       this.stats.processed++;
       this.updateAvgProcessTime(processTime);
-      
+
       console.log(`[VOTE QUEUE] ✅ Vote processed in ${processTime}ms. TX: ${receipt.hash}`);
-      
+
     } catch (error) {
       this.stats.failed++;
-      console.error(`[VOTE QUEUE] ❌ Failed to process vote for ${vote.aadhaarId}:`, error.message);
-      
+      console.error(`[VOTE QUEUE] ❌ Failed to process vote for hash ${vote.voterHash}:`, error.message);
+
       // Re-queue failed votes (max 3 retries)
       if (!vote.retries || vote.retries < 3) {
         vote.retries = (vote.retries || 0) + 1;

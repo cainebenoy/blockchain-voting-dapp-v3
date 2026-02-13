@@ -22,35 +22,34 @@ export const queueEnrollment = async (data) => {
     }
 };
 
-export const getEnrollmentStatus = async () => {
+export const getEnrollmentStatus = async (id = null) => {
     try {
-        // Fetch the most recent pending enrollment request
-        const { data, error } = await supabase
-            .from('enrollment_requests')
-            .select('*')
-            .eq('status', 'PENDING')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        let query = supabase.from('enrollment_requests').select('*');
+
+        if (id) {
+            query = query.eq('id', id);
+        } else {
+            query = query.eq('status', 'PENDING').order('created_at', { ascending: false }).limit(1);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (error) throw error;
 
-        // Check for timeout locally (example: 2 minutes)
         if (data) {
-            const created = new Date(data.created_at).getTime();
-            const now = Date.now();
-            if (now - created > 120000) {
-                // Auto-fail timed out requests
-                await supabase
-                    .from('enrollment_requests')
-                    .update({ status: 'FAILED', error_message: 'Timed out' })
-                    .eq('id', data.id);
-                return { status: 'IDLE' };
+            if (data.status === 'PENDING') {
+                const created = new Date(data.created_at).getTime();
+                const now = Date.now();
+                if (now - created > 120000) {
+                    await supabase
+                        .from('enrollment_requests')
+                        .update({ status: 'FAILED', error_message: 'Timed out' })
+                        .eq('id', data.id);
+                    return { status: 'IDLE' };
+                }
+                return { status: 'WAITING_FOR_KIOSK', ...data };
             }
-            return {
-                status: 'WAITING_FOR_KIOSK',
-                ...data
-            };
+            return data;
         }
 
         return { status: 'IDLE' };
@@ -83,10 +82,3 @@ export const setEnrollmentStatus = async (id, status, errorMsg = null) => {
     }
 };
 
-export const clearEnrollment = async () => {
-    // No-op or clear old pending
-};
-
-export const clearEnrollmentDelayed = (ms = 5000) => {
-    // No-op for DB-based approach (handled by status updates)
-};

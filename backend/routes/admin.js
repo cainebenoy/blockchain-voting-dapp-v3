@@ -138,7 +138,8 @@ router.post('/add-voter', async (req, res) => {
 
 // ENROLLMENT STATUS
 router.get('/enrollment-status', async (req, res) => {
-    const status = await getEnrollmentStatus();
+    const { id } = req.query;
+    const status = await getEnrollmentStatus(id);
     res.json(status);
 });
 

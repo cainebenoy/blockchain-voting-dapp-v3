@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabase } from '../services/db.js';
-import { getEnrollmentStatus, setEnrollmentStatus, clearEnrollmentDelayed, getPendingEnrollment } from '../services/enrollmentService.js';
+import { getEnrollmentStatus, setEnrollmentStatus, getPendingEnrollment } from '../services/enrollmentService.js';
 
 const router = express.Router();
 

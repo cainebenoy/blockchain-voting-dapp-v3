@@ -1,5 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import { supabase } from '../services/db.js';
 
 const router = express.Router();
@@ -28,13 +29,19 @@ router.post('/check-in', checkInLimiter, async (req, res) => {
             return res.status(403).json({ status: 'error', message: 'Voter has already voted.', data: null });
         }
 
+        // Generate signed session token (P0 Security)
+        const sessionToken = crypto.createHmac('sha256', process.env.SERVER_PRIVATE_KEY)
+            .update(aadhaar_id)
+            .digest('hex');
+
         res.json({
             status: 'success',
             message: 'Voter eligible.',
             data: {
                 name: voter.name,
                 fingerprint_id: voter.fingerprint_id,
-                photo_url: voter.photo_url
+                photo_url: voter.photo_url,
+                session_token: sessionToken
             }
         });
 

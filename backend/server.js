@@ -45,6 +45,15 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
+// Auth Middleware
+const adminAuth = (req, res, next) => {
+    const secret = req.headers['x-admin-secret'];
+    if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ status: 'error', message: 'Unauthorized Admin Access' });
+    }
+    next();
+};
+
 // Logger Middleware
 app.use((req, res, next) => {
     const id = crypto.randomUUID();
@@ -70,10 +79,10 @@ initEthereum();
 
 // Mount Routes
 app.use('/api/voter', authRoutes);
-app.use('/api', voteRoutes); // /api/vote, /api/verify-code
-app.use('/api/admin', adminRoutes);
+app.use('/api', voteRoutes);
+app.use('/api/admin', adminAuth, adminRoutes); // Protected admin routes
 app.use('/api/kiosk', kioskRoutes);
-app.use('/api', publicRoutes); // /api/results, /api/health
+app.use('/api', publicRoutes);
 
 // Frontend Serving
 const frontendPath = path.join(__dirname, '..');

@@ -6,12 +6,21 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { supabase } from '../services/db.js';
 import { getContract, getProvider, isContractDeployed } from '../services/ethereumService.js';
+import SimpleVoteQueue from '../utils/vote-queue.js';
+
+let voteQueue;
+const initQueue = () => {
+    if (!voteQueue) {
+        const contract = getContract();
+        if (contract) {
+            voteQueue = new SimpleVoteQueue(contract, 5000); // 5s interval for responsive testnet
+            console.log("✅ Vote Queue initialized");
+        }
+    }
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const backendRoot = path.join(__dirname, '../..'); // Go up two levels to root backend? No, up one level to 'backend', then logs are in 'backend/logs'?
-// server.js was in backend. logs were in backend/logs.
-// This file is in backend/routes. So logs are in ../logs
 const logsDir = path.join(__dirname, '../logs');
 
 // Ensure logs directory exists
@@ -36,7 +45,13 @@ function generateShortCode() {
 
 // CAST VOTE
 router.post('/vote', voteLimiter, async (req, res) => {
-    const { aadhaar_id, candidate_id } = req.body || {};
+    initQueue();
+    const { aadhaar_id, candidate_id, session_token, kiosk_nonce } = req.body || {};
+
+    // 0. Nonce Check
+    if (!kiosk_nonce) return res.status(400).json({ status: 'error', message: 'Missing transaction nonce.' });
+
+    // 1. Basic Validation
     if (typeof aadhaar_id !== 'string' || !/^\d{12}$/.test(aadhaar_id)) {
         return res.status(400).json({ status: 'error', message: 'Invalid Aadhaar ID.' });
     }
@@ -44,6 +59,16 @@ router.post('/vote', voteLimiter, async (req, res) => {
     if (!Number.isInteger(cidNum) || cidNum <= 0) {
         return res.status(400).json({ status: 'error', message: 'Invalid candidate ID.' });
     }
+
+    // 2. Session Validation (P0 Security)
+    const expectedToken = crypto.createHmac('sha256', process.env.SERVER_PRIVATE_KEY)
+        .update(aadhaar_id)
+        .digest('hex');
+
+    if (!session_token || session_token !== expectedToken) {
+        return res.status(401).json({ status: 'error', message: 'Invalid or expired biometric session.' });
+    }
+
     try {
         console.log(`Processing vote for ${aadhaar_id}...`);
 
@@ -58,76 +83,51 @@ router.post('/vote', voteLimiter, async (req, res) => {
         }
 
         const contract = getContract();
-        const addr = contract.target || contract.address; // ethers v6
+        const addr = contract.target || contract.address;
         const deployed = await isContractDeployed(addr);
         if (!deployed) {
             return res.status(503).json({ status: 'error', message: 'Election contract not available yet.' });
         }
 
-        // Hash Aadhaar ID for Privacy (SHA-256 -> bytes32)
-        const voterHash = crypto.createHash('sha256').update(aadhaar_id).digest('hex');
+        // 3. Salted Hash (P1 Privacy)
+        const salt = process.env.AADHAAR_SALT || 'default-salt';
+        const voterHash = crypto.createHash('sha256').update(aadhaar_id + salt).digest('hex');
         const voterHashBytes32 = '0x' + voterHash;
+        const nonceBytes32 = ethers.isBytesLike(kiosk_nonce) ? kiosk_nonce : ethers.keccak256(ethers.toUtf8Bytes(kiosk_nonce));
 
-        const tx = await contract.vote(cidNum, voterHashBytes32);
-        console.log("Transaction sent:", tx.hash);
+        // 4. Queue Vote (Hardened Nonce Mgmt)
+        console.log(`[API] Queuing vote for ${aadhaar_id} with nonce ${kiosk_nonce}...`);
 
-        const receiptPromise = tx.wait(1);
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('RPC_TIMEOUT')), 60000)
-        );
-
-        try {
-            await Promise.race([receiptPromise, timeoutPromise]);
-            console.log("Transaction confirmed on-chain.");
-        } catch (err) {
-            if (err.message === 'RPC_TIMEOUT') {
-                console.warn("⚠️ RPC timeout during tx.wait(), but transaction was sent.");
-            } else {
-                throw err;
-            }
-        }
-
-        const { error: dbError } = await supabase
+        // We set has_voted in DB to "true" (or we could use PENDING if we had the column)
+        // to prevent immediate double-vote attempts while queue processes.
+        await supabase
             .from('voters')
             .update({ has_voted: true })
             .eq('aadhaar_id', aadhaar_id);
 
-        if (dbError) {
-            console.error("Database update failed AFTER blockchain success:", aadhaar_id);
-        }
+        // Queue it
+        const qResult = await voteQueue.queueVote(cidNum, voterHashBytes32, nonceBytes32);
 
-        // Audit Log
-        try {
-            const aadhaarHash = crypto.createHash('sha256').update(aadhaar_id).digest('hex');
-            const auditEntry = {
-                ts: new Date().toISOString(),
-                reqId: req.id, // req.id injected by middleware
-                aadhaarHash,
-                candidateId: cidNum,
-                txHash: tx.hash,
-            };
-            fs.appendFile(path.join(logsDir, 'vote-audit.log'), JSON.stringify(auditEntry) + '\n', () => { });
-        } catch { }
-
-        let shortCode = null;
-        try {
-            shortCode = generateShortCode();
-            await supabase.from('receipts').insert([{ code: shortCode, tx_hash: tx.hash }]);
-        } catch (e) {
-            console.error('Receipt save error:', e);
-            shortCode = null;
-        }
+        // Generate receipt placeholder (tx_hash will be null until worked)
+        const shortCode = generateShortCode();
+        await supabase.from('receipts').insert([{
+            code: shortCode,
+            tx_hash: `PENDING_${kiosk_nonce}`, // Unique placeholder
+            is_confirmed: false
+        }]);
 
         res.json({
             status: 'success',
-            message: 'Vote officially recorded on-chain.',
-            data: { transaction_hash: tx.hash, receipt_code: shortCode }
+            message: 'Vote queued for blockchain processing.',
+            data: {
+                receipt_code: shortCode,
+                queue_position: qResult.queuePosition
+            }
         });
 
     } catch (err) {
         console.error("Voting Error:", err);
-        const errorMessage = err.reason || err.message || "Blockchain transaction failed.";
-        res.status(500).json({ status: 'error', message: errorMessage, data: null });
+        res.status(500).json({ status: 'error', message: err.message || "Internal Server Error" });
     }
 });
 
