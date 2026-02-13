@@ -180,10 +180,11 @@
                 <div class="relative z-10">
                     <span class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-50">Validation Result</span>
                     <div class="flex items-center gap-3 mt-6">
-                        <div class="w-12 h-12 bg-success rounded-full flex items-center justify-center text-white">
-                            <span class="material-symbols-rounded">verified</span>
+                        <div id="verifiedIcon"
+                            class="w-12 h-12 bg-success rounded-full flex items-center justify-center text-white">
+                            <span id="verifiedIconSymbol" class="material-symbols-rounded">verified</span>
                         </div>
-                        <h3 class="text-3xl font-bold tracking-tight">Confirmed</h3>
+                        <h3 id="verifiedTitle" class="text-3xl font-bold tracking-tight">Confirmed</h3>
                     </div>
                     <p class="opacity-70 text-sm mt-6 leading-relaxed" id="statusMessage">
                         This transaction is mined and irreversible. It represents a verified biometric session from an
@@ -294,6 +295,7 @@
         }
 
         // --- 4. VERIFICATION LOGIC ---
+        // --- 4. VERIFICATION LOGIC ---
         async function verifyTx() {
             const input = document.getElementById('txInput').value.trim();
             const btn = document.getElementById('btnVerify');
@@ -311,6 +313,7 @@
 
             try {
                 let txHash = input;
+                let isPendingQueue = false;
 
                 // 1. Resolve Short Code if necessary
                 if (!input.startsWith('0x')) {
@@ -322,9 +325,17 @@
                     const data = await res.json();
                     if (data.status === 'success' && data.tx_hash) {
                         txHash = data.tx_hash;
+                        if (txHash.startsWith('PENDING_')) {
+                            isPendingQueue = true;
+                        }
                     } else {
                         throw new Error(data.message || "Invalid receipt code.");
                     }
+                }
+
+                // HANDLE QUEUED VOTES
+                if (isPendingQueue) {
+                    throw new Error("Your vote is currently queued for blockchain submission. Please wait 10-15 seconds and try again.");
                 }
 
                 // 2. Query Blockchain
@@ -341,12 +352,38 @@
                 document.getElementById('toAddr').innerText = tx.to;
                 document.getElementById('etherscanLink').href = `https://sepolia.etherscan.io/tx/${txHash}`;
 
+                const statusMsg = document.getElementById('statusMessage');
+
+                // (Feature Removed: Vote Content Decoding - Privacy Protection)
+
                 if (receipt) {
-                    document.getElementById('statusMessage').innerText = receipt.status === 1
-                        ? "This transaction is mined and irreversible. It represents a verified biometric session from an authorized VoteChain hardware kiosk."
+                    const isSuccess = receipt.status === 1;
+                    statusMsg.innerText = isSuccess
+                        ? "This transaction is mined and confirmed. It represents a verified biometric session from an authorized VoteChain hardware kiosk."
                         : "This transaction failed on the blockchain. The vote was not recorded.";
+
+                    const icon = document.getElementById('verifiedIcon');
+                    const symbol = document.getElementById('verifiedIconSymbol');
+                    const title = document.getElementById('verifiedTitle');
+
+                    if (icon && symbol && title) {
+                        icon.className = `w-12 h-12 ${isSuccess ? 'bg-success' : 'bg-red-500'} rounded-full flex items-center justify-center text-white`;
+                        symbol.innerText = isSuccess ? 'verified' : 'error';
+                        title.innerText = isSuccess ? 'Confirmed' : 'Failed';
+                    }
+
                 } else {
-                    document.getElementById('statusMessage').innerText = "Transaction is currently pending in the mempool.";
+                    statusMsg.innerText = "Transaction is currently pending in the mempool. It has been broadcast but not yet mined.";
+
+                    const icon = document.getElementById('verifiedIcon');
+                    const symbol = document.getElementById('verifiedIconSymbol');
+                    const title = document.getElementById('verifiedTitle');
+
+                    if (icon && symbol && title) {
+                        icon.className = `w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-white`;
+                        symbol.innerText = 'hourglass_empty';
+                        title.innerText = 'Pending';
+                    }
                 }
 
                 resultCard.classList.remove('hidden');

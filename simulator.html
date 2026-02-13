@@ -206,28 +206,9 @@
                                 class="text-[10px] font-bold px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full uppercase">Verified</span>
                         </div>
                         <div class="grid grid-cols-1 gap-4 w-full max-w-sm mx-auto">
-                            <button onclick="simStepVote(1, 'Alice Johnson')"
-                                class="h-20 border border-border dark:border-darkBorder bg-white dark:bg-black rounded-2xl flex items-center justify-between px-8 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all group">
-                                <div class="text-left">
-                                    <span class="block font-bold text-lg">Alice Johnson</span>
-                                    <span class="text-[10px] uppercase text-subtle font-bold tracking-widest">Progress
-                                        Party</span>
-                                </div>
-                                <div
-                                    class="w-6 h-6 rounded-full border-2 border-border group-hover:bg-black dark:group-hover:bg-white transition-all">
-                                </div>
-                            </button>
-                            <button onclick="simStepVote(2, 'Bob Smith')"
-                                class="h-20 border border-border dark:border-darkBorder bg-white dark:bg-black rounded-2xl flex items-center justify-between px-8 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all group">
-                                <div class="text-left">
-                                    <span class="block font-bold text-lg">Bob Smith</span>
-                                    <span class="text-[10px] uppercase text-subtle font-bold tracking-widest">Liberty
-                                        Union</span>
-                                </div>
-                                <div
-                                    class="w-6 h-6 rounded-full border-2 border-border group-hover:bg-black dark:group-hover:bg-white transition-all">
-                                </div>
-                            </button>
+                            <!-- Dynamic Content -->
+                            <p class="text-center text-xs text-subtle animate-pulse py-8">Connecting to Election
+                                Chain...</p>
                         </div>
                     </div>
 
@@ -338,24 +319,98 @@
             }
         }
 
-        function switchScreen(id) {
+        const BACKEND_URL = "http://127.0.0.1:3000";
+        let sessionToken = null;
+        let currentAadhaar = null;
+
+        async function switchScreen(id) {
             ['screen-auth', 'screen-scan', 'screen-vote', 'screen-success'].forEach(s => {
                 const el = document.getElementById(s);
                 if (el) el.classList.add('hidden');
             });
             const target = document.getElementById(id);
             if (target) target.classList.remove('hidden');
+
+            if (id === 'screen-vote') {
+                await fetchCandidates();
+            }
         }
 
-        function simStepVerify() {
-            const val = document.getElementById('simAadhaar').value;
-            if (val.length < 4) return showMessage("ID too short", "error");
+        async function fetchCandidates() {
+            const container = document.querySelector('#screen-vote .grid');
+            if (!container) return;
 
+            // Show loading state if empty
+            if (container.children.length === 0 || container.innerText.includes('Connecting')) {
+                container.innerHTML = '<p class="text-center text-xs text-subtle animate-pulse py-8">Syncing Ballot...</p>';
+            }
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/results`);
+                const data = await res.json();
+
+                if (data.status === 'ok' && data.data.candidates) {
+                    const list = data.data.candidates;
+                    container.innerHTML = ''; // Clear loading
+
+                    if (list.length === 0) {
+                        container.innerHTML = '<p class="text-center text-xs text-subtle italic">No Candidates on Ballot</p>';
+                        return;
+                    }
+
+                    list.forEach(c => {
+                        const btn = document.createElement('button');
+                        btn.onclick = () => simStepVote(c.id, c.name);
+                        btn.className = "h-20 border border-border dark:border-darkBorder bg-white dark:bg-black rounded-2xl flex items-center justify-between px-8 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all group w-full";
+
+                        btn.innerHTML = `
+                            <div class="text-left">
+                                <span class="block font-bold text-lg">${c.name}</span>
+                                <span class="text-[10px] uppercase text-subtle font-bold tracking-widest">Candidate #${c.id}</span>
+                            </div>
+                            <div class="w-6 h-6 rounded-full border-2 border-border group-hover:bg-black dark:group-hover:bg-white transition-all"></div>
+                        `;
+                        container.appendChild(btn);
+                    });
+                }
+            } catch (e) {
+                console.error("Fetch candidates failed", e);
+                container.innerHTML = '<p class="text-center text-xs text-red-500">Failed to load ballot from chain.</p>';
+            }
+        }
+
+        async function simStepVerify() {
+            const val = document.getElementById('simAadhaar').value;
+            if (val.length < 12) return showMessage("Enter valid 12-digit ID", "error");
+
+            appendLog(`Connecting to Trust Layer...`);
             appendLog(`Querying Voter Roll for: ${val}`);
-            setTimeout(() => {
-                appendLog(`Record Found. Awaiting Fingerprint.`);
-                switchScreen('screen-scan');
-            }, 800);
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/voter/check-in`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ aadhaar_id: val })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    sessionToken = data.data.session_token;
+                    currentAadhaar = val;
+                    appendLog(`Identity Verified: ${data.data.name}`);
+                    appendLog(`Session Token: ${sessionToken.substring(0, 10)}...`);
+
+                    setTimeout(() => {
+                        switchScreen('screen-scan');
+                    }, 800);
+                } else {
+                    appendLog(`Error: ${data.message}`);
+                    showMessage(data.message, "error");
+                }
+            } catch (e) {
+                appendLog(`Connection Failed: ${e.message}`);
+                showMessage("Backend Unreachable", "error");
+            }
         }
 
         function simStepScan() {
@@ -369,18 +424,47 @@
             }, 2000);
         }
 
-        function simStepVote(candidateId, candidateName) {
-            appendLog(`Action: Cast vote for ${candidateName}`);
-            switchScreen('screen-success'); // Show success immediately for snappy feel
+        async function simStepVote(candidateId, candidateName) {
+            appendLog(`Action: Cast vote for ${candidateName} (ID: ${candidateId})`);
 
-            // Simulate Blockchain Receipt
-            const hash = "0x" + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
-            const receiptEl = document.getElementById('receiptHash');
-            if (receiptEl) receiptEl.innerText = hash;
+            if (!sessionToken || !currentAadhaar) return showMessage("Session Expired", "error");
 
-            appendLog(`Blockchain: Broadcast successful.`);
-            appendLog(`TX Hash: ${hash}`);
-            showMessage("Vote Confirmed on Sepolia", "success");
+            try {
+                const nonce = "SIM-" + Date.now();
+                appendLog(`Signing payload (Nonce: ${nonce})...`);
+
+                const res = await fetch(`${BACKEND_URL}/api/vote`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        aadhaar_id: currentAadhaar,
+                        candidate_id: candidateId,
+                        session_token: sessionToken,
+                        kiosk_nonce: nonce
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    switchScreen('screen-success');
+
+                    const receipt = data.data?.receipt_code || "Pending";
+                    const receiptEl = document.getElementById('receiptHash');
+                    if (receiptEl) receiptEl.innerText = receipt;
+
+                    appendLog(`Blockchain: Queued successfully.`);
+                    appendLog(`Receipt Code: ${receipt}`);
+                    showMessage("Vote Queued on Sepolia", "success");
+                } else {
+                    appendLog(`Vote Failed: ${data.message}`);
+                    showMessage(data.message, "error");
+                }
+            } catch (e) {
+                appendLog(`TX Error: ${e.message}`);
+                showMessage("Transaction Failed", "error");
+            }
         }
 
         // Initializing theme on load

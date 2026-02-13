@@ -382,12 +382,14 @@
                     <span class="material-symbols-rounded text-subtle">fact_check</span>
                 </div>
 
-                <div class="flex gap-2 mb-6">
-                    <input type="text" id="candidateName" placeholder="New Candidate"
-                        class="flex-1 border-b border-border dark:border-darkBorder py-2 outline-none text-sm focus:border-black dark:focus:border-white transition-colors">
-                    <button id="btnAddCandidate" onclick="addCandidate()"
-                        class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded font-bold text-xs uppercase tracking-tighter">ADD</button>
-                </div>
+                <form onsubmit="event.preventDefault(); addCandidate();">
+                    <div class="flex gap-2 mb-6">
+                        <input type="text" id="candidateName" placeholder="New Candidate"
+                            class="flex-1 border-b border-border dark:border-darkBorder py-2 outline-none text-sm focus:border-black dark:focus:border-white transition-colors">
+                        <button type="submit" id="btnAddCandidate"
+                            class="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded font-bold text-xs uppercase tracking-tighter">ADD</button>
+                    </div>
+                </form>
 
                 <div class="space-y-2 max-h-[300px] overflow-y-auto no-scrollbar flex-1" id="candidateList">
                     <p class="text-xs text-subtle italic text-center py-8">Initialising blockchain state...</p>
@@ -659,7 +661,19 @@
                 }
 
                 const btnAddCandidate = document.getElementById("btnAddCandidate");
-                if (btnAddCandidate) btnAddCandidate.disabled = active;
+                const candidateNameInput = document.getElementById("candidateName");
+
+                if (btnAddCandidate) {
+                    btnAddCandidate.disabled = active;
+                    btnAddCandidate.innerHTML = active ? '<span class="material-symbols-rounded text-xs">lock</span>' : 'ADD';
+                    btnAddCandidate.title = active ? "Candidate list locked during election" : "Add Candidate";
+                }
+                if (candidateNameInput) {
+                    candidateNameInput.disabled = active;
+                    candidateNameInput.placeholder = active ? "Locked (Election Active)" : "New Candidate";
+                    candidateNameInput.classList.toggle("opacity-50", active);
+                    candidateNameInput.classList.toggle("cursor-not-allowed", active);
+                }
 
                 const shortAddr = document.getElementById("shortAddress");
                 if (shortAddr) shortAddr.innerText = contractAddress.substring(0, 6) + "..." + contractAddress.substring(38);
@@ -687,64 +701,113 @@
         }
 
         // --- 7. ACTIONS ---
+        // --- 7. ACTIONS ---
         async function addCandidate() {
             const nameInput = document.getElementById("candidateName");
             const name = nameInput?.value || "";
+            const secret = localStorage.getItem("votechain_admin_secret");
 
             // Input validation
+            if (!secret) return triggerAuthRequired();
             if (!name || !name.trim()) return showToast("Enter candidate name", 'error');
             if (name.trim().length < 2) return showToast("Name too short (min 2 chars)", 'error');
             if (name.length > 50) return showToast("Name too long (max 50 chars)", 'error');
 
-            // Check for duplicate (case-insensitive)
             try {
-                const candidates = await contract.getAllCandidates();
-                const duplicate = candidates.find(c => c.name.toLowerCase() === name.trim().toLowerCase());
-                if (duplicate) return showToast("Candidate already exists", 'error');
-            } catch (e) {
-                console.error('[VALIDATION] Could not check duplicates:', e);
-            }
+                // Optimistic check (frontend cache)
+                // We skip strict duplicate check here as backend/contract will handle it or revert
+                // But we could check current list if we wanted to save a cal call
+            } catch (e) { }
 
             try {
-                const tx = await contract.addCandidate(name.trim());
-                showToast("Deploying to Ledger...", 'info');
-                await tx.wait();
-                showToast("Candidate Added", 'success');
-                nameInput.value = "";
-                refreshData();
+                showToast("Requesting backend to add candidate...", 'info');
+                const res = await fetch(`${BACKEND_URL}/api/admin/add-candidate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': secret
+                    },
+                    body: JSON.stringify({ name: name.trim() })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    showToast("Candidate Added. Updating list...", 'success');
+                    nameInput.value = "";
+                    setTimeout(() => {
+                        refreshData();
+                        showToast("List Updated", 'info');
+                    }, 5000); // Wait 5s for block propagation
+                } else {
+                    throw new Error(data.message || "Failed to add candidate");
+                }
             } catch (e) {
-                const msg = e.reason || e.message || "Blockchain error";
-                showToast(msg, 'error');
+                showToast(e.message, 'error');
                 console.error('[ADD_CANDIDATE] Error:', e);
             }
         }
 
         async function startElection() {
             if (!confirm("Start Election? This will freeze the voter roll.")) return;
+            const secret = localStorage.getItem("votechain_admin_secret");
+            if (!secret) return triggerAuthRequired();
+
             try {
-                const tx = await contract.startElection();
-                showToast("Broadcasting lifecycle start...", 'info');
-                await tx.wait();
-                showToast("Election Started", 'success');
-                refreshData();
+                showToast("Requesting election start...", 'info');
+                const res = await fetch(`${BACKEND_URL}/api/admin/start-election`, {
+                    method: 'POST',
+                    headers: {
+                        'x-admin-secret': secret
+                    }
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    showToast("Election Broadcasted. synchronising...", 'success');
+
+                    // Optimistic UI Update
+                    const statusBadge = document.getElementById("statusBadge");
+                    if (statusBadge) {
+                        statusBadge.innerText = "STARTING...";
+                        statusBadge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-yellow-100 text-yellow-800 animate-pulse";
+                    }
+
+                    setTimeout(() => {
+                        refreshData();
+                        showToast("Election Live! Candidate List Locked.", 'success');
+                    }, 5000); // Wait 5s for block propagation
+                } else {
+                    throw new Error(data.message);
+                }
             } catch (e) {
-                const msg = e.reason || e.message || "Transaction failed";
-                showToast(msg, 'error');
+                showToast(e.message, 'error');
                 console.error('[START_ELECTION] Error:', e);
             }
         }
 
         async function endElection() {
             if (!confirm("End Election permanently? This resets nothing but stops new votes.")) return;
+            const secret = localStorage.getItem("votechain_admin_secret");
+            if (!secret) return triggerAuthRequired();
+
             try {
-                const tx = await contract.endElection();
-                showToast("Finalising tally...", 'info');
-                await tx.wait();
-                showToast("Election Ended", 'success');
-                refreshData();
+                showToast("Requesting election end...", 'info');
+                const res = await fetch(`${BACKEND_URL}/api/admin/end-election`, {
+                    method: 'POST',
+                    headers: {
+                        'x-admin-secret': secret
+                    }
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    showToast("Election Ended", 'success');
+                    setTimeout(refreshData, 2000);
+                } else {
+                    throw new Error(data.message);
+                }
             } catch (e) {
-                const msg = e.reason || e.message || "Transaction failed";
-                showToast(msg, 'error');
+                showToast(e.message, 'error');
                 console.error('[END_ELECTION] Error:', e);
             }
         }
@@ -798,8 +861,13 @@
                     const status = await res.json();
                     console.log('[DEBUG] Enrollment poll status retrieved:', status.status);
 
-                    if (status.status === 'WAITING_FOR_KIOSK') {
-                        document.getElementById('btnManualEnroll').classList.remove('hidden');
+                    if (status.status === 'WAITING_FOR_KIOSK' || status.status === 'PENDING') {
+                        const btn = document.getElementById('btnManualEnroll');
+                        if (btn.classList.contains('hidden')) {
+                            btn.classList.remove('hidden');
+                            showToast("Manual Override Available", 'info');
+                        }
+
                         text.innerText = "Scanning Finger...";
                         sub.innerText = "Hardware sensor active. Please place finger.";
                         icon.className = "w-16 h-16 bg-accent/20 text-accent rounded-full flex items-center justify-center mb-4 animate-pulse";
@@ -877,20 +945,29 @@
             const hasSecret = localStorage.getItem("votechain_admin_secret");
 
             if (lockIcon && lockDot) {
-                if (hasSecret && backendOk) {
-                    // Authenticated - GREEN unlocked
+                if (hasSecret) {
+                    // AUTHENTICATED -> UNLOCKED (Green Icon)
                     lockIcon.innerText = 'lock_open';
                     lockIcon.classList.remove('text-red-600');
                     lockIcon.classList.add('text-green-600');
-                    lockDot.classList.remove('bg-red-500');
-                    lockDot.classList.add('bg-green-500');
+
+                    // DOT reflects connection
+                    if (backendOk) {
+                        lockDot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border-2 border-white dark:border-black";
+                        lockDot.title = "System Online";
+                    } else {
+                        lockDot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black animate-pulse";
+                        lockDot.title = "Backend Offline";
+                    }
                 } else {
-                    // Not authenticated - RED locked
+                    // LOCKED (Red Icon)
                     lockIcon.innerText = 'lock';
                     lockIcon.classList.remove('text-green-600');
                     lockIcon.classList.add('text-red-600');
-                    lockDot.classList.remove('bg-green-500');
-                    lockDot.classList.add('bg-red-500');
+
+                    // Dot Matches Lock
+                    lockDot.className = "absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black";
+                    lockDot.title = "Locked";
                 }
             }
         }

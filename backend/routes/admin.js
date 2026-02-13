@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import crypto from 'crypto';
 import { supabase } from '../services/db.js';
-import { getWallet, getABI, ensureAuthorizedSignerFor, updateContractAddress } from '../services/ethereumService.js';
+import { getWallet, getABI, ensureAuthorizedSignerFor, updateContractAddress, getContract } from '../services/ethereumService.js';
 import { queueEnrollment, getEnrollmentStatus } from '../services/enrollmentService.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -207,6 +207,67 @@ router.post('/enroll-manual-confirm', async (req, res) => {
     } catch (err) {
         console.error('[ADMIN BYPASS] Error:', err);
         res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
+// --- ELECTION MANAGEMENT (Backend Proxy) ---
+
+// ADD CANDIDATE
+router.post('/add-candidate', async (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ status: 'error', message: 'Candidate name required.' });
+
+    try {
+        console.log(`[ADMIN] Adding candidate: ${name}`);
+        const contract = getContract();
+        if (!contract) throw new Error("Contract not connected.");
+
+        // Use server wallet (owner)
+        const tx = await contract.addCandidate(name);
+        console.log(`[ADMIN] Tx sent: ${tx.hash}`);
+        await tx.wait();
+        console.log(`[ADMIN] Candidate ${name} added.`);
+
+        res.json({ status: 'success', message: 'Candidate added successfully.', tx: tx.hash });
+    } catch (e) {
+        console.error('[ADMIN] Add Candidate Failed:', e);
+        res.status(500).json({ status: 'error', message: e.message || "Blockchain transaction failed" });
+    }
+});
+
+// START ELECTION
+router.post('/start-election', async (req, res) => {
+    try {
+        console.log('[ADMIN] Starting election...');
+        const contract = getContract();
+        if (!contract) throw new Error("Contract not connected.");
+
+        const tx = await contract.startElection();
+        await tx.wait();
+
+        console.log('[ADMIN] Election started.');
+        res.json({ status: 'success', message: 'Election started.', tx: tx.hash });
+    } catch (e) {
+        console.error('[ADMIN] Start Election Failed:', e);
+        res.status(500).json({ status: 'error', message: e.message });
+    }
+});
+
+// END ELECTION
+router.post('/end-election', async (req, res) => {
+    try {
+        console.log('[ADMIN] Ending election...');
+        const contract = getContract();
+        if (!contract) throw new Error("Contract not connected.");
+
+        const tx = await contract.endElection();
+        await tx.wait();
+
+        console.log('[ADMIN] Election ended.');
+        res.json({ status: 'success', message: 'Election ended.', tx: tx.hash });
+    } catch (e) {
+        console.error('[ADMIN] End Election Failed:', e);
+        res.status(500).json({ status: 'error', message: e.message });
     }
 });
 

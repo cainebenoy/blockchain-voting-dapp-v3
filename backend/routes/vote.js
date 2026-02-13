@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { supabase } from '../services/db.js';
 import { getContract, getProvider, isContractDeployed } from '../services/ethereumService.js';
 import SimpleVoteQueue from '../utils/vote-queue.js';
+import { ethers } from 'ethers';
 
 let voteQueue;
 const initQueue = () => {
