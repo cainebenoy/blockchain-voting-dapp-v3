@@ -8,8 +8,11 @@ import time
 import sys
 import threading
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import uuid
 import socket
+import atexit
 from hardware import hardware
 
 # --- CONFIGURATION ---
@@ -36,6 +39,15 @@ logging.basicConfig(
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# HTTP session with retry strategy to make /api/results more robust
+_session = requests.Session()
+_retry_strategy = Retry(total=3, backoff_factor=0.5, status_forcelist=[502,503,504])
+_session.mount("http://", HTTPAdapter(max_retries=_retry_strategy))
+
+# Tuning
+FAILURE_CACHE_MAX = int(os.getenv('FAILURE_CACHE_MAX', '5'))
+POLL_TIMEOUT = int(os.getenv('POLL_TIMEOUT', '10'))
 
 def discover_backend():
     """Discover backend URL via Supabase (Service Discovery)"""
@@ -76,9 +88,18 @@ START_TIME = time.time()
 def cleanup():
     """Graceful shutdown handler"""
     logging.info("Kiosk shutting down...")
-    hardware.set_leds(False, False)
-    hardware.show_msg("VOTECHAIN", "Offline", "System Shutdown")
-    hardware.cleanup()
+    try:
+        hardware.set_leds(False, False)
+    except Exception:
+        pass
+    try:
+        hardware.show_msg("VOTECHAIN", "Offline", "System Shutdown")
+    except Exception:
+        pass
+    try:
+        hardware.cleanup()
+    except Exception:
+        pass
 
 atexit.register(cleanup)
 
@@ -320,15 +341,43 @@ def get_input_non_blocking():
     return None
 
 def fetch_active_candidates():
-    """Retrieve candidate list and election status from blockchain via backend"""
+    """Robustly retrieve candidate list and election status from backend.
+
+    Uses a session with retries, a timeout, and a small failure cache so brief
+    backend hiccups don't immediately flip the UI to 'Election Closed'.
+    Returns (candidates_list, election_active_bool)
+    """
+    global _LAST_CANDIDATES, _LAST_ELECTION_ACTIVE, _CONSECUTIVE_FAILURES
+
     try:
-        res = requests.get(f"{BACKEND_URL}/api/results", headers={'ngrok-skip-browser-warning': 'true'}, timeout=5)
-        if res.status_code == 200:
-            data = res.json().get('data', {})
-            return data.get('candidates', []), data.get('electionActive', False)
+        _ = _LAST_CANDIDATES
+    except NameError:
+        _LAST_CANDIDATES = []
+        _LAST_ELECTION_ACTIVE = False
+        _CONSECUTIVE_FAILURES = 0
+
+    try:
+        res = _session.get(f"{BACKEND_URL}/api/results", headers={'ngrok-skip-browser-warning': 'true'}, timeout=POLL_TIMEOUT)
+        res.raise_for_status()
+        data = res.json().get('data', {}) if isinstance(res.json(), dict) else res.json()
+        candidates = data.get('candidates', [])
+        election_active = data.get('electionActive', data.get('active', False))
+
+        _LAST_CANDIDATES = candidates
+        _LAST_ELECTION_ACTIVE = election_active
+        _CONSECUTIVE_FAILURES = 0
+        return candidates, election_active
+
     except Exception as e:
-        logging.error(f"Failed to fetch candidates: {e}")
-    return [], False
+        logging.warning(f"fetch_active_candidates failed: {e}")
+        _CONSECUTIVE_FAILURES += 1
+
+        if _CONSECUTIVE_FAILURES <= FAILURE_CACHE_MAX:
+            logging.info(f"Using cached candidates (failures={_CONSECUTIVE_FAILURES})")
+            return _LAST_CANDIDATES, _LAST_ELECTION_ACTIVE
+
+        logging.error(f"Too many failures ({_CONSECUTIVE_FAILURES}); falling back to closed state")
+        return [], False
 
 def validate_aadhaar(val):
     """Local format check for Aadhaar (12 digits)"""
@@ -377,11 +426,19 @@ def main():
             election_active = active_now
             logging.info(f"Kiosk updated: Election Active={election_active}, Candidates={len(candidates)}")
 
-        # 4. Idle Screen
+        # 4. Idle Screen — show closed but still poll buttons so START can get a user message
         if not election_active:
             hardware.show_msg("VOTECHAIN", "Election Closed", "Admin Portal Only", big_text=False)
             hardware.set_leds(False, True)
-            time.sleep(POLL_INTERVAL)
+            # Poll buttons for up to POLL_INTERVAL seconds so START presses are acknowledged
+            start_poll = time.time()
+            while time.time() - start_poll < POLL_INTERVAL:
+                if hardware.is_button_pressed('START'):
+                    hardware.show_msg("Closed", "Use Admin Portal", "", big_text=False)
+                    hardware.beep(1)
+                    time.sleep(1)
+                    break
+                time.sleep(0.1)
             continue
 
         hardware.show_msg("VOTE", "CHAIN", "Press START", big_text=True)
@@ -392,15 +449,17 @@ def main():
             hardware.show_msg("Voter Identity", "Enter Aadhaar ID", "On Keyboard/Scanner")
             hardware.beep(1)
             
-            # Wait for Aadhaar with timeout and "Cancel" button support
-            start_time = time.time()
+            # Persistent Aadhaar entry prompt: wait until valid input or explicit cancel
             aadhaar = None
-            while time.time() - start_time < 30: # 30s timeout
-                # Check for Reset/Cancel
-                if hardware.is_button_pressed('START'): 
+            start_time = time.time()
+            MAX_WAIT = 120  # seconds
+            last_feedback = 0
+            while True:
+                # Cancel if operator presses START (debounced)
+                if hardware.is_button_pressed('START'):
                     aadhaar = "CANCEL"
                     break
-                
+
                 # Non-blocking check for keyboard input
                 val = get_input_non_blocking()
                 if val:
@@ -410,8 +469,23 @@ def main():
                     else:
                         hardware.show_msg("Invalid ID", "Must be 12 Digits", "Try Again")
                         hardware.beep(1, 0.5)
-                        time.sleep(2)
+                        time.sleep(1)
                         hardware.show_msg("Voter Identity", "Enter Aadhaar ID", "On Keyboard/Scanner")
+
+                # Periodic countdown feedback
+                if time.time() - last_feedback > 5:
+                    remaining = MAX_WAIT - int(time.time() - start_time)
+                    if remaining < 0:
+                        remaining = 0
+                    hardware.show_msg("Voter Identity", f"Enter Aadhaar ({remaining}s)", "")
+                    last_feedback = time.time()
+
+                # Timeout -> return to idle
+                if time.time() - start_time > MAX_WAIT:
+                    hardware.show_msg("Timeout", "Returning to Idle", "")
+                    time.sleep(1)
+                    break
+
                 time.sleep(0.1)
 
             if not aadhaar or aadhaar == "CANCEL":

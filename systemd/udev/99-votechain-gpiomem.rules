@@ -1,0 +1,2 @@
+# Trigger the kiosk service when a /dev/gpiomem device is added
+KERNEL=="gpiomem*", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}="votechain-kiosk.service"

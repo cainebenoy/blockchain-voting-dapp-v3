@@ -1,23 +1,34 @@
 [Unit]
 Description=VoteChain V3 - Kiosk Terminal (Headless)
-After=network-online.target votechain-backend.service
-Requires=votechain-backend.service
+After=network.target votechain-backend.service systemd-modules-load.service dev-gpiomem0.device
+Wants=dev-gpiomem0.device
+Wants=votechain-backend.service
+After=votechain-backend.service
+Requires=votechain.service
+ConditionPathExists=/dev/gpiomem0
+
 
 [Service]
 Type=simple
 User=root
+Group=root
 # Kiosk often needs root for hardware (GPIO/SPI) access on older kernels
-# Recommended path
 WorkingDirectory=/opt/votechain/kiosk
 
-# Health Check: Wait for backend API to be ready
-ExecStartPre=/usr/bin/curl -s --connect-timeout 2 http://localhost:3000/api/health > /dev/null
+# Short sleep to allow devices/modules to settle
+ExecStartPre=/bin/sleep 5
 
-ExecStart=/usr/bin/python3 kiosk_main.py
+# Start kiosk with absolute path using python
+ExecStart=/usr/bin/python3 /opt/votechain/kiosk/kiosk_main.py
+
+# Backend URL to avoid discovery blocking on startup
+Environment=BACKEND_URL=http://localhost:3000
+TimeoutStartSec=60
 
 # Restart Strategy
 Restart=always
-RestartSec=10
+RestartSec=5
+StartLimitIntervalSec=0
 
 # Logging
 StandardOutput=journal
