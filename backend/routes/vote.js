@@ -73,11 +73,32 @@ router.post('/vote', voteLimiter, async (req, res) => {
     try {
         console.log(`Processing vote for ${aadhaar_id}...`);
 
-        const { data: voter } = await supabase
+        const salt = process.env.AADHAAR_SALT || 'default-salt';
+        const voterHash = crypto.createHash('sha256').update(aadhaar_id + salt).digest('hex');
+
+        // Robust Lookup (Hashed then Plain) - Same as auth.js
+        let { data: voter, error: voterErr } = await supabase
             .from('voters')
-            .select('has_voted')
-            .eq('aadhaar_id', aadhaar_id)
+            .select('has_voted, aadhaar_id')
+            .eq('aadhaar_id', voterHash)
             .single();
+
+        let usedIdentifier = voterHash;
+
+        if (voterErr || !voter) {
+            const { data: plainVoter, error: plainError } = await supabase
+                .from('voters')
+                .select('has_voted, aadhaar_id')
+                .eq('aadhaar_id', aadhaar_id)
+                .single();
+
+            if (!plainError && plainVoter) {
+                voter = plainVoter;
+                usedIdentifier = aadhaar_id;
+            } else {
+                return res.status(404).json({ status: 'error', message: 'Voter not found.', data: null });
+            }
+        }
 
         if (voter?.has_voted) {
             return res.status(403).json({ status: 'error', message: 'Double voting detected!', data: null });
@@ -96,9 +117,6 @@ router.post('/vote', voteLimiter, async (req, res) => {
             return res.status(403).json({ status: 'error', message: 'Election is closed. Voting disabled.' });
         }
 
-        // 3. Salted Hash (P1 Privacy)
-        const salt = process.env.AADHAAR_SALT || 'default-salt';
-        const voterHash = crypto.createHash('sha256').update(aadhaar_id + salt).digest('hex');
         const voterHashBytes32 = '0x' + voterHash;
         const nonceBytes32 = ethers.isBytesLike(kiosk_nonce) ? kiosk_nonce : ethers.keccak256(ethers.toUtf8Bytes(kiosk_nonce));
 
@@ -110,7 +128,7 @@ router.post('/vote', voteLimiter, async (req, res) => {
         await supabase
             .from('voters')
             .update({ has_voted: true })
-            .eq('aadhaar_id', voterHash);
+            .eq('aadhaar_id', usedIdentifier);
 
         // Queue it
         // Pass kiosk_nonce (original string) as 4th arg for DB reconciliation
@@ -215,20 +233,6 @@ router.post('/verify-transaction', async (req, res) => {
         }
     } catch (err) {
         res.status(500).json({ status: 'error', message: 'Failed to fetch transaction.' });
-    }
-});
-
-// DEBUG: Get last 10 receipts
-router.get('/debug/receipts', async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('receipts')
-            .select('*')
-            //.order('id', { ascending: false }) // id missing
-            .limit(50);
-        res.json({ status: 'success', data, error });
-    } catch (e) {
-        res.status(500).json({ status: 'error', message: e.message });
     }
 });
 
