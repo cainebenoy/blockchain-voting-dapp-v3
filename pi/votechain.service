@@ -1,0 +1,21 @@
+[Unit]
+Description=VoteChain Kiosk Startup (Backend + Ngrok)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# CHANGE THIS: Set to your actual username (e.g., pi)
+User=pi
+# CHANGE THIS: Set to the actual path where you saved the project
+WorkingDirectory=/home/pi/blockchain-voting-dapp-v3
+# Run the provided startup script
+ExecStart=/bin/bash pi/start_kiosk.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=votechain
+
+[Install]
+WantedBy=multi-user.target
