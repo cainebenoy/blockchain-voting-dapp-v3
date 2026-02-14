@@ -205,6 +205,7 @@ router.post('/lookup-receipt', async (req, res) => {
         if (error || !data) return res.status(404).json({ status: 'error', message: 'Receipt not found.' });
         res.json({ status: 'success', code: data.code });
     } catch (err) {
+        console.error(`[RECEIPT] Lookup error:`, err);
         res.status(500).json({ status: 'error', message: 'Lookup failed.' });
     }
 });
@@ -232,6 +233,7 @@ router.post('/verify-transaction', async (req, res) => {
             res.status(404).json({ status: 'error', message: 'Transaction not found or not confirmed.' });
         }
     } catch (err) {
+        console.error(`[TX] Verification error:`, err);
         res.status(500).json({ status: 'error', message: 'Failed to fetch transaction.' });
     }
 });

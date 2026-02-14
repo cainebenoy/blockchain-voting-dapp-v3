@@ -33,7 +33,7 @@ describe("VotingV2 Protocol Hardening", function () {
         // Replay attack with same nonce but different voter ID
         await expect(
             votingV2.connect(signer).vote(1, voter2, nonce)
-        ).to.be.revertedWith("Nonce already used");
+        ).to.be.revertedWith("This transaction nonce has already been used.");
     });
 
     it("should emit KioskNonceUsed event on successful vote", async function () {
