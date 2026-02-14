@@ -319,9 +319,37 @@
             }
         }
 
-        const BACKEND_URL = "http://127.0.0.1:3000";
+        // --- CONFIG ---
+        const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
+        const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc";
+
+        let BACKEND_URL = "http://127.0.0.1:3000";
         let sessionToken = null;
         let currentAadhaar = null;
+
+        // --- DISCOVERY ---
+        async function discoverBackend() {
+            try {
+                // Fetch static URL from Supabase
+                const response = await fetch(`${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value`, {
+                    headers: { 'apikey': CONFIG_SUPABASE_KEY, 'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}` }
+                });
+                const data = await response.json();
+                if (data?.[0]?.value && !data[0].value.includes('waiting')) {
+                    BACKEND_URL = data[0].value;
+                    console.log("🔗 Discovered Kiosk:", BACKEND_URL);
+
+                    // Update status indicator
+                    const indicator = document.querySelector('.text-green-500.font-bold');
+                    if (indicator) indicator.innerText = "Connected via Ngrok";
+                }
+            } catch (e) {
+                console.warn("Discovery failed, using default:", BACKEND_URL);
+            }
+        }
+
+        // Run discovery immediately
+        discoverBackend();
 
         async function switchScreen(id) {
             ['screen-auth', 'screen-scan', 'screen-vote', 'screen-success'].forEach(s => {
@@ -346,12 +374,26 @@
             }
 
             try {
-                const res = await fetch(`${BACKEND_URL}/api/results`);
+                const res = await fetch(`${BACKEND_URL}/api/results`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
                 const data = await res.json();
 
                 if (data.status === 'ok' && data.data.candidates) {
                     const list = data.data.candidates;
+                    const isActive = data.data.electionActive; // Backend returns this
+
                     container.innerHTML = ''; // Clear loading
+
+                    // Block voting if election is closed
+                    if (isActive === false) {
+                        container.innerHTML = `
+                            <div class="text-center p-8 border border-border dark:border-darkBorder rounded-2xl bg-neutral-50 dark:bg-neutral-900/50">
+                                <span class="material-symbols-rounded text-4xl text-subtle mb-3">lock_clock</span>
+                                <h3 class="font-bold text-lg">Election Closed</h3>
+                                <p class="text-xs text-subtle mt-1">Voting is currently disabled by the official.</p>
+                            </div>
+                        `;
+                        return;
+                    }
 
                     if (list.length === 0) {
                         container.innerHTML = '<p class="text-center text-xs text-subtle italic">No Candidates on Ballot</p>';
@@ -389,7 +431,10 @@
             try {
                 const res = await fetch(`${BACKEND_URL}/api/voter/check-in`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
                     body: JSON.stringify({ aadhaar_id: val })
                 });
                 const data = await res.json();
@@ -436,7 +481,8 @@
                 const res = await fetch(`${BACKEND_URL}/api/vote`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
                     },
                     body: JSON.stringify({
                         aadhaar_id: currentAadhaar,

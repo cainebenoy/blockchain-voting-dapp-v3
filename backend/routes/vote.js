@@ -90,6 +90,12 @@ router.post('/vote', voteLimiter, async (req, res) => {
             return res.status(503).json({ status: 'error', message: 'Election contract not available yet.' });
         }
 
+        // 2.5 Safety Check: Is Election Active?
+        const isActive = await contract.electionActive();
+        if (!isActive) {
+            return res.status(403).json({ status: 'error', message: 'Election is closed. Voting disabled.' });
+        }
+
         // 3. Salted Hash (P1 Privacy)
         const salt = process.env.AADHAAR_SALT || 'default-salt';
         const voterHash = crypto.createHash('sha256').update(aadhaar_id + salt).digest('hex');
@@ -107,15 +113,23 @@ router.post('/vote', voteLimiter, async (req, res) => {
             .eq('aadhaar_id', voterHash);
 
         // Queue it
-        const qResult = await voteQueue.queueVote(cidNum, voterHashBytes32, nonceBytes32);
+        // Pass kiosk_nonce (original string) as 4th arg for DB reconciliation
+        const qResult = await voteQueue.queueVote(cidNum, voterHashBytes32, nonceBytes32, kiosk_nonce);
 
         // Generate receipt placeholder (tx_hash will be null until worked)
         const shortCode = generateShortCode();
-        await supabase.from('receipts').insert([{
+        const { error: receiptErr } = await supabase.from('receipts').insert([{
             code: shortCode,
-            tx_hash: `PENDING_${kiosk_nonce}`, // Unique placeholder
-            is_confirmed: false
+            tx_hash: `PENDING_${kiosk_nonce}`
+            // is_confirmed removed due to schema mismatch
         }]);
+
+        if (receiptErr) {
+            console.error(`[API] Receipt insertion failed for ${shortCode}:`, receiptErr);
+            // We don't fail the whole vote for a receipt error, but we should know
+        } else {
+            console.log(`[API] Receipt ${shortCode} created (pending)`);
+        }
 
         res.json({
             status: 'success',
@@ -135,15 +149,28 @@ router.post('/vote', voteLimiter, async (req, res) => {
 // Verify Code (Short Code -> Tx Hash)
 router.post('/verify-code', async (req, res) => {
     const code = (req.body && req.body.code ? String(req.body.code).toUpperCase() : '');
+    console.log(`[DEBUG] Verifying code: "${code}"`);
     try {
         const { data, error } = await supabase
             .from('receipts')
             .select('tx_hash')
             .eq('code', code)
             .single();
-        if (error || !data) return res.status(404).json({ status: 'error', message: 'Invalid Code' });
+
+        if (error) {
+            console.error(`[DEBUG] DB Error finding code ${code}:`, error.message);
+            return res.status(404).json({ status: 'error', message: 'Invalid Code' });
+        }
+
+        if (!data) {
+            console.warn(`[DEBUG] No data found for code ${code}`);
+            return res.status(404).json({ status: 'error', message: 'Invalid Code' });
+        }
+
+        console.log(`[DEBUG] Code ${code} resolved to ${data.tx_hash}`);
         res.json({ status: 'success', tx_hash: data.tx_hash });
     } catch (e) {
+        console.error(`[DEBUG] Internal error during verification:`, e);
         res.status(500).json({ status: 'error' });
     }
 });
@@ -188,6 +215,20 @@ router.post('/verify-transaction', async (req, res) => {
         }
     } catch (err) {
         res.status(500).json({ status: 'error', message: 'Failed to fetch transaction.' });
+    }
+});
+
+// DEBUG: Get last 10 receipts
+router.get('/debug/receipts', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('*')
+            //.order('id', { ascending: false }) // id missing
+            .limit(50);
+        res.json({ status: 'success', data, error });
+    } catch (e) {
+        res.status(500).json({ status: 'error', message: e.message });
     }
 });
 

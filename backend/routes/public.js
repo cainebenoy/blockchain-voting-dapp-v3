@@ -27,6 +27,11 @@ router.get('/active-contract', (req, res) => {
 
     // Always return the environment variable as the source of truth
     // The contract instance may be stale if the address was updated after initialization
+
+    // Manual CORS Fallback
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, ngrok-skip-browser-warning');
+
     res.json({
         status: 'ok',
         contractAddress: process.env.VOTING_CONTRACT_ADDRESS,
@@ -51,6 +56,8 @@ router.get('/results', async (req, res) => {
         const cCount = await contract.totalCandidates();
         const candidates = await contract.getAllCandidates();
 
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, ngrok-skip-browser-warning');
         res.json({
             status: 'ok',
             data: {
@@ -120,6 +127,8 @@ router.get('/metrics', async (_req, res) => {
             console.warn('[METRICS] Supabase total query failed:', e.message);
         }
 
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, ngrok-skip-browser-warning');
         res.json({
             status: 'success',
             message: 'Metrics ready',

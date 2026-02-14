@@ -36,15 +36,17 @@ class SimpleVoteQueue {
    * Add vote to queue
    * @param {number} candidateId - Candidate to vote for
    * @param {string} voterHash - Hashed voter identifier
-   * @param {string} kioskNonce - Unique nonce from kiosk
+   * @param {string} kioskNonce - Unique nonce (Bytes32 or Hex) for Contract
+   * @param {string} originalNonce - Original nonce string for DB lookup
    * @returns {Promise} Resolves when vote is queued (NOT when processed)
    */
-  async queueVote(candidateId, voterHash, kioskNonce) {
+  async queueVote(candidateId, voterHash, kioskNonce, originalNonce) {
     return new Promise((resolve, reject) => {
       this.queue.push({
         candidateId,
         voterHash,
         kioskNonce,
+        originalNonce: originalNonce || kioskNonce, // Fallback if not provided
         timestamp: Date.now(),
         resolve,
         reject
@@ -97,13 +99,16 @@ class SimpleVoteQueue {
 
       // RECONCILIATION: Update receipt table with real TX hash
       try {
+        // Use originalNonce if available, otherwise fallback to kioskNonce
+        const lookupNonce = vote.originalNonce || vote.kioskNonce;
+
         await supabase
           .from('receipts')
           .update({
-            tx_hash: receipt.hash,
-            is_confirmed: true
+            tx_hash: receipt.hash
+            // is_confirmed removed
           })
-          .eq('tx_hash', `PENDING_${vote.kioskNonce}`);
+          .eq('tx_hash', `PENDING_${lookupNonce}`);
       } catch (dbErr) {
         console.error(`[VOTE QUEUE] ⚠️ Reconcile failed for ${vote.voterHash}:`, dbErr);
       }

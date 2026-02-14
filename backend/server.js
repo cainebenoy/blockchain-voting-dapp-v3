@@ -41,8 +41,18 @@ if (missing.length) {
 const app = express();
 const port = 3000;
 
+process.on('uncaughtException', (err) => {
+    console.error('🔥 UNCAUGHT EXCEPTION:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔥 UNHANDLED REJECTION:', reason);
+});
+
 // GLOBAL LOGGER for debugging
 app.use((req, res, next) => {
+    if (req.url.startsWith('/metrics') || req.url.startsWith('/poll-commands') || req.url.includes('admin.html')) {
+        return next();
+    }
     console.log(`[DEBUG_API] Incoming Request: ${req.method} ${req.url}`);
     next();
 });
@@ -50,12 +60,13 @@ app.use((req, res, next) => {
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: '*'
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret', 'ngrok-skip-browser-warning']
 }));
 app.use(express.json());
 
 // Auth Middleware
 const adminAuth = (req, res, next) => {
+    if (req.method === 'OPTIONS') return next(); // Allow preflight
     const secret = req.headers['x-admin-secret'];
     console.log(`[DEBUG] Received secret: "${secret}", Expected: "${process.env.ADMIN_SECRET}"`);
     if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
@@ -94,7 +105,11 @@ app.use('/api/admin', adminAuth, adminRoutes); // Protected admin routes
 app.use('/api/kiosk', adminAuth, kioskRoutes);  // Protected kiosk routes
 app.use('/api', publicRoutes);
 
-// Frontend Serving
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: Date.now() });
+});
+
+// Fronted Serving
 const frontendPath = path.join(__dirname, '..');
 app.use(express.static(frontendPath));
 

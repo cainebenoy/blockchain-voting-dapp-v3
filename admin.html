@@ -420,6 +420,7 @@
         let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
         let provider, signer, contract;
         let totalVotersMarked = 0;
+        let totalCandidatesNum = 0; // Added for pre-checks
         let currentRequestId = null;
 
         const contractABI = [
@@ -455,10 +456,25 @@
         }
 
         // --- 4. SERVICE DISCOVERY ---
+        // --- 4. SERVICE DISCOVERY ---
         async function discoverBackend() {
-            // Force localhost for local development
-            console.log('✅ Using local backend:', BACKEND_URL);
-            // Supabase discovery disabled for local testing
+            try {
+                // Fetch static URL from Supabase
+                const response = await fetch(`${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value`, {
+                    headers: { 'apikey': CONFIG_SUPABASE_KEY, 'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}` }
+                });
+                const data = await response.json();
+                if (data?.[0]?.value && !data[0].value.includes('waiting')) {
+                    BACKEND_URL = data[0].value;
+                    console.log("🔗 Discovered Kiosk:", BACKEND_URL);
+
+                    // Update connection dots
+                    updateBackendAuthStatus(false); // Reset to check against new URL
+                    checkHealth(); // Trigger immediate check
+                }
+            } catch (e) {
+                console.warn("Discovery failed, using default:", BACKEND_URL);
+            }
         }
 
         // Initialize contract for read-only access (no wallet needed)
@@ -507,7 +523,7 @@
 
             // /api/health is public, no auth needed
             try {
-                const res = await fetch(`${BACKEND_URL}/api/health`);
+                const res = await fetch(`${BACKEND_URL}/api/health`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
                 // Assume if backend is up, DB is likely up unless metrics fail
                 // We'll update backend status first
                 const backendOk = res.ok;
@@ -518,7 +534,7 @@
 
             // /api/metrics is public, returns DB counts
             try {
-                const res = await fetch(`${BACKEND_URL}/api/metrics`);
+                const res = await fetch(`${BACKEND_URL}/api/metrics`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
                 const data = await res.json();
 
                 // Use metrics success to determine DB health
@@ -533,7 +549,10 @@
             // /api/kiosk/poll-commands now requires admin auth
             try {
                 const res = await fetch(`${BACKEND_URL}/api/kiosk/poll-commands`, {
-                    headers: { 'x-admin-secret': secret }
+                    headers: {
+                        'x-admin-secret': secret,
+                        'ngrok-skip-browser-warning': 'true'
+                    }
                 });
                 updateStatusIcon('kiosk', res.ok);
                 if (res.status === 401) triggerAuthRequired();
@@ -597,7 +616,10 @@
                 try {
                     const secret = localStorage.getItem("votechain_admin_secret");
                     const voterRes = await fetch(`${BACKEND_URL}/api/admin/voter-stats`, {
-                        headers: { 'x-admin-secret': secret }
+                        headers: {
+                            'x-admin-secret': secret,
+                            'ngrok-skip-browser-warning': 'true'
+                        }
                     });
                     const voterData = await voterRes.json();
                     if (voterData.status === 'success') {
@@ -610,6 +632,7 @@
                 const active = await contract.electionActive();
                 const v = await contract.totalVotes();
                 const c = await contract.totalCandidates();
+                totalCandidatesNum = Number(c); // Store for pre-checks
                 const list = await contract.getAllCandidates();
 
                 console.log('[REFRESH] Data fetched:', { active, votes: v.toString(), candidates: c.toString(), list });
@@ -725,7 +748,8 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-admin-secret': secret
+                        'x-admin-secret': secret,
+                        'ngrok-skip-browser-warning': 'true'
                     },
                     body: JSON.stringify({ name: name.trim() })
                 });
@@ -748,6 +772,10 @@
         }
 
         async function startElection() {
+            if (totalCandidatesNum === 0) {
+                showToast("Add at least one candidate first!", 'error');
+                return;
+            }
             if (!confirm("Start Election? This will freeze the voter roll.")) return;
             const secret = localStorage.getItem("votechain_admin_secret");
             if (!secret) return triggerAuthRequired();
@@ -757,7 +785,8 @@
                 const res = await fetch(`${BACKEND_URL}/api/admin/start-election`, {
                     method: 'POST',
                     headers: {
-                        'x-admin-secret': secret
+                        'x-admin-secret': secret,
+                        'ngrok-skip-browser-warning': 'true'
                     }
                 });
                 const data = await res.json();
@@ -901,20 +930,31 @@
         }
 
         async function deployNewElection() {
-            if (!confirm("Deploy fresh contract and reset voters? Gas fees apply.")) return;
+            if (!confirm("⚠️ Deploy New Election Contract?\n\nThis will:\n• Deploy a new contract to Sepolia (Server Wallet)\n• Reset all voter data\n• Restart the backend service\n\nAre you sure you want to proceed?")) return;
+
             try {
+                showToast("Initiating Deployment...", 'info');
                 const secret = localStorage.getItem("votechain_admin_secret") || "";
                 const res = await fetch(`${BACKEND_URL}/api/admin/deploy-contract`, {
                     method: 'POST',
-                    headers: { 'x-admin-secret': secret }
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-secret': secret,
+                        'ngrok-skip-browser-warning': 'true'
+                    }
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
                     localStorage.setItem("votechain_contract", data.data.contractAddress);
-                    showToast("Environment Reset - Reloading", 'success');
-                    setTimeout(() => location.reload(), 2000);
+                    showToast("Environment Reset - Reloading...", 'success');
+                    setTimeout(() => location.reload(), 4000);
+                } else {
+                    showToast(data.message || "Deployment Failed", 'error');
                 }
-            } catch (e) { showToast("Deployment Failed", 'error'); }
+            } catch (e) {
+                console.error(e);
+                showToast("Deployment Failed: " + e.message, 'error');
+            }
         }
 
         // --- 8. UTILS ---
@@ -986,35 +1026,7 @@
             }
         }
 
-        async function deployNewElection() {
-            if (!confirm("⚠️ Deploy New Election Contract?\n\nThis will:\n• Deploy a brand new contract to Sepolia\n• Cost gas fees (~0.01 ETH)\n• Create a fresh election\n\nMake sure you have:\n• MetaMask connected\n• Sufficient Sepolia ETH\n\nContinue?")) return;
 
-            if (!window.ethereum) {
-                showToast("MetaMask not detected", 'error');
-                return;
-            }
-
-            try {
-                showToast("Deploying new contract...", 'info');
-
-                // This would need the contract factory and deployment logic
-                // For now, show a message that this feature needs backend support
-                showToast("Feature requires backend deployment script", 'error');
-                console.log('[DEPLOY] This feature requires integration with deployment scripts');
-
-                // TODO: Implement actual deployment logic
-                // const factory = new ethers.ContractFactory(abi, bytecode, signer);
-                // const contract = await factory.deploy();
-                // await contract.deployed();
-                // localStorage.setItem("votechain_contract", contract.address);
-                // location.reload();
-
-            } catch (e) {
-                const msg = e.reason || e.message || "Deployment failed";
-                showToast(msg, 'error');
-                console.error('[DEPLOY] Error:', e);
-            }
-        }
 
         // --- 9. START ---
         window.addEventListener('load', async () => {

@@ -270,8 +270,8 @@
 
         let BACKEND_URL = "http://127.0.0.1:3000";
         let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
-        // Use Alchemy for reliable read-only access (same as Admin)
-        const providerUrl = "https://eth-sepolia.g.alchemy.com/v2/U--2deFkV2sB2Ui12j-yG";
+        // Use Public Node for reliable read-only access
+        const providerUrl = "https://ethereum-sepolia-rpc.publicnode.com";
         const ABI = [
             "function electionActive() view returns (bool)",
             "function totalCandidates() view returns (uint)",
@@ -294,7 +294,7 @@
 
         // --- SERVICE DISCOVERY ---
         async function discoverBackend() {
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
+            // Localhost check removed for Ngrok remote control
             try {
                 const response = await fetch(`${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value`, {
                     headers: { 'apikey': CONFIG_SUPABASE_KEY, 'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}` }
@@ -315,7 +315,7 @@
 
                 // Get active contract from backend first
                 try {
-                    const res = await fetch(`${BACKEND_URL}/api/active-contract`);
+                    const res = await fetch(`${BACKEND_URL}/api/active-contract`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
                     const cfg = await res.json();
                     if (cfg.contractAddress) {
                         contractAddress = cfg.contractAddress;
@@ -355,7 +355,7 @@
 
                 // Get Turnout from Backend Metrics
                 try {
-                    const mRes = await fetch(`${BACKEND_URL}/api/metrics`);
+                    const mRes = await fetch(`${BACKEND_URL}/api/metrics`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
                     const mData = await mRes.json();
                     totalRegistered = mData.data?.totalRegisteredVoters || 0;
                     document.getElementById('turnoutPercent').innerText = totalRegistered > 0 ? Math.round((totalVotes / totalRegistered) * 100) + '%' : '0%';

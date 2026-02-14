@@ -231,7 +231,8 @@ router.post('/add-candidate', async (req, res) => {
         res.json({ status: 'success', message: 'Candidate added successfully.', tx: tx.hash });
     } catch (e) {
         console.error('[ADMIN] Add Candidate Failed:', e);
-        res.status(500).json({ status: 'error', message: e.message || "Blockchain transaction failed" });
+        const message = e.revert?.args?.[0] || e.reason || e.message || "Blockchain transaction failed";
+        res.status(500).json({ status: 'error', message: message });
     }
 });
 
@@ -249,7 +250,8 @@ router.post('/start-election', async (req, res) => {
         res.json({ status: 'success', message: 'Election started.', tx: tx.hash });
     } catch (e) {
         console.error('[ADMIN] Start Election Failed:', e);
-        res.status(500).json({ status: 'error', message: e.message });
+        const message = e.revert?.args?.[0] || e.reason || e.message || "Start Election failed";
+        res.status(500).json({ status: 'error', message: message });
     }
 });
 
@@ -267,7 +269,8 @@ router.post('/end-election', async (req, res) => {
         res.json({ status: 'success', message: 'Election ended.', tx: tx.hash });
     } catch (e) {
         console.error('[ADMIN] End Election Failed:', e);
-        res.status(500).json({ status: 'error', message: e.message });
+        const message = e.revert?.args?.[0] || e.reason || e.message || "End Election failed";
+        res.status(500).json({ status: 'error', message: message });
     }
 });
 
