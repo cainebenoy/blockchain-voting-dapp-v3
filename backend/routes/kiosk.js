@@ -4,9 +4,21 @@ import { getEnrollmentStatus, setEnrollmentStatus, getPendingEnrollment } from '
 
 const router = express.Router();
 
-// Poll Commands
-router.get('/poll-commands', async (req, res) => {
+// Poll Commands & Heartbeat
+router.all('/poll-commands', async (req, res) => {
     try {
+        const telemetry = req.method === 'POST' ? req.body : null;
+        if (telemetry) {
+            // Log telemetry (In production, this could go to a 'kiosk_telemetry' table)
+            console.log(`[KIOSK HEARTBEAT] Status: ${telemetry.status}, ID: ${telemetry.kiosk_id}, Uptime: ${telemetry.uptime}s`);
+
+            // Optionally update system_config with last seen
+            await supabase.from('system_config').upsert({
+                key: 'kiosk_last_pulse',
+                value: new Date().toISOString()
+            }, { onConflict: 'key' });
+        }
+
         const pending = await getEnrollmentStatus();
         if (pending && pending.status === 'WAITING_FOR_KIOSK') {
             console.log(`[REMOTE ENROLL] Kiosk polled, sending command for ${pending.name}...`);
@@ -15,7 +27,7 @@ router.get('/poll-commands', async (req, res) => {
             res.json({ command: 'NONE' });
         }
     } catch (e) {
-        console.error("Poll Error:", e);
+        console.error("Poll/Heartbeat Error:", e);
         res.status(500).json({ command: 'NONE', error: e.message });
     }
 });

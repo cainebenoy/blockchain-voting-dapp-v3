@@ -12,6 +12,7 @@
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="src/styles.css">
 
     <script>
         // Immediately apply theme before page render
@@ -138,14 +139,16 @@
         <section class="max-w-[1400px] mx-auto px-6 mb-32 relative">
             <div class="absolute inset-0 grid-bg -z-10 h-[600px]"></div>
 
-            <div class="max-w-4xl animate-fade-in">
+            <div class="max-w-4xl animate-fade-in stagger-in">
                 <div id="network-badge"
-                    class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border dark:border-darkBorder bg-white dark:bg-neutral-900 text-xs font-medium mb-8">
+                    class="holographic-card inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border dark:border-darkBorder bg-white dark:bg-neutral-900 text-xs font-medium mb-8 transition-all hover:scale-105">
                     <span id="network-dot" class="w-1.5 h-1.5 bg-neutral-300 rounded-full"></span>
-                    <span id="network-status" class="text-black dark:text-white">Connecting...</span>
+                    <span id="network-status"
+                        class="text-black dark:text-white uppercase tracking-widest text-[10px] font-bold">Connecting...</span>
                 </div>
 
-                <h1 class="text-6xl md:text-8xl font-bold tracking-tighter leading-[0.95] mb-8">
+                <h1
+                    class="text-6xl md:text-8xl font-bold tracking-tighter leading-[0.95] mb-8 bg-gradient-to-br from-black to-neutral-500 dark:from-white dark:to-neutral-500 bg-clip-text text-transparent">
                     Democracy,<br>
                     <span class="text-subtle">Mathematically Verified.</span>
                 </h1>
@@ -157,12 +160,12 @@
 
                 <div class="flex flex-col sm:flex-row gap-4">
                     <a href="results.html"
-                        class="btn-minimal h-14 px-8 bg-black dark:bg-white text-white dark:text-black rounded-lg flex items-center justify-center gap-3 font-medium transition-all hover:opacity-90">
+                        class="h-14 px-8 bg-black dark:bg-white text-white dark:text-black rounded-xl flex items-center justify-center gap-3 font-bold transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-accent/20">
                         View Live Ledger <span
-                            class="material-symbols-rounded text-sm transition-transform">arrow_forward</span>
+                            class="material-symbols-rounded text-sm transition-transform group-hover:translate-x-1">arrow_forward</span>
                     </a>
                     <a href="verify.html"
-                        class="h-14 px-8 border border-border dark:border-darkBorder bg-white dark:bg-black text-black dark:text-white rounded-lg flex items-center justify-center gap-2 font-medium hover:border-black dark:hover:border-white transition-all">
+                        class="h-14 px-8 border border-border dark:border-darkBorder bg-white/50 dark:bg-black/50 backdrop-blur-md text-black dark:text-white rounded-xl flex items-center justify-center gap-2 font-bold hover:border-black dark:hover:border-white transition-all hover:scale-105 active:scale-95">
                         Verify Receipt
                     </a>
                 </div>
@@ -176,16 +179,13 @@
                 <p class="text-subtle text-right hidden sm:block">4-Tier Design<br>Zero Knowledge Gap</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 stagger-in">
 
                 <!-- Large Item: Kiosk -->
                 <div
-                    class="bento-item md:col-span-2 bg-neutral-50 dark:bg-neutral-900 rounded-2xl p-10 border border-border dark:border-darkBorder flex flex-col justify-between relative overflow-hidden group">
-                    <div
-                        class="absolute right-10 top-10 w-32 h-32 bg-black/5 dark:bg-white/5 rounded-full blur-2xl group-hover:bg-black/10 dark:group-hover:bg-white/10 transition-colors">
-                    </div>
+                    class="holographic-card md:col-span-2 rounded-2xl p-10 flex flex-col justify-between relative overflow-hidden group">
                     <div>
-                        <span class="material-symbols-rounded text-4xl mb-4 block">fingerprint</span>
+                        <span class="material-symbols-rounded text-4xl mb-4 block text-accent">fingerprint</span>
                         <h3 class="text-2xl font-bold mb-2">The Smart Kiosk</h3>
                         <p class="text-subtle max-w-md">
                             A standalone edge device. It captures biometric data and verifies identity against a secure
@@ -194,19 +194,19 @@
                     </div>
                     <div class="mt-8 flex gap-2">
                         <span
-                            class="px-3 py-1 bg-white dark:bg-black border border-border dark:border-darkBorder rounded-full text-xs font-mono">Raspberry
+                            class="px-3 py-1 bg-white/5 dark:bg-black/5 border border-border dark:border-darkBorder rounded-full text-[10px] font-bold uppercase tracking-widest">Raspberry
                             Pi 5</span>
                         <span
-                            class="px-3 py-1 bg-white dark:bg-black border border-border dark:border-darkBorder rounded-full text-xs font-mono">R307
+                            class="px-3 py-1 bg-white/5 dark:bg-black/5 border border-border dark:border-darkBorder rounded-full text-[10px] font-bold uppercase tracking-widest">R307
                             Sensor</span>
                     </div>
                 </div>
 
                 <!-- Tall Item: Blockchain -->
                 <div
-                    class="bento-item bg-black dark:bg-white text-white dark:text-black rounded-2xl p-10 flex flex-col justify-between relative overflow-hidden border border-border dark:border-darkBorder">
+                    class="holographic-card bg-black text-white rounded-2xl p-10 flex flex-col justify-between relative overflow-hidden border border-border dark:border-darkBorder">
                     <div
-                        class="absolute inset-0 opacity-10 dark:opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+                        class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
                     </div>
                     <div class="relative z-10">
                         <span class="material-symbols-rounded text-4xl mb-4 block opacity-60">deployed_code</span>
@@ -216,12 +216,13 @@
                             altered, or censored.
                         </p>
                     </div>
-                    <div class="relative z-10 pt-8 border-t border-neutral-800 dark:border-neutral-200 mt-auto">
-                        <div class="flex justify-between text-xs font-mono opacity-50">
+                    <div class="relative z-10 pt-8 border-t border-neutral-800 mt-auto">
+                        <div class="flex justify-between text-[10px] font-bold uppercase tracking-widest opacity-50">
                             <span>Status</span>
-                            <span class="text-green-500 font-bold uppercase">Active</span>
+                            <span class="text-accent font-bold">Active</span>
                         </div>
-                        <div class="flex justify-between text-xs font-mono opacity-50 mt-2">
+                        <div
+                            class="flex justify-between text-[10px] font-bold uppercase tracking-widest opacity-50 mt-2">
                             <span>TPS</span>
                             <span>~100k (L2)</span>
                         </div>
@@ -230,9 +231,9 @@
 
                 <!-- Wide Item: Trust Layer -->
                 <div
-                    class="bento-item md:col-span-3 bg-white dark:bg-black rounded-2xl p-10 border border-border dark:border-darkBorder flex flex-col md:flex-row items-center justify-between gap-8">
+                    class="holographic-card md:col-span-3 rounded-2xl p-10 border border-border dark:border-darkBorder flex flex-col md:flex-row items-center justify-between gap-8">
                     <div class="max-w-xl">
-                        <span class="material-symbols-rounded text-4xl mb-4 block">security</span>
+                        <span class="material-symbols-rounded text-4xl mb-4 block text-accent">security</span>
                         <h3 class="text-2xl font-bold mb-2">The Trust Layer (Backend)</h3>
                         <p class="text-subtle">
                             A secure Node.js signer acts as the bridge. It validates eligibility off-chain and executes
