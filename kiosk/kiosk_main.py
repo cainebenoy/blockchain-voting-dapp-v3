@@ -18,59 +18,13 @@ from hardware import hardware
 # --- CONFIGURATION ---
 import os
 import logging
-from dotenv import load_dotenv
-from requests.exceptions import RequestException
-
-# Load environment variables
-load_dotenv()
-
-# Configure Logging (Hardened)
-log_path = '/var/log/votechain_kiosk.log'
-if not os.access('/var/log', os.W_OK) if os.path.exists('/var/log/..') else False:
-    # Fallback to local dir if /var/log is not writable (e.g. running without sudo or on Windows)
-    log_path = 'kiosk.log'
-
-logging.basicConfig(
-    filename=log_path,
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-# HTTP session with retry strategy to make /api/results more robust
-_session = requests.Session()
-_retry_strategy = Retry(total=3, backoff_factor=0.5, status_forcelist=[502,503,504])
-_session.mount("http://", HTTPAdapter(max_retries=_retry_strategy))
-
-# Tuning
-FAILURE_CACHE_MAX = int(os.getenv('FAILURE_CACHE_MAX', '5'))
-POLL_TIMEOUT = int(os.getenv('POLL_TIMEOUT', '10'))
-
-def discover_backend():
-    """Discover backend URL via Supabase (Service Discovery)"""
-    global BACKEND_URL
-    logging.info("Attempting service discovery...")
-    
-    # Retry up to 3 times
-    for attempt in range(1, 4):
-        try:
-            url = f"{SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value"
-            headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-            res = requests.get(url, headers=headers, timeout=5)
-            if res.status_code == 200:
-                data = res.json()
-                if data and data[0].get('value'):
-                    BACKEND_URL = data[0]['value']
-                    logging.info(f"Discovered backend: {BACKEND_URL}")
-                    return True
-        except Exception as e:
-            logging.error(f"Discovery attempt {attempt} failed: {e}")
-            time.sleep(2)
-    return False
-
+    # Delegate to hardware.robust_enroll which handles waiting, retries and UX
+    try:
+        success = hardware.robust_enroll(id)
+    except Exception as e:
+        logging.error(f"robust_enroll exception: {e}")
+        success = False
+    return success
 def get_friendly_error(e):
     """Map technical exceptions to user-friendly messages"""
     if "timeout" in str(e).lower():
@@ -242,32 +196,47 @@ def enroll_finger(id):
     # Enrollment LED Pattern: Green Blinking (Done in loop potentially, but static Green for now is safer)
     hardware.set_leds(green=True, red=False)
     
-    # 1. First Scan
-    while True:
-        if hardware.is_button_pressed('START'): return False
-        img = hardware.get_finger_image()
-        if img == 0: # OK
-            break
-        if img == 1: # NOFINGER
-            pass
-        elif img == 2: # FAIL
+    # 1. First Scan — wait up to FINGER_WAIT_SECONDS for a readable image
+    try:
+        wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '15'))
+    except Exception:
+        wait_seconds = 15
+    deadline = time.time() + wait_seconds
+    img = None
+    while time.time() < deadline:
+        if hardware.is_button_pressed('START'):
             return False
-        time.sleep(0.1) # Prevent CPU spinning
-            
-    if hardware.image_2_tz(1) != 0: return False
+        img = hardware.get_finger_image()
+        if img == 0:  # OK
+            break
+        # treat FAIL as transient; keep waiting until deadline
+        time.sleep(0.1)
+
+    if img != 0:
+        return False
+
+    if hardware.image_2_tz(1) != 0:
+        return False
     
     hardware.show_msg("Remove Finger", "...", "...")
     hardware.beep(1)
     time.sleep(2)
     hardware.wait_for_finger_release()
     
-    # 2. Second Scan
+    # 2. Second Scan — wait up to FINGER_WAIT_SECONDS again
     hardware.show_msg("Place Again", "Verify...", "")
-    while True:
-        if hardware.is_button_pressed('START'): return False
+    deadline = time.time() + wait_seconds
+    img = None
+    while time.time() < deadline:
+        if hardware.is_button_pressed('START'):
+            return False
         img = hardware.get_finger_image()
-        if img == 0: break
+        if img == 0:
+            break
         time.sleep(0.1)
+
+    if img != 0:
+        return False
     
     if hardware.image_2_tz(2) != 0: return False
     
