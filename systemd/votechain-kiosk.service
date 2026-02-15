@@ -10,25 +10,26 @@ ConditionPathExists=/dev/gpiomem0
 
 [Service]
 Type=simple
+# Run as root for reliable hardware access
 User=root
 Group=root
-# Kiosk often needs root for hardware (GPIO/SPI) access on older kernels
 WorkingDirectory=/opt/votechain/kiosk
 
 # Short sleep to allow devices/modules to settle
-ExecStartPre=/bin/sleep 5
+# ExecStartPre removed because supplementary group assignment can fail
+# on some systems; using a short sleep in the process startup if needed.
 
 # Start kiosk with absolute path using python
 ExecStart=/usr/bin/python3 /opt/votechain/kiosk/kiosk_main.py
 
-# Backend URL to avoid discovery blocking on startup
+# Environment: backend and finger wait time
 Environment=BACKEND_URL=http://localhost:3000
+Environment=FINGER_WAIT_SECONDS=8
 TimeoutStartSec=60
 
 # Restart Strategy
 Restart=always
 RestartSec=5
-StartLimitIntervalSec=0
 
 # Logging
 StandardOutput=journal

@@ -3,6 +3,8 @@ import sys
 import signal
 import atexit
 import logging
+import os
+import threading
 
 # Mocks for non-Pi environments
 try:
@@ -56,10 +58,19 @@ class KioskHardware:
                 logging.error(f"GPIO init failed: {e}")
             self._setup_oled()
             self._setup_fingerprint()
+            # Optional: start button debug thread when enabled in environment
+            try:
+                if os.getenv('BUTTON_DEBUG') == '1':
+                    self._start_button_debug()
+            except Exception:
+                pass
             # ensure cleanup on signals
             atexit.register(self._safe_cleanup)
             signal.signal(signal.SIGTERM, lambda s,f: self._safe_cleanup() or sys.exit(0))
             signal.signal(signal.SIGINT, lambda s,f: self._safe_cleanup() or sys.exit(0))
+        # Last display cache to avoid rapid duplicate redraws
+        self._last_display = (None, None, None, None)
+        self._last_display_time = 0
 
     def _setup_gpio(self):
         GPIO.setwarnings(False)
@@ -127,12 +138,8 @@ class KioskHardware:
                 GPIO.output(self.PIN_LED_GREEN, GPIO.HIGH if green else GPIO.LOW)
                 GPIO.output(self.PIN_LED_RED, GPIO.HIGH if red else GPIO.LOW)
             except Exception:
-                # On GPIO runtime errors (mode unset, backend issues) mark GPIO as not ready
-                # so further calls become no-ops and avoid repeated tracebacks.
-                try:
-                    self._gpio_ready = False
-                except Exception:
-                    pass
+                # Ignore GPIO runtime errors during shutdown or transient I/O
+                # Do NOT mark GPIO as not-ready here — that can disable button reads.
                 return
         else:
             print(f"[HW] LEDs -> Green:{green} Red:{red}")
@@ -174,7 +181,8 @@ class KioskHardware:
             return False
 
         # require it remain LOW for stable_ms (sample every 10ms)
-        checks = max(1, stable_ms // 10)
+        # use slightly shorter debounce for responsiveness on light taps
+        checks = max(1, max(1, (stable_ms // 10)))
         for _ in range(checks):
             time.sleep(stable_ms / (checks * 1000.0))
             try:
@@ -185,6 +193,13 @@ class KioskHardware:
         return True
 
     def show_msg(self, line1, line2="", line3="", big_text=False):
+        # Avoid frequent duplicate updates to the OLED which can cause flicker
+        now = time.time()
+        if (line1, line2, line3, big_text) == self._last_display and (now - self._last_display_time) < 0.5:
+            # skip redraw
+            return
+        self._last_display = (line1, line2, line3, big_text)
+        self._last_display_time = now
         print(f"[DISPLAY] {line1} | {line2} | {line3}")
         if not self.device: return
         try:
@@ -212,11 +227,76 @@ class KioskHardware:
                 pass
 
     def scan_finger(self):
-        if not self.finger: return None
-        if self.finger.get_image() != adafruit_fingerprint.OK: return None
-        if self.finger.image_2_tz(1) != adafruit_fingerprint.OK: return None
-        if self.finger.finger_search() != adafruit_fingerprint.OK: return None
-        return self.finger.finger_id
+        # Provide detailed console diagnostics for each scan step to aid
+        # debugging in the field when matching fails. Wait up to `wait_seconds`
+        # for the user to place a finger so late placements are tolerated.
+        # Allow configuration of wait time via environment for field tuning
+        try:
+            wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '8'))
+        except Exception:
+            wait_seconds = 8
+        poll_interval = 0.25
+
+        if not self.finger:
+            print("[FINGER] No fingerprint device attached.")
+            return None
+
+        deadline = time.time() + wait_seconds
+        attempt = 0
+        img_res = None
+        # Poll for a readable image until timeout
+        while time.time() < deadline:
+            attempt += 1
+            try:
+                img_res = self.finger.get_image()
+                print(f"[FINGER] get_image attempt={attempt} -> {repr(img_res)}")
+            except Exception as e:
+                print(f"[FINGER] get_image EXCEPTION: {e}")
+                return None
+
+            if img_res == adafruit_fingerprint.OK:
+                break
+            # brief UI hint (non-blocking) so user knows to press harder/hold
+            try:
+                # update display if available
+                self.show_msg("Hi", "Place Finger", f"{int(deadline-time.time())}s")
+            except Exception:
+                pass
+            time.sleep(poll_interval)
+
+        if img_res != adafruit_fingerprint.OK:
+            print("[FINGER] No readable finger image within timeout (NOFINGER or FAIL).")
+            return None
+
+        try:
+            tz_res = self.finger.image_2_tz(1)
+            print(f"[FINGER] image_2_tz -> {repr(tz_res)}")
+        except Exception as e:
+            print(f"[FINGER] image_2_tz EXCEPTION: {e}")
+            return None
+
+        if tz_res != adafruit_fingerprint.OK:
+            print("[FINGER] Failed to convert image to template.")
+            return None
+
+        try:
+            search_res = self.finger.finger_search()
+            print(f"[FINGER] finger_search -> {repr(search_res)}")
+        except Exception as e:
+            print(f"[FINGER] finger_search EXCEPTION: {e}")
+            return None
+
+        if search_res != adafruit_fingerprint.OK:
+            print("[FINGER] finger_search returned NOT FOUND")
+            return None
+
+        try:
+            fid = self.finger.finger_id
+            print(f"[FINGER] Match found: id={repr(fid)}")
+            return fid
+        except Exception as e:
+            print(f"[FINGER] finger_id read EXCEPTION: {e}")
+            return None
 
     def enroll_finger_logic(self, location_id):
         if not self.finger: return False
@@ -253,5 +333,28 @@ class KioskHardware:
         if not self.finger: return
         while self.finger.get_image() != adafruit_fingerprint.NOFINGER:
             pass
+
+    def _start_button_debug(self):
+        """Start a background thread that logs button pin values when they change.
+
+        Enable by exporting `BUTTON_DEBUG=1` in the environment before starting
+        the kiosk. This is non-intrusive and runs only when requested.
+        """
+        def _dbg():
+            prev = {}
+            pins = {'START': self.PIN_BTN_START, 'A': self.PIN_BTN_A, 'B': self.PIN_BTN_B}
+            while True:
+                for name, pin in pins.items():
+                    try:
+                        val = GPIO.input(pin) if IS_PI and self._gpio_ready else None
+                    except Exception as e:
+                        val = f"ERR:{e}"
+                    if prev.get(name) != val:
+                        logging.info(f"[BUTTON-DBG] {name} pin={pin} val={val}")
+                        prev[name] = val
+                time.sleep(0.2)
+
+        t = threading.Thread(target=_dbg, daemon=True)
+        t.start()
 
 hardware = KioskHardware()

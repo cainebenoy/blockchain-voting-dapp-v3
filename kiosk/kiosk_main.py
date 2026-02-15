@@ -84,6 +84,8 @@ SESSION_TOKEN = None
 KIOSK_ID = f"KIOSK-{socket.gethostname()}"
 KIOSK_STATUS = "BOOTING"
 START_TIME = time.time()
+# Ignore immediate re-trigger of START after cancel/return
+IGNORE_START_UNTIL = 0
 
 def cleanup():
     """Graceful shutdown handler"""
@@ -118,8 +120,14 @@ def check_in_voter(aadhaar_id):
     try:
         response = requests.post(f"{BACKEND_URL}/api/voter/check-in", 
                                  json={"aadhaar_id": aadhaar_id}, timeout=5)
+        # Diagnostic log for backend response body
+        logging.debug(f"check_in_voter response status={response.status_code} body={response.text}")
         if response.status_code == 200:
-            data = response.json().get('data', {})
+            # prefer full JSON body for diagnosis
+            try:
+                data = response.json().get('data', {})
+            except Exception:
+                data = {}
             SESSION_TOKEN = data.get('session_token')
             return data
         else:
@@ -327,15 +335,118 @@ INPUT_READY = False
 def keyboard_listener():
     """Background thread to capture keyboard input without blocking main loop"""
     global INPUT_BUFFER, INPUT_READY
+    # Try to read from sys.stdin and /dev/tty (if available). Use blocking reads
+    # so this thread doesn't spin CPU; handle EOFs gracefully.
+    tty_fd = None
+    try:
+        tty_fd = open('/dev/tty', 'rb', buffering=0)
+    except Exception:
+        tty_fd = None
+
+    import select, os
     while True:
+        rlist = []
         try:
-            char = sys.stdin.read(1)
-            if char == '\n':
-                INPUT_READY = True
-            elif char:
-                INPUT_BUFFER += char
-        except EOFError:
-            break
+            if not sys.stdin.closed:
+                rlist.append(sys.stdin)
+        except Exception:
+            pass
+        if tty_fd:
+            rlist.append(tty_fd)
+
+        try:
+            if not rlist:
+                time.sleep(0.1)
+                continue
+            # select on file objects; convert to filenos
+            fds = [getattr(f, 'fileno')() for f in rlist]
+            ready, _, _ = select.select(fds, [], [], 0.5)
+            for fd in ready:
+                try:
+                    data = os.read(fd, 1)
+                    if not data:
+                        continue
+                    char = data.decode(errors='ignore')
+                    # Treat both newline and carriage return as input-ready
+                    if char in ('\n', '\r'):
+                        INPUT_READY = True
+                    elif char in ('\x7f', '\b'):
+                        # handle backspace/delete from some devices
+                        INPUT_BUFFER = INPUT_BUFFER[:-1]
+                    else:
+                        INPUT_BUFFER += char
+                except Exception:
+                    continue
+        except Exception:
+            # recover from any unexpected I/O error
+            time.sleep(0.1)
+            continue
+
+
+def start_evdev_listener():
+    """Optional: listen to /dev/input/event* devices using python-evdev.
+    This only runs if `evdev` is installed and the process has permission to read
+    input devices. It maps simple KEY_* codes to characters and feeds the
+    `INPUT_BUFFER` so scanners/keyboards work when running under systemd.
+    """
+    try:
+        from evdev import InputDevice, list_devices, ecodes
+    except Exception:
+        return None
+
+    import threading
+
+    def _listener():
+        dev_paths = list_devices()
+        devices = []
+        for path in dev_paths:
+            try:
+                d = InputDevice(path)
+                caps = d.capabilities()
+                if ecodes.EV_KEY in caps:
+                    devices.append(d)
+            except Exception:
+                continue
+
+        if not devices:
+            return
+
+        keymap = {}
+        # basic mapping for letters and digits
+        for c in range(ord('a'), ord('z')+1):
+            keymap[getattr(ecodes, f'KEY_{chr(c).upper()}')] = chr(c)
+        for n in range(0,10):
+            keymap[getattr(ecodes, f'KEY_{n}')] = str(n)
+        keymap[getattr(ecodes, 'KEY_ENTER')] = '\n'
+        keymap[getattr(ecodes, 'KEY_SPACE')] = ' '
+        keymap[getattr(ecodes, 'KEY_BACKSPACE')] = '\b'
+
+        import select, os
+        fds = [d.fd for d in devices]
+        while True:
+            try:
+                r, _, _ = select.select(fds, [], [], 0.5)
+                for fd in r:
+                    for d in devices:
+                        if d.fd != fd: continue
+                        for event in d.read():
+                            if event.type == ecodes.EV_KEY and event.value == 1:
+                                code = event.code
+                                ch = keymap.get(code)
+                                if ch:
+                                    global INPUT_BUFFER, INPUT_READY
+                                    if ch == '\n':
+                                        INPUT_READY = True
+                                    elif ch == '\b':
+                                        INPUT_BUFFER = INPUT_BUFFER[:-1]
+                                    else:
+                                        INPUT_BUFFER += ch
+            except Exception:
+                time.sleep(0.5)
+
+    t = threading.Thread(target=_listener, daemon=True)
+    t.start()
+    return t
 
 def get_input_non_blocking():
     global INPUT_BUFFER, INPUT_READY
@@ -389,7 +500,8 @@ def validate_aadhaar(val):
     """Local format check for Aadhaar (12 digits)"""
     if not val: return False
     # Remove spaces/hyphens
-    clean = val.replace(" ", "").replace("-", "")
+    # Keep only digits (strip carriage returns, control chars, etc.)
+    clean = ''.join([c for c in val if c.isdigit()])
     return clean.isdigit() and len(clean) == 12
 
 # --- MAIN LOOP ---
@@ -403,6 +515,11 @@ def main():
     # Start keyboard listener
     kb_thread = threading.Thread(target=keyboard_listener, daemon=True)
     kb_thread.start()
+    # Start optional evdev listener (if available and permitted)
+    try:
+        start_evdev_listener()
+    except Exception:
+        pass
 
     # Health Check
     hardware.set_leds(green=True, red=True)
@@ -453,35 +570,79 @@ def main():
         # Idle/Ready LED Pattern: Green Only (Welcoming)
         hardware.set_leds(green=True, red=False)
         
-        # 5. Check Start Button
-        if hardware.is_button_pressed('START'):
+        # 5. Check Start Button — allow a short window to catch presses
+        def wait_for_start(timeout=1.5):
+            start_t = time.time()
+            global IGNORE_START_UNTIL
+            while time.time() - start_t < timeout:
+                # ignore START presses for a short period after cancel/return
+                if time.time() < IGNORE_START_UNTIL:
+                    time.sleep(0.05)
+                    continue
+                if hardware.is_button_pressed('START'):
+                    return True
+                time.sleep(0.05)
+            return False
+
+        if wait_for_start(1.5):
+            # Clear any buffered input before showing Aadhaar prompt
+            INPUT_BUFFER = ""
+            INPUT_READY = False
             hardware.show_msg("Voter Identity", "Enter Aadhaar ID", "On Keyboard/Scanner")
             hardware.beep(1)
             
             # Persistent Aadhaar entry prompt: wait until valid input or explicit cancel
             aadhaar = None
             start_time = time.time()
-            aadhaar = None
-            start_time = time.time()
-            MAX_WAIT = 60  # Reduced to 60s for better flow
+            MAX_WAIT = 120  # Increased to 120s to avoid accidental immediate timeouts
             last_feedback = 0
+            logging.info("Entered Aadhaar entry loop")
             while True:
+                # debug trace for cancel/timeouts
+                if int(time.time() - start_time) % 10 == 0:
+                    logging.debug(f"Aadhaar loop tick, elapsed={int(time.time()-start_time)}s, buffer_len={len(INPUT_BUFFER)}")
                 # Cancel if operator presses START (debounced)
-                if hardware.is_button_pressed('START'):
+                # Ignore immediate START state for a short window to avoid treating
+                # residual/held presses as a cancel right after opening the prompt.
+                if time.time() - start_time > 0.5 and hardware.is_button_pressed('START'):
                     aadhaar = "CANCEL"
+                    # avoid immediate re-trigger of START when returning to idle
+                    global IGNORE_START_UNTIL
+                    IGNORE_START_UNTIL = time.time() + 1.5
+                    logging.info("Aadhaar entry cancelled via START button")
                     break
+                elif hardware.is_button_pressed('START'):
+                    # If START is seen immediately, ignore it and log for diagnosis
+                    logging.debug("Ignoring immediate START read at Aadhaar entry" )
 
                 # Non-blocking check for keyboard input
                 val = get_input_non_blocking()
                 if val:
+                    # Normalize and diagnose input
+                    logging.info(f"Aadhaar input received: [{val}] (len={len(val)})")
+                    clean = ''.join([c for c in val if c.isdigit()])
                     if validate_aadhaar(val):
-                        aadhaar = val
+                        aadhaar = clean
                         break
                     else:
                         hardware.show_msg("Invalid ID", "Must be 12 Digits", "Try Again")
+                        logging.debug(f"validate_aadhaar raw=[{repr(val)}] clean=[{clean}] len={len(clean)}")
                         hardware.beep(1, 0.5)
                         time.sleep(1)
                         hardware.show_msg("Voter Identity", "Enter Aadhaar ID", "On Keyboard/Scanner")
+
+                # Echo live buffer so user sees digits on the OLED
+                try:
+                    buf_snapshot = INPUT_BUFFER
+                except Exception:
+                    buf_snapshot = ''
+                if buf_snapshot:
+                    # show typed digits (trim to fit display)
+                    display_val = buf_snapshot[-12:]
+                    try:
+                        hardware.show_msg("Voter Identity", display_val, "")
+                    except Exception:
+                        pass
 
                 # Periodic countdown feedback
                 if time.time() - last_feedback > 5:
@@ -493,6 +654,7 @@ def main():
 
                 # Timeout -> return to idle
                 if time.time() - start_time > MAX_WAIT:
+                    logging.info(f"Aadhaar entry timed out after {int(time.time()-start_time)}s")
                     hardware.show_msg("Timeout", "Returning to Idle", "")
                     time.sleep(1)
                     break
@@ -511,7 +673,8 @@ def main():
                 for attempt in range(1, 3):
                     hardware.show_msg(f"Hi {voter['name'].split()[0]}", f"Scan Finger... ({attempt}/2)", "")
                     fid = hardware.scan_finger()
-                    if fid == voter['fingerprint_id']:
+                    logging.debug(f"Fingerprint scan attempt={attempt} fid={repr(fid)} expected={repr(voter.get('fingerprint_id'))}")
+                    if fid == voter.get('fingerprint_id'):
                         verified = True
                         logging.info(f"Voter {aadhaar} verified on attempt {attempt}")
                         break
@@ -529,23 +692,56 @@ def main():
                         time.sleep(3)
                         continue
 
-                    # Mapping logic for A, B, C buttons
-                    hardware.show_msg("Select Candidate", 
-                                     f"A: {candidates[0]['name'][:12]}" if len(candidates) > 0 else "",
-                                     f"B: {candidates[1]['name'][:12]}" if len(candidates) > 1 else "")
-                    
-                    while True:
-                        if hardware.is_button_pressed('START'): break # Cancel vote
+                    # Require double-press to confirm selection: first press selects,
+                    # second press (same button within CONFIRM_WINDOW) confirms.
+                    CONFIRM_WINDOW = 5
+                    selected = None
+                    confirm_deadline = 0
 
+                    def show_select_screen():
+                        hardware.show_msg("Select Candidate", 
+                                         f"A: {candidates[0]['name'][:12]}" if len(candidates) > 0 else "",
+                                         f"B: {candidates[1]['name'][:12]}" if len(candidates) > 1 else "")
+
+                    show_select_screen()
+
+                    while True:
+                        if hardware.is_button_pressed('START'):
+                            # Cancel vote selection
+                            selected = None
+                            break
+
+                        # Button A
                         if len(candidates) > 0 and hardware.is_button_pressed('A'):
-                            KIOSK_STATUS = "SUBMITTING"
-                            submit_vote(aadhaar, candidates[0]['id'])
-                            break
+                            if selected == 'A' and time.time() <= confirm_deadline:
+                                KIOSK_STATUS = "SUBMITTING"
+                                submit_vote(aadhaar, candidates[0]['id'])
+                                break
+                            else:
+                                selected = 'A'
+                                confirm_deadline = time.time() + CONFIRM_WINDOW
+                                hardware.show_msg("Confirm Vote", f"A: {candidates[0]['name'][:12]}", "Press A again to confirm")
+                                hardware.beep(1)
+                                time.sleep(0.3)
+
+                        # Button B
                         elif len(candidates) > 1 and hardware.is_button_pressed('B'):
-                            KIOSK_STATUS = "SUBMITTING"
-                            submit_vote(aadhaar, candidates[1]['id'])
-                            break
-                        # Future: Add Button C support if hardware supports it
+                            if selected == 'B' and time.time() <= confirm_deadline:
+                                KIOSK_STATUS = "SUBMITTING"
+                                submit_vote(aadhaar, candidates[1]['id'])
+                                break
+                            else:
+                                selected = 'B'
+                                confirm_deadline = time.time() + CONFIRM_WINDOW
+                                hardware.show_msg("Confirm Vote", f"B: {candidates[1]['name'][:12]}", "Press B again to confirm")
+                                hardware.beep(1)
+                                time.sleep(0.3)
+
+                        # If selection expired, return to select screen
+                        if selected and time.time() > confirm_deadline:
+                            selected = None
+                            show_select_screen()
+
                         time.sleep(0.1)
                 else:
                     logging.warning(f"Auth failed for voter {aadhaar}")
