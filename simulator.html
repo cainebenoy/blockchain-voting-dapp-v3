@@ -14,6 +14,15 @@
     <link rel="stylesheet" href="src/styles.css">
 
     <script>
+        // Immediately apply theme before page render
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -184,17 +193,22 @@
                     </div>
 
                     <!-- STEP 3: BALLOT -->
-                    <div id="screen-vote" class="hidden w-full space-y-8 animate-fade-in">
+                    <div id="screen-vote" class="hidden w-full space-y-8 animate-fade-in text-center">
                         <div
-                            class="flex justify-between items-center max-w-sm mx-auto border-b border-border dark:border-darkBorder pb-4">
-                            <h2 class="text-2xl font-bold tracking-tight">Official Ballot</h2>
-                            <span
-                                class="text-[10px] font-bold px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full uppercase ring-1 ring-green-500/20">Verified</span>
-                        </div>
-                        <div class="grid grid-cols-1 gap-4 w-full max-w-sm mx-auto stagger-in">
-                            <!-- Dynamic Content -->
-                            <p class="text-center text-xs text-subtle animate-pulse py-8">Connecting to Election
-                                Chain...</p>
+                            class="bg-black dark:bg-white text-white dark:text-black p-8 rounded-[32px] border border-border dark:border-darkBorder max-w-sm mx-auto shadow-2xl relative overflow-hidden group">
+                            <div
+                                class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] group-hover:scale-110 transition-transform duration-1000">
+                            </div>
+                            <div class="relative z-10 flex justify-between items-center mb-6">
+                                <h2 class="text-2xl font-bold tracking-tight">Official Ballot</h2>
+                                <span
+                                    class="text-[10px] font-bold px-2 py-1 bg-white/10 dark:bg-black/10 text-white dark:text-black rounded-full uppercase ring-1 ring-white/20 dark:ring-black/20">Verified</span>
+                            </div>
+                            <div class="relative z-10 grid grid-cols-1 gap-4 w-full stagger-in">
+                                <!-- Dynamic Content -->
+                                <p class="text-center text-xs opacity-50 animate-pulse py-8">Connecting to Election
+                                    Chain...</p>
+                            </div>
                         </div>
                     </div>
 
@@ -277,15 +291,12 @@
         // --- THEME ---
         function toggleTheme() {
             const html = document.documentElement;
-            if (html.classList.contains('dark')) {
-                html.classList.replace('dark', 'light');
-                localStorage.setItem('theme', 'light');
-            } else {
-                html.classList.replace('light', 'dark');
-                localStorage.setItem('theme', 'dark');
-            }
+            const icon = document.getElementById('theme-icon');
+            const isDark = html.classList.toggle('dark');
+            if (icon) icon.innerText = isDark ? 'light_mode' : 'dark_mode';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
-        if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.replace('light', 'dark');
+        if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
 
         // --- NOTIFS ---
         function showMessage(text, type = 'info') {

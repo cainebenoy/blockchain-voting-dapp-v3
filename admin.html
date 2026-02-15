@@ -16,16 +16,6 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="src/styles.css">
 
-    <script>
-        // Immediately apply theme before page render
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        if (savedTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    </script> }
-    }
     </script>
     <style>
         html {
@@ -422,7 +412,7 @@
             const html = document.documentElement;
             const icon = document.getElementById('theme-icon');
             const isDark = html.classList.toggle('dark');
-            icon.innerText = isDark ? 'light_mode' : 'dark_mode';
+            if (icon) icon.innerText = isDark ? 'light_mode' : 'dark_mode';
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
         if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');

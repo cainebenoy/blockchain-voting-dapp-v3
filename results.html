@@ -228,8 +228,9 @@
         // --- THEME ---
         function toggleTheme() {
             const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
             const isDark = html.classList.toggle('dark');
-            document.getElementById('theme-icon').innerText = isDark ? 'light_mode' : 'dark_mode';
+            if (icon) icon.innerText = isDark ? 'light_mode' : 'dark_mode';
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
         if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
@@ -304,6 +305,13 @@
                     updateAuditLedger(log.transactionHash);
                     fetchData(); // Trigger immediate visual update
                 });
+
+                // Sync theme icon on load
+                const icon = document.getElementById('theme-icon');
+                const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                if (icon) {
+                    icon.innerText = currentTheme === 'dark' ? 'light_mode' : 'dark_mode';
+                }
 
             } catch (e) {
                 console.error(e);
@@ -442,30 +450,8 @@
         </div>
     </footer>
 
-    <!-- LOGIC -->
+    </script>
     <script>
-        function toggleTheme() {
-            const html = document.documentElement;
-            const icon = document.getElementById('theme-icon');
-            if (html.classList.contains('dark')) {
-                html.classList.replace('dark', 'light');
-                if (icon) icon.innerText = 'dark_mode';
-                localStorage.setItem('theme', 'light');
-            } else {
-                html.classList.replace('light', 'dark');
-                if (icon) icon.innerText = 'light_mode';
-                localStorage.setItem('theme', 'dark');
-            }
-        }
-
-        window.addEventListener('load', () => {
-            const icon = document.getElementById('theme-icon');
-            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            if (icon) {
-                icon.innerText = currentTheme === 'dark' ? 'light_mode' : 'dark_mode';
-            }
-        });
-
         window.addEventListener('load', init);
     </script>
 </body>
