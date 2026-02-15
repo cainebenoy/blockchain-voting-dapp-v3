@@ -342,14 +342,13 @@ class KioskHardware:
             pass
 
         try:
-            wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '25'))
+            wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '40'))
         except Exception:
-            wait_seconds = 25
+            wait_seconds = 40
         poll_interval = 0.5
-        deadline = time.time() + wait_seconds
 
         def attempt_scan(slot: int, label: str) -> bool:
-            nonlocal deadline
+            deadline = time.time() + wait_seconds
             print(f"[FINGER] {label}: hold finger flat and firm")
             while time.time() < deadline:
                 try:

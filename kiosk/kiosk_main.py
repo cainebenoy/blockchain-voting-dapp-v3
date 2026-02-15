@@ -18,13 +18,21 @@ from hardware import hardware
 # --- CONFIGURATION ---
 import os
 import logging
-    # Delegate to hardware.robust_enroll which handles waiting, retries and UX
-    try:
-        success = hardware.robust_enroll(id)
-    except Exception as e:
-        logging.error(f"robust_enroll exception: {e}")
-        success = False
-    return success
+
+# Basic logging config for systemd and foreground runs
+logging.basicConfig(level=os.environ.get('LOG_LEVEL', 'INFO'))
+
+# Backend and HTTP session configuration (env-overridable)
+BACKEND_URL = os.environ.get('BACKEND_URL', 'http://127.0.0.1:3000')
+POLL_TIMEOUT = float(os.environ.get('POLL_TIMEOUT', '5'))
+FAILURE_CACHE_MAX = int(os.environ.get('FAILURE_CACHE_MAX', '3'))
+
+# Requests session with retries to make network calls more robust
+_session = requests.Session()
+_retries = Retry(total=3, backoff_factor=0.3, status_forcelist=[500,502,503,504])
+_adapter = HTTPAdapter(max_retries=_retries)
+_session.mount('http://', _adapter)
+_session.mount('https://', _adapter)
 def get_friendly_error(e):
     """Map technical exceptions to user-friendly messages"""
     if "timeout" in str(e).lower():
@@ -192,71 +200,18 @@ def wait_for_reset():
         time.sleep(0.1)
 
 def enroll_finger(id):
-    hardware.show_msg("ENROLL MODE", f"ID #{id}", "Place Finger...")
-    # Enrollment LED Pattern: Green Blinking (Done in loop potentially, but static Green for now is safer)
-    hardware.set_leds(green=True, red=False)
-    
-    # 1. First Scan — wait up to FINGER_WAIT_SECONDS for a readable image
+    """Delegate enrollment to the hardware layer's robust_enroll routine.
+
+    The `hardware.robust_enroll` method handles waiting, retries and user
+    guidance. Keep this wrapper for compatibility with existing callers.
+    """
+    hardware.show_msg("ENROLL MODE", f"ID #{id}", "Follow On-Screen Steps")
     try:
-        wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '15'))
-    except Exception:
-        wait_seconds = 15
-    deadline = time.time() + wait_seconds
-    img = None
-    while time.time() < deadline:
-        if hardware.is_button_pressed('START'):
-            return False
-        img = hardware.get_finger_image()
-        if img == 0:  # OK
-            break
-        # treat FAIL as transient; keep waiting until deadline
-        time.sleep(0.1)
-
-    if img != 0:
-        return False
-
-    if hardware.image_2_tz(1) != 0:
-        return False
-    
-    hardware.show_msg("Remove Finger", "...", "...")
-    hardware.beep(1)
-    time.sleep(2)
-    hardware.wait_for_finger_release()
-    
-    # 2. Second Scan
-    hardware.show_msg("Place Again", "Verify...", "")
-    enroll_start = time.time() # Reset timeout for second scan
-    while True:
-        # Timeout after 30s
-        if time.time() - enroll_start > 30:
-            hardware.show_msg("Timeout", "No Finger", "")
-            return False
-
-        if hardware.is_button_pressed('START'): return False
-        
-        try:
-            img = hardware.get_finger_image()
-            if img == 0: # OK
-                break
-            if img == 1: # NOFINGER
-                pass
-            elif img == 2: # IMAGE FAIL - Retry, don't abort!
-                # hardware.show_msg("Bad Image", "Press Harder", "")
-                pass
-            else:
-                # Other errors (communication error etc) might need abort, but let's retry for robustness
-                time.sleep(0.1)
-        except Exception:
-            pass
-            
-        time.sleep(0.1) # Prevent CPU spinning
-    
-    if hardware.image_2_tz(2) != 0: return False
-    
-    if hardware.create_model() != 0: return False
-    if hardware.store_model(id) != 0: return False
-    
-    return True
+        success = hardware.robust_enroll(id)
+    except Exception as e:
+        logging.error(f"robust_enroll exception: {e}")
+        success = False
+    return success
 
 POLL_INTERVAL = 1
 MAX_POLL_INTERVAL = 16
@@ -282,8 +237,12 @@ def poll_admin_commands():
             data = res.json()
             if data.get('command') == 'ENROLL':
                 voter_name = data.get('name')
-                target_id = data.get('target_finger_id')
+                target_id = data.get('target_id') or data.get('target_finger_id')
                 
+                if not target_id:
+                    logging.error("Received ENROLL command without valid target_id")
+                    return
+
                 hardware.show_msg("Enrollment", f"Voter: {voter_name}", "ID: " + str(target_id))
                 hardware.beep(3)
                 time.sleep(2)
@@ -294,7 +253,7 @@ def poll_admin_commands():
                 try:
                     requests.post(f"{BACKEND_URL}/api/kiosk/enrollment-complete", 
                                   json={"success": success, "fingerprint_id": target_id},
-                                  timeout=5)
+                                  timeout=10)
                 except Exception as e:
                     logging.error(f"Failed to report enrollment: {e}")
                 
@@ -519,9 +478,8 @@ def main():
         if not check_backend_connection():
             KIOSK_STATUS = "SEARCHING"
             hardware.show_msg("Connecting...", "Checking Server", "")
-            if not discover_backend():
-                logging.warning("Backend unreachable and discovery failed.")
-                time.sleep(5)
+            logging.warning("Backend unreachable.")
+            time.sleep(5)
             continue
             
         # 2. Check Admin Commands (Enrollment) - Done even when idle
@@ -651,23 +609,28 @@ def main():
             KIOSK_STATUS = "CHECKING_IN"
             voter = check_in_voter(aadhaar)
             if voter:
-                # Fingerprint Verification Loop (Hardened: Max 2 attempts)
+                # Fingerprint Verification (use hardware.scan_finger with retries)
                 KIOSK_STATUS = "VERIFYING_BIO"
-                verified = False
-                for attempt in range(1, 3):
-                    hardware.show_msg(f"Hi {voter['name'].split()[0]}", f"Scan Finger... ({attempt}/2)", "")
-                    fid = hardware.scan_finger()
-                    logging.debug(f"Fingerprint scan attempt={attempt} fid={repr(fid)} expected={repr(voter.get('fingerprint_id'))}")
-                    if fid == voter.get('fingerprint_id'):
-                        verified = True
-                        logging.info(f"Voter {aadhaar} verified on attempt {attempt}")
-                        break
-                    elif fid:
-                        hardware.show_msg("Mismatch", "Try Again", f"Attempt {attempt}/2")
-                        hardware.beep(1, 0.5)
-                        time.sleep(1)
-                    
-                    if hardware.is_button_pressed('START'): break # Manual cancel
+                def verify_fingerprint_for_voter(expected_fid, max_attempts=3):
+                    name_short = voter['name'].split()[0] if voter.get('name') else 'Voter'
+                    for attempt in range(1, max_attempts + 1):
+                        hardware.show_msg(f"Hi {name_short}", f"Scan Finger... ({attempt}/{max_attempts})", "")
+                        fid = hardware.scan_finger()
+                        logging.debug(f"Fingerprint scan attempt={attempt} fid={repr(fid)} expected={repr(expected_fid)}")
+                        if fid == expected_fid:
+                            logging.info(f"Voter {aadhaar} verified on attempt {attempt}")
+                            return True
+                        if fid:
+                            hardware.show_msg("Mismatch", "Try Again", f"{attempt}/{max_attempts}")
+                            hardware.beep(1, 0.5)
+                        # allow manual cancel
+                        if hardware.is_button_pressed('START'):
+                            return False
+                        # small backoff to let operator adjust finger
+                        time.sleep(0.8)
+                    return False
+
+                verified = verify_fingerprint_for_voter(voter.get('fingerprint_id'))
 
                 if verified:
                     # Select Candidate (Dynamic Mapping)
