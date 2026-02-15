@@ -2,6 +2,7 @@
  * Shared Tailwind Configuration for VoteChain V3
  * ensures consistent branding, colors, and fonts across all pages.
  */
+/* global tailwind */
 tailwind.config = {
     darkMode: 'class',
     theme: {
