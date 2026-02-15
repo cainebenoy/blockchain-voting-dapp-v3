@@ -144,8 +144,11 @@ def submit_vote(aadhaar_id, candidate_id):
         frames = ['|','/','-','\\']
         idx = 0
         while not stop_event.is_set():
-            hardware.show_msg("Submitting...", frames[idx % 4], "Please Wait")
-            idx += 1
+            try:
+                hardware.show_msg("Submitting...", frames[idx % 4], "Please Wait")
+                idx += 1
+            except Exception:
+                pass # Prevent thread death on I2C hiccup
             time.sleep(0.2)
     
     t = threading.Thread(target=spinner, daemon=True)
@@ -241,6 +244,7 @@ def enroll_finger(id):
             pass
         elif img == 2: # FAIL
             return False
+        time.sleep(0.1) # Prevent CPU spinning
             
     if hardware.image_2_tz(1) != 0: return False
     
@@ -255,6 +259,7 @@ def enroll_finger(id):
         if hardware.is_button_pressed('START'): return False
         img = hardware.get_finger_image()
         if img == 0: break
+        time.sleep(0.1)
     
     if hardware.image_2_tz(2) != 0: return False
     
