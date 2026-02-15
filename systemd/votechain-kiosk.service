@@ -24,7 +24,7 @@ ExecStart=/usr/bin/python3 /opt/votechain/kiosk/kiosk_main.py
 
 # Environment: backend and finger wait time
 Environment=BACKEND_URL=http://localhost:3000
-Environment=FINGER_WAIT_SECONDS=8
+Environment=FINGER_WAIT_SECONDS=15
 TimeoutStartSec=60
 
 # Restart Strategy

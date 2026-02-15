@@ -251,9 +251,9 @@ class KioskHardware:
         # for the user to place a finger so late placements are tolerated.
         # Allow configuration of wait time via environment for field tuning
         try:
-            wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '8'))
+            wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '15'))
         except Exception:
-            wait_seconds = 8
+            wait_seconds = 15
         poll_interval = 0.25
 
         if not self.finger:
