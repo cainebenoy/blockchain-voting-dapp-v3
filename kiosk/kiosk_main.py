@@ -397,7 +397,7 @@ def validate_aadhaar(val):
 def main():
     print("🚀 Kiosk Started")
     # "Bubbly" Text Restoration -> big_text=True for the logo
-    hardware.show_msg("VOTECHAIN", "Booting...", "V3 Kiosk", big_text=True)
+    hardware.show_msg("VOTE", "CHAIN", "", big_text=True)
     time.sleep(2)
     
     # Start keyboard listener
