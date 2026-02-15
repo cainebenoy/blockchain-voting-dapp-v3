@@ -1,50 +1,71 @@
-/* Utility for turnout bar width, JS will update width dynamically */
-.turnout-bar-width {
-  width: 0%;
-}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  /* Brand Colors */
-  .bg-brand-50 { background-color: #eef2ff; }
-  .bg-brand-100 { background-color: #e0e7ff; }
-  .bg-brand-500 { background-color: #6366f1; }
-  .bg-brand-600 { background-color: #4f46e5; }
-  .bg-brand-700 { background-color: #4338ca; }
-  .bg-brand-900 { background-color: #312e81; }
+/* -------------------------------------------------------------------------- */
+/*                                 COMPONENTS                                 */
+/* -------------------------------------------------------------------------- */
+
+@layer components {
+  /* Common Card Style (Bento Grid) */
+  .bento-item {
+    @apply transition-all duration-300 ease-out border border-border dark:border-darkBorder bg-white dark:bg-black overflow-hidden;
+  }
+
+  .bento-item:hover {
+    @apply transform -translate-y-[2px] border-black dark:border-white shadow-xl shadow-neutral-200/50 dark:shadow-none;
+  }
+
+  /* Holographic / Glass Card */
+  .holographic-card {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .holographic-card:hover {
+    transform: translateY(-5px) scale(1.01);
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.2);
+  }
+
+  /* Input Fields */
+  .glass-input {
+    @apply w-full bg-transparent border-b border-border dark:border-darkBorder py-3 text-sm font-mono outline-none transition-colors;
+  }
   
-  .text-brand-400 { color: #818cf8; }
-  .text-brand-500 { color: #6366f1; }
-  .text-brand-600 { color: #4f46e5; }
-  .text-brand-700 { color: #4338ca; }
-  
-  .border-brand-100 { border-color: #e0e7ff; }
-  .border-brand-800 { border-color: #3730a3; }
-  
-  .ring-brand-500 { --tw-ring-color: #6366f1; }
-  
-  .shadow-brand-500\/20 { box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2); }
-  
-  /* Dark mode brand colors */
-  .dark .bg-brand-900\/20 { background-color: rgba(49, 46, 129, 0.2); }
-  .dark .border-brand-800\/30 { border-color: rgba(55, 48, 163, 0.3); }
+  .glass-input:focus {
+    @apply border-black dark:border-white;
+  }
 }
 
+/* -------------------------------------------------------------------------- */
+/*                                  UTILITIES                                 */
+/* -------------------------------------------------------------------------- */
+
+/* Background Grid Pattern */
+.grid-bg {
+  background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+}
+
+.dark .grid-bg {
+  background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
+}
+
+/* Animations */
 .fade-in {
-  animation: fadeIn 0.5s ease-in-out;
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .live-indicator {
@@ -62,46 +83,7 @@
   100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
 }
 
-/* Holographic Card Effect */
-.holographic-card {
-  position: relative;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.holographic-card::before {
-  content: "";
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  pointer-events: none;
-}
-
-.holographic-card:hover {
-  transform: translateY(-5px) scale(1.01);
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.2);
-}
-
-.holographic-card:hover::before {
-  opacity: 1;
-  animation: rotateGlow 10s linear infinite;
-}
-
-@keyframes rotateGlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Staggered Entry Animation */
+/* Stagger Animation */
 .stagger-in > * {
   opacity: 0;
   transform: translateY(20px);
@@ -116,39 +98,44 @@
 .stagger-in > *:nth-child(n+6) { animation-delay: 0.6s; }
 
 @keyframes staggerFadeIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Skeleton Shimmer */
+/* Loading Skeleton */
 .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.03) 25%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.dark .skeleton-shimmer {
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.03) 25%,
     rgba(255, 255, 255, 0.08) 50%,
     rgba(255, 255, 255, 0.03) 75%
   );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
   to { background-position-x: -200%; }
 }
 
-/* Glass Input */
-.glass-input {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(4px);
-  transition: all 0.3s ease;
+/* Hide Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.glass-input:focus {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
-  outline: none;
-}
+/* Utility to override styles for specific brand colors */
+.bg-brand-50  { background-color: #eef2ff; }
+.bg-brand-500 { background-color: #6366f1; }
+.text-brand-500 { color: #6366f1; }

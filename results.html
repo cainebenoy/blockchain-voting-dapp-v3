@@ -7,11 +7,14 @@
     <title>VoteChain | Live Ledger</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="src/theme.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="src/styles.css">
 
     <script>
         // Immediately apply theme before page render
@@ -22,89 +25,6 @@
             document.documentElement.classList.remove('dark');
         }
     </script>
-
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
-                    colors: {
-                        black: '#050505',
-                        white: '#ffffff',
-                        subtle: '#888888',
-                        border: '#eaeaea',
-                        darkBorder: '#1a1a1a',
-                        accent: '#22c55e'
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                    },
-                    keyframes: {
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        html {
-            scroll-behavior: smooth;
-        }
-
-        .grid-bg {
-            background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
-            background-size: 32px 32px;
-            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
-        }
-
-        .dark .grid-bg {
-            background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
-        }
-
-        .bento-item {
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s;
-        }
-
-        .bento-item:hover {
-            transform: translateY(-2px);
-        }
-
-        .light .bento-item:hover {
-            border-color: #000;
-        }
-
-        .dark .bento-item:hover {
-            border-color: #fff;
-        }
-
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-
-        .dark .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
-        }
-
-        @keyframes shimmer {
-            0% {
-                background-position: -200% 0;
-            }
-
-            100% {
-                background-position: 200% 0;
-            }
-        }
-    </style>
 </head>
 
 <body
@@ -129,6 +49,8 @@
                     class="text-subtle hover:text-black dark:hover:text-white transition-colors">Verify</a>
                 <a href="auditor.html"
                     class="text-subtle hover:text-black dark:hover:text-white transition-colors">Auditor</a>
+                <a href="simulator.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Simulator</a>
 
                 <button onclick="toggleTheme()"
                     class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors">
@@ -150,7 +72,9 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 w-full">
                 <div>
                     <div class="flex items-center gap-4 mb-4">
-                        <h1 class="text-5xl font-bold tracking-tighter bg-gradient-to-r from-black to-subtle dark:from-white dark:to-subtle bg-clip-text text-transparent">Public Dashboard</h1>
+                        <h1
+                            class="text-5xl font-bold tracking-tighter bg-gradient-to-r from-black to-subtle dark:from-white dark:to-subtle bg-clip-text text-transparent">
+                            Public Dashboard</h1>
                         <a href="verify.html"
                             class="text-[10px] font-bold uppercase tracking-[0.2em] px-4 py-2 border border-black dark:border-white rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all shadow-xl hover:shadow-accent/20">Verify
                             Individual Vote</a>
@@ -173,8 +97,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
 
             <!-- 1. TOTAL TALLY (Large) -->
-            <div
-                class="holographic-card md:col-span-3 rounded-2xl p-10 relative overflow-hidden group">
+            <div class="holographic-card md:col-span-3 rounded-2xl p-10 relative overflow-hidden group">
                 <div class="flex justify-between items-start mb-12">
                     <div>
                         <span class="text-[10px] font-bold uppercase tracking-widest text-subtle">Election
@@ -182,7 +105,9 @@
                         <h3 class="text-3xl font-bold tracking-tight mt-2">Verified Count</h3>
                     </div>
                     <div class="text-right">
-                        <div id="totalVotes" class="text-5xl font-bold tracking-tighter leading-none bg-gradient-to-br from-black to-neutral-500 dark:from-white dark:to-neutral-500 bg-clip-text text-transparent">--</div>
+                        <div id="totalVotes"
+                            class="text-5xl font-bold tracking-tighter leading-none bg-gradient-to-br from-black to-neutral-500 dark:from-white dark:to-neutral-500 bg-clip-text text-transparent">
+                            --</div>
                         <span class="text-[10px] font-bold uppercase tracking-widest text-subtle">Total Ballots</span>
                     </div>
                 </div>
@@ -191,11 +116,17 @@
                     <!-- Loading Skeletons -->
                     <div class="space-y-10">
                         <div class="flex flex-col gap-3">
-                            <div class="flex justify-between"><div class="h-6 w-32 skeleton-shimmer rounded"></div><div class="h-6 w-16 skeleton-shimmer rounded"></div></div>
+                            <div class="flex justify-between">
+                                <div class="h-6 w-32 skeleton-shimmer rounded"></div>
+                                <div class="h-6 w-16 skeleton-shimmer rounded"></div>
+                            </div>
                             <div class="h-2 w-full skeleton-shimmer rounded-full"></div>
                         </div>
                         <div class="flex flex-col gap-3">
-                            <div class="flex justify-between"><div class="h-6 w-24 skeleton-shimmer rounded"></div><div class="h-6 w-16 skeleton-shimmer rounded"></div></div>
+                            <div class="flex justify-between">
+                                <div class="h-6 w-24 skeleton-shimmer rounded"></div>
+                                <div class="h-6 w-16 skeleton-shimmer rounded"></div>
+                            </div>
                             <div class="h-2 w-full skeleton-shimmer rounded-full"></div>
                         </div>
                     </div>
@@ -220,8 +151,8 @@
                         <span class="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Node
                             Status</span>
                         <div id="electionStatus" class="text-2xl font-bold mt-2 flex items-center gap-2">
-                             <span class="live-indicator"></span>
-                             Connecting...
+                            <span class="live-indicator"></span>
+                            Connecting...
                         </div>
                         <p class="text-[10px] text-neutral-500 mt-4 uppercase tracking-widest">Protocol: VotingV2.sol
                         </p>
@@ -305,7 +236,6 @@
 
         // --- SERVICE DISCOVERY ---
         async function discoverBackend() {
-            // Localhost check removed for Ngrok remote control
             try {
                 const response = await fetch(`${CONFIG_SUPABASE_URL}/rest/v1/system_config?key=eq.backend_url&select=value`, {
                     headers: { 'apikey': CONFIG_SUPABASE_KEY, 'Authorization': `Bearer ${CONFIG_SUPABASE_KEY}` }
@@ -313,8 +243,14 @@
                 const data = await response.json();
                 if (data?.[0]?.value && !data[0].value.includes('waiting')) {
                     BACKEND_URL = data[0].value;
+                    console.log("🚀 Backend Discovered:", BACKEND_URL);
+                } else {
+                    console.warn("⚠️ Backend discovery returned empty or waiting. Using default:", BACKEND_URL);
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error("❌ Backend Discovery Failed:", e);
+                document.getElementById('electionStatus').innerHTML = `<span class="text-red-500">DISCOVERY ERROR</span>`;
+            }
         }
 
         // --- CORE LOGIC ---
@@ -345,6 +281,25 @@
 
                 // Live Audit Ledger
                 const filter = contract.filters.VoteCast();
+
+                // Fetch last 5 past events via Backend API (Reliable)
+                try {
+                    const ledgerRes = await fetch(`${BACKEND_URL}/api/recent-transactions`, {
+                        headers: { 'ngrok-skip-browser-warning': 'true' }
+                    });
+                    const ledgerData = await ledgerRes.json();
+
+                    if (ledgerData.status === 'success' && Array.isArray(ledgerData.data)) {
+                        // Backend returns newest first. We reverse it to [Oldest, ..., Newest] 
+                        // so that updateAuditLedger (which prepends) puts the newest at the top.
+                        [...ledgerData.data].reverse().forEach(txHash => {
+                            updateAuditLedger(txHash);
+                        });
+                    }
+                } catch (e) {
+                    console.warn("Failed to load backend ledger history:", e);
+                }
+
                 provider.on(filter, (log) => {
                     updateAuditLedger(log.transactionHash);
                     fetchData(); // Trigger immediate visual update
@@ -400,34 +355,52 @@
 
         function renderResults(candidates, totalVotes) {
             const container = document.getElementById('resultsList');
-            container.innerHTML = '';
-            container.className = 'space-y-8 min-h-[200px] stagger-in';
-
             const sorted = [...candidates].sort((a, b) => b.voteCount - a.voteCount);
             const max = sorted.length ? sorted[0].voteCount : 0;
 
-            sorted.forEach(c => {
-                const pct = max > 0 ? (c.voteCount / max) * 100 : 0;
-                const share = totalVotes > 0 ? ((c.voteCount / totalVotes) * 100).toFixed(1) : 0;
+            // Initialize if empty
+            if (container.children.length === 0 || container.querySelector('.skeleton-shimmer')) {
+                container.innerHTML = '';
+                container.className = 'space-y-8 min-h-[200px] stagger-in';
 
-                container.innerHTML += `
-                    <div class="group bento-item">
+                sorted.forEach(c => {
+                    const pct = max > 0 ? (c.voteCount / max) * 100 : 0;
+                    const share = totalVotes > 0 ? ((c.voteCount / totalVotes) * 100).toFixed(1) : 0;
+
+                    const div = document.createElement('div');
+                    div.className = "group bento-item";
+                    div.id = `cand-${c.id}`;
+                    div.innerHTML = `
                         <div class="flex justify-between items-end mb-3">
                             <div>
                                 <span class="text-[10px] font-bold text-subtle uppercase tracking-widest">Candidate #${c.id}</span>
                                 <h4 class="text-xl font-bold tracking-tight group-hover:text-black dark:group-hover:text-white transition-colors">${c.name}</h4>
                             </div>
                             <div class="text-right">
-                                <span class="text-2xl font-bold tracking-tighter">${c.voteCount}</span>
-                                <span class="text-[10px] font-bold text-subtle uppercase ml-1">${share}% of total</span>
+                                <span class="text-2xl font-bold tracking-tighter count-val">${c.voteCount}</span>
+                                <span class="text-[10px] font-bold text-subtle uppercase ml-1 share-val">${share}% of total</span>
                             </div>
                         </div>
                         <div class="h-2.5 w-full bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden border border-border dark:border-darkBorder">
-                            <div class="h-full bg-gradient-to-r from-accent/40 to-accent transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(34,197,94,0.4)]" style="width: ${pct}%"></div>
+                            <div class="bar-fill h-full bg-gradient-to-r from-accent/40 to-accent transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(34,197,94,0.4)]" style="width: ${pct}%"></div>
                         </div>
-                    </div>
-                `;
-            });
+                    `;
+                    container.appendChild(div);
+                });
+            } else {
+                // Update existing
+                sorted.forEach(c => {
+                    const el = document.getElementById(`cand-${c.id}`);
+                    if (el) {
+                        const pct = max > 0 ? (c.voteCount / max) * 100 : 0;
+                        const share = totalVotes > 0 ? ((c.voteCount / totalVotes) * 100).toFixed(1) : 0;
+
+                        el.querySelector('.count-val').innerText = c.voteCount;
+                        el.querySelector('.share-val').innerText = `${share}% of total`;
+                        el.querySelector('.bar-fill').style.width = `${pct}%`;
+                    }
+                });
+            }
         }
 
         function updateAuditLedger(txHash) {
@@ -439,9 +412,9 @@
             row.innerHTML = `
                 <div class="flex items-center gap-4">
                     <span class="w-2 h-2 bg-accent rounded-full"></span>
-                    <span class="text-[10px] font-mono text-subtle text-ellipsis overflow-hidden whitespace-nowrap max-w-[120px] sm:max-w-none group-hover:text-black dark:group-hover:text-white transition-colors">${txHash}</span>
+                    <span class="text-xs font-mono text-subtle text-ellipsis overflow-hidden whitespace-nowrap max-w-[150px] sm:max-w-none group-hover:text-black dark:group-hover:text-white transition-colors">${txHash}</span>
                 </div>
-                <a href="https://sepolia.etherscan.io/tx/${txHash}" target="_blank" class="text-[10px] font-bold uppercase text-subtle hover:text-black dark:hover:text-white shrink-0 border border-border dark:border-darkBorder px-3 py-1.5 rounded-full transition-all hover:bg-neutral-50 dark:hover:bg-neutral-900">Verify Proof</a>
+                <a href="https://sepolia.etherscan.io/tx/${txHash}" target="_blank" class="text-xs font-bold uppercase text-subtle hover:text-black dark:hover:text-white shrink-0 border border-border dark:border-darkBorder px-4 py-2 rounded-full transition-all hover:bg-neutral-50 dark:hover:bg-neutral-900">Verify Proof</a>
             `;
 
             container.prepend(row);

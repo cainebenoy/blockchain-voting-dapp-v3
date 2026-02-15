@@ -7,6 +7,8 @@
     <title>VoteChain | The Future of Democracy</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="src/theme.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet"
@@ -21,33 +23,6 @@
             document.documentElement.classList.add('dark');
         } else {
             document.documentElement.classList.remove('dark');
-        }
-    </script>
-
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
-                    colors: {
-                        black: '#050505',
-                        white: '#ffffff',
-                        subtle: '#888888',
-                        border: '#eaeaea',
-                        darkBorder: '#1a1a1a'
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                    },
-                    keyframes: {
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
-                    }
-                }
-            }
         }
     </script>
     <style>

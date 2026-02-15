@@ -14,7 +14,7 @@ router.get('/config', (req, res) => {
     res.json({
         status: 'ok',
         contractAddress: process.env.VOTING_CONTRACT_ADDRESS,
-        rpcUrl: process.env.SEPOLIA_RPC_URL, // Should we expose this? Using Sepolia is public anyway.
+        rpcUrl: process.env.SEPOLIA_RPC_URL,
         network: 'sepolia'
     });
 });
@@ -25,10 +25,6 @@ router.get('/active-contract', (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // Always return the environment variable as the source of truth
-    // The contract instance may be stale if the address was updated after initialization
-
-    // Manual CORS Fallback
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, ngrok-skip-browser-warning');
 
@@ -84,7 +80,6 @@ router.get('/metrics', async (_req, res) => {
         let votesOnChain = 0;
         let candidatesOnChain = 0;
 
-        // Try to get blockchain data, but don't fail if contract is unavailable
         try {
             if (contract) {
                 votesOnChain = await contract.totalVotes();
@@ -94,7 +89,6 @@ router.get('/metrics', async (_req, res) => {
             console.warn('[METRICS] Contract query failed:', contractError.message);
         }
 
-        // Try to get Supabase data with graceful fallback
         let votedCount = 0;
         let totalCount = 0;
 
@@ -142,6 +136,40 @@ router.get('/metrics', async (_req, res) => {
     } catch (e) {
         console.error('[METRICS] Fatal error:', e);
         res.status(500).json({ status: 'error', message: e.message || 'Metrics failed', data: null });
+    }
+});
+
+// RECENT TRANSACTIONS (Alternative to Blockchain Query)
+router.get('/recent-transactions', async (req, res) => {
+    try {
+        // Fetch raw last 100 receipts. If created_at is missing, we fetch all and reverse in memory.
+        // Most DBs return in insertion order if no order is specified.
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('tx_hash');
+
+        if (error) {
+            console.error('[LEDGER] Supabase error:', error);
+            throw error;
+        }
+
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, ngrok-skip-browser-warning');
+
+        // Filter valid hashes and reverse to get "newest" first
+        const validTxs = (data || [])
+            .filter(r => r.tx_hash && r.tx_hash.length > 20 && !r.tx_hash.startsWith('PENDING'))
+            .map(r => r.tx_hash)
+            .reverse() // Reverse to approximate newest first
+            .slice(0, 5);
+
+        res.json({
+            status: 'success',
+            data: validTxs
+        });
+    } catch (e) {
+        console.error('[LEDGER] Failed to fetch recent txs:', e);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch ledger' });
     }
 });
 

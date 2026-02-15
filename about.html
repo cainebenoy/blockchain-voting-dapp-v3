@@ -7,11 +7,14 @@
     <title>VoteChain | Our Mission</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="src/theme.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="src/styles.css">
 
     <script>
         // Immediately apply theme before page render
@@ -22,69 +25,6 @@
             document.documentElement.classList.remove('dark');
         }
     </script>
-
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
-                    colors: {
-                        black: '#050505',
-                        white: '#ffffff',
-                        subtle: '#888888',
-                        border: '#eaeaea',
-                        darkBorder: '#1a1a1a',
-                        accent: '#1351ec'
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                    },
-                    keyframes: {
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        html {
-            scroll-behavior: smooth;
-        }
-
-        .grid-bg {
-            background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
-            background-size: 32px 32px;
-            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
-        }
-
-        .dark .grid-bg {
-            background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
-        }
-
-        .bento-item {
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s;
-        }
-
-        .bento-item:hover {
-            transform: translateY(-2px);
-        }
-
-        .light .bento-item:hover {
-            border-color: #000;
-        }
-
-        .dark .bento-item:hover {
-            border-color: #fff;
-        }
-
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-    </style>
 </head>
 
 <body
@@ -109,6 +49,8 @@
                     class="text-subtle hover:text-black dark:hover:text-white transition-colors">Verify</a>
                 <a href="auditor.html"
                     class="text-subtle hover:text-black dark:hover:text-white transition-colors">Auditor</a>
+                <a href="simulator.html"
+                    class="text-subtle hover:text-black dark:hover:text-white transition-colors">Simulator</a>
 
                 <button onclick="toggleTheme()"
                     class="p-2 text-subtle hover:text-black dark:hover:text-white transition-colors">
