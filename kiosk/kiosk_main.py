@@ -228,7 +228,8 @@ def wait_for_reset():
 
 def enroll_finger(id):
     hardware.show_msg("ENROLL MODE", f"ID #{id}", "Place Finger...")
-    hardware.set_leds(green=True, red=True)
+    # Enrollment LED Pattern: Green Blinking (Done in loop potentially, but static Green for now is safer)
+    hardware.set_leds(green=True, red=False)
     
     # 1. First Scan
     while True:
@@ -390,8 +391,9 @@ def validate_aadhaar(val):
 
 def main():
     print("🚀 Kiosk Started")
-    hardware.show_msg("Booting...", "VoteChain V3", "")
-    time.sleep(1)
+    # "Bubbly" Text Restoration -> big_text=True for the logo
+    hardware.show_msg("VOTECHAIN", "Booting...", "V3 Kiosk", big_text=True)
+    time.sleep(2)
     
     # Start keyboard listener
     kb_thread = threading.Thread(target=keyboard_listener, daemon=True)
@@ -428,7 +430,8 @@ def main():
 
         # 4. Idle Screen — show closed but still poll buttons so START can get a user message
         if not election_active:
-            hardware.show_msg("VOTECHAIN", "Election Closed", "Admin Portal Only", big_text=False)
+            hardware.show_msg("VOTECHAIN", "Election Closed", "Admin Portal Only", big_text=True)
+            # Idle/Closed LED Pattern: Red Only
             hardware.set_leds(False, True)
             # Poll buttons for up to POLL_INTERVAL seconds so START presses are acknowledged
             start_poll = time.time()
@@ -442,6 +445,7 @@ def main():
             continue
 
         hardware.show_msg("VOTE", "CHAIN", "Press START", big_text=True)
+        # Idle/Ready LED Pattern: Green Only (Welcoming)
         hardware.set_leds(green=True, red=False)
         
         # 5. Check Start Button
@@ -452,7 +456,9 @@ def main():
             # Persistent Aadhaar entry prompt: wait until valid input or explicit cancel
             aadhaar = None
             start_time = time.time()
-            MAX_WAIT = 120  # seconds
+            aadhaar = None
+            start_time = time.time()
+            MAX_WAIT = 60  # Reduced to 60s for better flow
             last_feedback = 0
             while True:
                 # Cancel if operator presses START (debounced)
@@ -542,7 +548,13 @@ def main():
                     hardware.beep(3, 0.2)
                     time.sleep(5)
 
-        time.sleep(POLL_INTERVAL)
+        # Responsiveness Fix: Poll during the wait interval instead of hard sleeping
+        # This prevents the "Sleep of Death" where button presses are ignored for seconds
+        start_wait = time.time()
+        while time.time() - start_wait < POLL_INTERVAL:
+            if hardware.is_button_pressed('START'):
+                break # Wake up immediately
+            time.sleep(0.1)
 
 if __name__ == "__main__":
     try:
