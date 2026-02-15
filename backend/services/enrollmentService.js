@@ -40,7 +40,7 @@ export const getEnrollmentStatus = async (id = null) => {
             if (data.status === 'PENDING') {
                 const created = new Date(data.created_at).getTime();
                 const now = Date.now();
-                if (now - created > 120000) {
+                if (now - created > 600000) { // Increased to 10 minutes to fix TZ issues
                     console.log(`[ENROLL DEBUG] Enrollment ${data.id} TIMED OUT. Created: ${created}, Now: ${now}, Diff: ${now - created}`);
                     await supabase
                         .from('enrollment_requests')

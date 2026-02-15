@@ -113,6 +113,14 @@ router.post('/add-voter', async (req, res) => {
     if (!/^\d{12}$/.test(aadhaar_id)) return res.status(400).json({ status: 'error', message: 'Invalid Aadhaar ID.' });
 
     try {
+        const contract = getContract();
+        if (contract) {
+            const isActive = await contract.electionActive();
+            if (isActive) {
+                return res.status(403).json({ status: 'error', message: 'Enrollment disabled while election is active.' });
+            }
+        }
+
         const { data: lastVoter } = await supabase
             .from('voters')
             .select('fingerprint_id')
