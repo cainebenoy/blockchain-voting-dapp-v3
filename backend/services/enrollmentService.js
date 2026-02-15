@@ -41,12 +41,14 @@ export const getEnrollmentStatus = async (id = null) => {
                 const created = new Date(data.created_at).getTime();
                 const now = Date.now();
                 if (now - created > 120000) {
+                    console.log(`[ENROLL DEBUG] Enrollment ${data.id} TIMED OUT. Created: ${created}, Now: ${now}, Diff: ${now - created}`);
                     await supabase
                         .from('enrollment_requests')
                         .update({ status: 'FAILED', error_message: 'Timed out' })
                         .eq('id', data.id);
                     return { status: 'IDLE' };
                 }
+                console.log(`[ENROLL DEBUG] Found pending enrollment: ${data.id} for ${data.name}`);
                 return { status: 'WAITING_FOR_KIOSK', ...data };
             }
             return data;
