@@ -207,12 +207,29 @@ class KioskHardware:
                 draw.rectangle(self.device.bounding_box, fill="black")
                 try:
                     if big_text and ImageFont:
-                        # SUPER BOLD: Size 28 for "Thick" pixel look on OLED
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
-                        draw.text((8, 0), str(line1), fill="white", font=font)
-                        draw.text((8, 28), str(line2), fill="white", font=font)
+                        # SUPER BOLD: Size 32 for "Massive" impact
+                        for y, txt in [(0, str(line1)), (32, str(line2))]:
+                            size = 34
+                            while size > 10:
+                                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size)
+                                try:
+                                    w, h = draw.textsize(txt, font=font)
+                                except AttributeError:
+                                    w = draw.textlength(txt, font=font)
+                                    h = size # Approximate height
+                                
+                                if w < 126: break
+                                size -= 2
+                            
+                            x = (128 - w) // 2
+                            draw.text((x, y), txt, fill="white", font=font)
+
                         if line3:
-                             draw.text((8, 56), str(line3), fill="white", font=ImageFont.load_default())
+                             font3 = ImageFont.load_default() 
+                             try: w3, h3 = draw.textsize(str(line3), font=font3)
+                             except: w3 = draw.textlength(str(line3), font=font3)
+                             x3 = (128 - w3) // 2
+                             draw.text((x3, 54), str(line3), fill="white", font=font3)
                     else:
                         font = ImageFont.load_default() if ImageFont else None
                         draw.text((5, 5), str(line1), fill="white", font=font)
