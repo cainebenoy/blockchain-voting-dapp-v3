@@ -223,20 +223,33 @@ def enroll_finger(id):
     time.sleep(2)
     hardware.wait_for_finger_release()
     
-    # 2. Second Scan — wait up to FINGER_WAIT_SECONDS again
+    # 2. Second Scan
     hardware.show_msg("Place Again", "Verify...", "")
-    deadline = time.time() + wait_seconds
-    img = None
-    while time.time() < deadline:
-        if hardware.is_button_pressed('START'):
+    enroll_start = time.time() # Reset timeout for second scan
+    while True:
+        # Timeout after 30s
+        if time.time() - enroll_start > 30:
+            hardware.show_msg("Timeout", "No Finger", "")
             return False
-        img = hardware.get_finger_image()
-        if img == 0:
-            break
-        time.sleep(0.1)
 
-    if img != 0:
-        return False
+        if hardware.is_button_pressed('START'): return False
+        
+        try:
+            img = hardware.get_finger_image()
+            if img == 0: # OK
+                break
+            if img == 1: # NOFINGER
+                pass
+            elif img == 2: # IMAGE FAIL - Retry, don't abort!
+                # hardware.show_msg("Bad Image", "Press Harder", "")
+                pass
+            else:
+                # Other errors (communication error etc) might need abort, but let's retry for robustness
+                time.sleep(0.1)
+        except Exception:
+            pass
+            
+        time.sleep(0.1) # Prevent CPU spinning
     
     if hardware.image_2_tz(2) != 0: return False
     
