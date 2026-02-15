@@ -408,30 +408,9 @@ class KioskHardware:
                     img = None
                 
                 if img == adafruit_fingerprint.OK:
-                    # Enforce 2-second continuous hold for quality
-                    hold_start = time.time()
-                    REQUIRED_HOLD = 2.0
-                    hold_ok = True
-                    while time.time() - hold_start < REQUIRED_HOLD:
-                        elapsed = time.time() - hold_start
-                        self.show_msg("Capturing...", label, f"Hold: {elapsed:.1f}/2s")
-                        time.sleep(0.15)
-                        
-                        try:
-                            check_img = self.finger.get_image()
-                        except:
-                            check_img = None
-                        
-                        if check_img != adafruit_fingerprint.OK:
-                            print(f"[FINGER] {label} Hold interrupted!")
-                            self.show_msg("Scan Failed", "Keep Steady", "Hold 2s")
-                            time.sleep(0.5)
-                            hold_ok = False
-                            break
-                    
-                    if hold_ok:
-                        found_finger = True
-                        break
+                    print(f"[FINGER] {label} Image captured")
+                    found_finger = True
+                    break
 
                 self.show_msg("Place Finger", label, f"{int(deadline-time.time())}s")
                 time.sleep(poll_interval)
