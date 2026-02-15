@@ -49,7 +49,9 @@ export const getEnrollmentStatus = async (id = null) => {
                     return { status: 'IDLE' };
                 }
                 console.log(`[ENROLL DEBUG] Found pending enrollment: ${data.id} for ${data.name}`);
-                return { status: 'WAITING_FOR_KIOSK', ...data };
+                // Ensure the returned status reflects 'WAITING_FOR_KIOSK'. Spread data first
+                // so we can override the `status` field reliably.
+                return { ...data, status: 'WAITING_FOR_KIOSK' };
             }
             return data;
         }
