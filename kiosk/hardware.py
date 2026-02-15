@@ -207,10 +207,12 @@ class KioskHardware:
                 draw.rectangle(self.device.bounding_box, fill="black")
                 try:
                     if big_text and ImageFont:
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20) # Increased to 20 for "Thick" look
-                        # Center roughly for 128x64
-                        draw.text((10, 5), str(line1), fill="white", font=font)
-                        draw.text((10, 32), str(line2), fill="white", font=font)
+                        # SUPER BOLD: Size 28 for "Thick" pixel look on OLED
+                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
+                        draw.text((8, 0), str(line1), fill="white", font=font)
+                        draw.text((8, 28), str(line2), fill="white", font=font)
+                        if line3:
+                             draw.text((8, 56), str(line3), fill="white", font=ImageFont.load_default())
                     else:
                         font = ImageFont.load_default() if ImageFont else None
                         draw.text((5, 5), str(line1), fill="white", font=font)

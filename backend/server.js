@@ -102,7 +102,7 @@ initEthereum();
 app.use('/api/voter', authRoutes);
 app.use('/api', voteRoutes);
 app.use('/api/admin', adminAuth, adminRoutes); // Protected admin routes
-app.use('/api/kiosk', adminAuth, kioskRoutes);  // Protected kiosk routes
+app.use('/api/kiosk', kioskRoutes);   // Public kiosk routes (Heartbeat/Enroll)
 app.use('/api', publicRoutes);
 
 app.get('/api/health', (req, res) => {

@@ -516,10 +516,12 @@ def main():
     kb_thread = threading.Thread(target=keyboard_listener, daemon=True)
     kb_thread.start()
     # Start optional evdev listener (if available and permitted)
-    try:
-        start_evdev_listener()
-    except Exception:
-        pass
+    # DISABLED BY DEFAULT: Causes double inputs in many environments
+    # Uncomment only if running as a service without TTY access
+    # try:
+    #     start_evdev_listener()
+    # except Exception:
+    #     pass
 
     # Health Check
     hardware.set_leds(green=True, red=True)
@@ -552,7 +554,7 @@ def main():
 
         # 4. Idle Screen — show closed but still poll buttons so START can get a user message
         if not election_active:
-            hardware.show_msg("VOTECHAIN", "Election Closed", "Admin Portal Only", big_text=True)
+            hardware.show_msg("ELECTION", "CLOSED", "", big_text=True)
             # Idle/Closed LED Pattern: Red Only
             hardware.set_leds(False, True)
             # Poll buttons for up to POLL_INTERVAL seconds so START presses are acknowledged
@@ -594,8 +596,8 @@ def main():
             # Persistent Aadhaar entry prompt: wait until valid input or explicit cancel
             aadhaar = None
             start_time = time.time()
-            MAX_WAIT = 120  # Increased to 120s to avoid accidental immediate timeouts
-            last_feedback = 0
+            MAX_WAIT = 30  # Reduced to 30s for faster queues
+            last_feedback = time.time() # Delay first countdown update by 5s
             logging.info("Entered Aadhaar entry loop")
             while True:
                 # debug trace for cancel/timeouts
