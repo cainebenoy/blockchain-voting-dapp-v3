@@ -701,7 +701,10 @@ def main():
                                 confirm_deadline = time.time() + CONFIRM_WINDOW
                                 hardware.show_msg("Confirm Vote", f"A: {candidates[0]['name'][:12]}", "Press A again to confirm")
                                 hardware.beep(1)
-                                time.sleep(0.3)
+                                # Wait for release to prevent accidental double-press if hold is too long
+                                while hardware.is_button_pressed('A'):
+                                    time.sleep(0.1)
+                                time.sleep(0.2)
 
                         # Button B
                         elif len(candidates) > 1 and hardware.is_button_pressed('B'):
@@ -714,7 +717,10 @@ def main():
                                 confirm_deadline = time.time() + CONFIRM_WINDOW
                                 hardware.show_msg("Confirm Vote", f"B: {candidates[1]['name'][:12]}", "Press B again to confirm")
                                 hardware.beep(1)
-                                time.sleep(0.3)
+                                # Wait for release to prevent accidental double-press if hold is too long
+                                while hardware.is_button_pressed('B'):
+                                    time.sleep(0.1)
+                                time.sleep(0.2)
 
                         # If selection expired, return to select screen
                         if selected and time.time() > confirm_deadline:

@@ -466,8 +466,9 @@ class KioskHardware:
             print("[FINGER] Scan1 failed")
             return False
 
-        self.show_msg("Remove Finger", "", "Wait 2s")
-        time.sleep(2)
+        self.show_msg("Remove Finger", "", "To Continue")
+        self.wait_for_finger_release()
+        time.sleep(1)
 
         self.show_msg("Place Again", "Scan 2/2", "")
         if not attempt_scan(2, "Scan2"):
