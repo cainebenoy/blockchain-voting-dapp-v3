@@ -30,7 +30,7 @@ sleep 3
 echo -e "${BLUE}[2/4] Starting Ngrok Tunnel...${NC}"
 # Kill existing ngrok
 pkill ngrok > /dev/null 2>&1
-nohup ngrok http --domain=remunerable-rhiannon-noncleistogamous.ngrok-free.dev 3000 > "$SITE_DIR/ngrok.log" 2>&1 &
+nohup ngrok http --url=remunerable-rhiannon-noncleistogamous.ngrok-free.dev --config="/home/cainepi/.config/ngrok/ngrok.yml" 3000 > "$SITE_DIR/ngrok.log" 2>&1 &
 NGROK_PID=$!
 echo -e "${GREEN}✅ Ngrok running (PID: $NGROK_PID)${NC}"
 sleep 5
@@ -42,7 +42,12 @@ cd "$SITE_DIR" || exit
 PUBLIC_URL="https://remunerable-rhiannon-noncleistogamous.ngrok-free.dev"
 
 # Ensure env vars are loaded for the script
-export $(grep -v '^#' backend/.env | xargs)
+# Load env vars safely
+set -a
+if [ -f "$BACKEND_DIR/.env" ]; then
+    source "$BACKEND_DIR/.env"
+fi
+set +a
 
 # Run the update script
 node scripts/update-backend-url.js "$PUBLIC_URL"

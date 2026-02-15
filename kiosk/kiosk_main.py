@@ -80,8 +80,9 @@ def check_in_voter(aadhaar_id):
     global SESSION_TOKEN
     hardware.show_msg("Checking DB...", aadhaar_id)
     try:
+        # Increase timeout to 15s to handle cold starts/network latency
         response = requests.post(f"{BACKEND_URL}/api/voter/check-in", 
-                                 json={"aadhaar_id": aadhaar_id}, timeout=5)
+                                 json={"aadhaar_id": aadhaar_id}, timeout=15)
         # Diagnostic log for backend response body
         logging.debug(f"check_in_voter response status={response.status_code} body={response.text}")
         if response.status_code == 200:
@@ -92,8 +93,18 @@ def check_in_voter(aadhaar_id):
                 data = {}
             SESSION_TOKEN = data.get('session_token')
             return data
+        elif response.status_code == 404:
+            hardware.show_msg("Check-in Failed", "ID Not Found", "Contact Admin")
+            hardware.beep(count=1, duration=0.5)
+            wait_for_reset()
+            return None
+        elif response.status_code == 403:
+            hardware.show_msg("Check-in Failed", "Already Voted", "Access Denied")
+            hardware.beep(count=1, duration=0.5)
+            wait_for_reset()
+            return None
         else:
-            hardware.show_msg("Check-in Failed", "Not Found/Voted", "Press START")
+            hardware.show_msg("Check-in Failed", "Server Error", "Try Again")
             hardware.beep(count=1, duration=0.5)
             wait_for_reset()
             return None
@@ -315,7 +326,8 @@ def keyboard_listener():
                         # handle backspace/delete from some devices
                         INPUT_BUFFER = INPUT_BUFFER[:-1]
                     else:
-                        INPUT_BUFFER += char
+                        if len(INPUT_BUFFER) < 12:
+                            INPUT_BUFFER += char
                 except Exception:
                     continue
         except Exception:
@@ -338,18 +350,27 @@ def start_evdev_listener():
     import threading
 
     def _listener():
-        dev_paths = list_devices()
-        devices = []
-        for path in dev_paths:
-            try:
-                d = InputDevice(path)
-                caps = d.capabilities()
-                if ecodes.EV_KEY in caps:
-                    devices.append(d)
-            except Exception:
-                continue
+        try:
+            dev_paths = list_devices()
+            devices = []
+            logging.info(f"[EVDEV] Found {len(dev_paths)} input paths")
+            for path in dev_paths:
+                try:
+                    d = InputDevice(path)
+                    caps = d.capabilities()
+                    logging.info(f"[EVDEV] Checking {d.path} ({d.name})")
+                    if ecodes.EV_KEY in caps:
+                        devices.append(d)
+                        logging.info(f"[EVDEV] Added {d.name} for keyboard input")
+                except Exception as e:
+                    logging.warning(f"[EVDEV] Failed to open {path}: {e}")
+                    continue
 
-        if not devices:
+            if not devices:
+                logging.warning("[EVDEV] No keyboard devices found!")
+                return
+        except Exception as e:
+            logging.error(f"[EVDEV] Fatal init error: {e}")
             return
 
         keymap = {}
@@ -376,13 +397,17 @@ def start_evdev_listener():
                                 ch = keymap.get(code)
                                 if ch:
                                     global INPUT_BUFFER, INPUT_READY
+                                    logging.info(f"[EVDEV] Key detected: {ch!r} (code={code})")
                                     if ch == '\n':
                                         INPUT_READY = True
                                     elif ch == '\b':
                                         INPUT_BUFFER = INPUT_BUFFER[:-1]
                                     else:
-                                        INPUT_BUFFER += ch
-            except Exception:
+                                        if len(INPUT_BUFFER) < 12:
+                                            INPUT_BUFFER += ch
+                                    logging.info(f"[EVDEV] Buffer now: {INPUT_BUFFER!r}")
+            except Exception as e:
+                logging.error(f"[EVDEV] Loop error: {e}")
                 time.sleep(0.5)
 
     t = threading.Thread(target=_listener, daemon=True)
@@ -448,6 +473,7 @@ def validate_aadhaar(val):
 # --- MAIN LOOP ---
 
 def main():
+    global INPUT_BUFFER, INPUT_READY
     print("🚀 Kiosk Started")
     # "Bubbly" Text Restoration -> big_text=True for the logo
     hardware.show_msg("VOTE", "CHAIN", "", big_text=True)
@@ -457,12 +483,11 @@ def main():
     kb_thread = threading.Thread(target=keyboard_listener, daemon=True)
     kb_thread.start()
     # Start optional evdev listener (if available and permitted)
-    # DISABLED BY DEFAULT: Causes double inputs in many environments
-    # Uncomment only if running as a service without TTY access
-    # try:
-    #     start_evdev_listener()
-    # except Exception:
-    #     pass
+    # REQUIRED FOR SERVICE/HEADLESS MODE
+    try:
+        start_evdev_listener()
+    except Exception as e:
+        print(f"EVDEV Init Failed: {e}")
 
     # Health Check
     hardware.set_leds(green=True, red=True)
@@ -530,14 +555,14 @@ def main():
             # Clear any buffered input before showing Aadhaar prompt
             INPUT_BUFFER = ""
             INPUT_READY = False
-            hardware.show_msg("Voter Identity", "Enter Aadhaar ID", "On Keyboard/Scanner")
+            # hardware.show_msg("Voter Identity", "Enter Aadhaar ID", "On Keyboard/Scanner") Removed to prevent flicker
             hardware.beep(1)
             
             # Persistent Aadhaar entry prompt: wait until valid input or explicit cancel
             aadhaar = None
             start_time = time.time()
             MAX_WAIT = 30  # Reduced to 30s for faster queues
-            last_feedback = time.time() # Delay first countdown update by 5s
+            last_feedback = 0   # Immediate feedback, no 5s delay
             logging.info("Entered Aadhaar entry loop")
             while True:
                 # debug trace for cancel/timeouts
@@ -557,42 +582,46 @@ def main():
                     # If START is seen immediately, ignore it and log for diagnosis
                     logging.debug("Ignoring immediate START read at Aadhaar entry" )
 
-                # Non-blocking check for keyboard input
+                # Echo live buffer so user sees digits on the OLED
+                # We read the raw global buffer to ensure it updates as you type,
+                # not just when 'Enter' is pressed.
+                current_typing = str(INPUT_BUFFER)
+                
+                remaining = MAX_WAIT - int(time.time() - start_time)
+                if remaining < 0: remaining = 0
+
+                if current_typing:
+                    # Show typed digits (up to last 12)
+                    display_val = current_typing[-12:]
+                    try:
+                        hardware.show_msg("Aadhaar ID:", display_val, f"Time: {remaining}s")
+                    except Exception:
+                        pass
+                else:
+                    # Show instructions if buffer is empty
+                    if time.time() - last_feedback > 1.0:
+                        hardware.show_msg("Voter Identity", "Enter ID Now", f"Time: {remaining}s")
+                        last_feedback = time.time()
+
+                # Check if input is finalized (Enter pressed)
                 val = get_input_non_blocking()
                 if val:
-                    # Normalize and diagnose input
-                    logging.info(f"Aadhaar input received: [{val}] (len={len(val)})")
+                    logging.info(f"Aadhaar finalized: [{val}]")
                     clean = ''.join([c for c in val if c.isdigit()])
-                    if validate_aadhaar(val):
+                    if validate_aadhaar(clean):
+                        hardware.show_msg("Success", clean, "Registering...")
+                        time.sleep(0.5)
                         aadhaar = clean
                         break
                     else:
+                        # Clear buffer on invalid to allow re-entry
+                        INPUT_BUFFER = ""
                         hardware.show_msg("Invalid ID", "Must be 12 Digits", "Try Again")
-                        logging.debug(f"validate_aadhaar raw=[{repr(val)}] clean=[{clean}] len={len(clean)}")
                         hardware.beep(1, 0.5)
                         time.sleep(1)
-                        hardware.show_msg("Voter Identity", "Enter Aadhaar ID", "On Keyboard/Scanner")
 
-                # Echo live buffer so user sees digits on the OLED
-                try:
-                    buf_snapshot = INPUT_BUFFER
-                except Exception:
-                    buf_snapshot = ''
-                if buf_snapshot:
-                    # show typed digits (trim to fit display)
-                    display_val = buf_snapshot[-12:]
-                    try:
-                        hardware.show_msg("Voter Identity", display_val, "")
-                    except Exception:
-                        pass
 
-                # Periodic countdown feedback
-                if time.time() - last_feedback > 5:
-                    remaining = MAX_WAIT - int(time.time() - start_time)
-                    if remaining < 0:
-                        remaining = 0
-                    hardware.show_msg("Voter Identity", f"Enter Aadhaar ({remaining}s)", "")
-                    last_feedback = time.time()
+                # Timeout -> return to idle
 
                 # Timeout -> return to idle
                 if time.time() - start_time > MAX_WAIT:
@@ -621,8 +650,11 @@ def main():
                             logging.info(f"Voter {aadhaar} verified on attempt {attempt}")
                             return True
                         if fid:
-                            hardware.show_msg("Mismatch", "Try Again", f"{attempt}/{max_attempts}")
+                            hardware.show_msg("Mismatch", "Remove Finger", "To Try Again")
                             hardware.beep(1, 0.5)
+                            # Force release so we don't immediately re-scan the same wrong finger
+                            hardware.wait_for_finger_release()
+                            time.sleep(0.5)
                         # allow manual cancel
                         if hardware.is_button_pressed('START'):
                             return False

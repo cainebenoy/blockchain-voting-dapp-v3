@@ -74,21 +74,46 @@ class KioskHardware:
 
     def _setup_gpio(self):
         GPIO.setwarnings(False)
-        # Be tolerant: attempt to set mode and claim pins; raise if unrecoverable
+        # Attempt to cleanup any stale configuration using a new handle context if possible
+        print("[GPIO] Starting setup...")
+        try:
+            GPIO.cleanup()
+            print("[GPIO] Cleanup success")
+        except Exception as e:
+            print(f"[GPIO] Cleanup warning: {e}")
+
         try:
             GPIO.setmode(GPIO.BCM)
-        except Exception:
-            # if mode already set or backend uses different mechanism, continue
-            pass
+            print("[GPIO] Mode set to BCM")
+        except Exception as e:
+            print(f"[GPIO] Setmode warning: {e}")
 
-        GPIO.setup(self.PIN_LED_GREEN, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(self.PIN_LED_RED, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(self.PIN_BUZZER, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(self.PIN_BTN_START, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(self.PIN_BTN_A, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(self.PIN_BTN_B, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        # mark GPIO as ready for use
+        # Setup pins one by one with logging
+        pins = [
+            (self.PIN_LED_GREEN, GPIO.OUT, GPIO.LOW, "LED_GREEN"),
+            (self.PIN_LED_RED, GPIO.OUT, GPIO.LOW, "LED_RED"),
+            (self.PIN_BUZZER, GPIO.OUT, GPIO.LOW, "BUZZER"),
+            (self.PIN_BTN_START, GPIO.IN, None, "BTN_START"),
+            (self.PIN_BTN_A, GPIO.IN, None, "BTN_A"),
+            (self.PIN_BTN_B, GPIO.IN, None, "BTN_B")
+        ]
+
+        for pin, mode, initial, name in pins:
+            try:
+                print(f"[GPIO] Setting up {name} (Pin {pin})...")
+                if mode == GPIO.OUT:
+                    GPIO.setup(pin, mode, initial=initial)
+                else:
+                    GPIO.setup(pin, mode, pull_up_down=GPIO.PUD_UP)
+                print(f"[GPIO] {name} OK")
+            except Exception as e:
+                print(f"[GPIO] FAILED to setup {name} (Pin {pin}): {e}")
+                # We raise here to let the main handler know, or we could continue?
+                # For now, let's Raise so we see the error in main logs properly
+                raise e
+        
         self._gpio_ready = True
+        print("[GPIO] Setup Complete")
 
     def _setup_oled(self):
         try:
@@ -196,7 +221,7 @@ class KioskHardware:
     def show_msg(self, line1, line2="", line3="", big_text=False):
         # Avoid frequent duplicate updates to the OLED which can cause flicker
         now = time.time()
-        if (line1, line2, line3, big_text) == self._last_display and (now - self._last_display_time) < 0.5:
+        if (line1, line2, line3, big_text) == self._last_display and (now - self._last_display_time) < 0.1:
             # skip redraw
             return
         self._last_display = (line1, line2, line3, big_text)
@@ -208,16 +233,17 @@ class KioskHardware:
                 draw.rectangle(self.device.bounding_box, fill="black")
                 try:
                     if big_text and ImageFont:
-                        # SUPER BOLD: Size 32 for "Massive" impact
-                        for y, txt in [(0, str(line1)), (32, str(line2))]:
-                            size = 34
+                        # Reduced size to fit footer (Press START)
+                        # Line 1 at y=0, Line 2 at y=28. Max height ~56px.
+                        for y, txt in [(0, str(line1)), (28, str(line2))]:
+                            size = 28
                             while size > 10:
                                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size)
                                 try:
                                     w, h = draw.textsize(txt, font=font)
                                 except AttributeError:
                                     w = draw.textlength(txt, font=font)
-                                    h = size # Approximate height
+                                    h = size
                                 
                                 if w < 126: break
                                 size -= 2
@@ -232,11 +258,27 @@ class KioskHardware:
                              x3 = (128 - w3) // 2
                              draw.text((x3, 54), str(line3), fill="white", font=font3)
                     else:
-                        font = ImageFont.load_default() if ImageFont else None
-                        draw.text((5, 5), str(line1), fill="white", font=font)
-                        draw.text((5, 25), str(line2), fill="white", font=font)
-                        draw.text((5, 45), str(line3), fill="white", font=font)
-                except Exception:
+                        # Use Size 10 for guaranteed fit on 128x64
+                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10)
+                        
+                        # Diagnostic: confirm what is actually hitting the drawing buffer
+                        print(f"[DRAW] L1={line1} L2={line2} L3={line3}")
+
+                        # Center aligned normal text
+                        for i, line in enumerate([line1, line2, line3]):
+                            txt = str(line)
+                            if not txt: continue
+                            try:
+                                w, h = draw.textsize(txt, font=font)
+                            except AttributeError:
+                                w = draw.textlength(txt, font=font)
+                            
+                            x = (128 - w) // 2
+                            # Even spacing: y=10, y=30, y=50
+                            y = 10 + (i * 20)
+                            draw.text((x, y), txt, fill="white", font=font)
+                except Exception as e:
+                    print(f"[DISPLAY] Font error: {e}")
                     pass # Font loading fallback
         except Exception:
             # If the display or GPIO used by the display errors during shutdown,
@@ -350,25 +392,52 @@ class KioskHardware:
         def attempt_scan(slot: int, label: str) -> bool:
             deadline = time.time() + wait_seconds
             print(f"[FINGER] {label}: hold finger flat and firm")
+            
+            found_finger = False
             while time.time() < deadline:
                 try:
                     if self.is_button_pressed('START'):
                         return False
                 except Exception:
                     pass
+
                 try:
                     img = self.finger.get_image()
                 except Exception as e:
                     print(f"[FINGER] get_image EXCEPTION: {e}")
                     img = None
-                print(f"[FINGER] {label} get_image -> {repr(img)}")
+                
                 if img == adafruit_fingerprint.OK:
-                    self.show_msg("Image OK", label, "Keep steady")
-                    break
+                    # Enforce 2-second continuous hold for quality
+                    hold_start = time.time()
+                    REQUIRED_HOLD = 2.0
+                    hold_ok = True
+                    while time.time() - hold_start < REQUIRED_HOLD:
+                        elapsed = time.time() - hold_start
+                        self.show_msg("Capturing...", label, f"Hold: {elapsed:.1f}/2s")
+                        time.sleep(0.15)
+                        
+                        try:
+                            check_img = self.finger.get_image()
+                        except:
+                            check_img = None
+                        
+                        if check_img != adafruit_fingerprint.OK:
+                            print(f"[FINGER] {label} Hold interrupted!")
+                            self.show_msg("Scan Failed", "Keep Steady", "Hold 2s")
+                            time.sleep(0.5)
+                            hold_ok = False
+                            break
+                    
+                    if hold_ok:
+                        found_finger = True
+                        break
+
                 self.show_msg("Place Finger", label, f"{int(deadline-time.time())}s")
                 time.sleep(poll_interval)
-            else:
-                print(f"[FINGER] {label} FAILED: no OK image within {wait_seconds}s")
+            
+            if not found_finger:
+                print(f"[FINGER] {label} FAILED: no stable OK image within {wait_seconds}s")
                 return False
 
             # Retry image_2_tz a few times to overcome transient quality issues
