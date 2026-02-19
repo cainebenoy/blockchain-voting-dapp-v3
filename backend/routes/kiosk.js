@@ -50,8 +50,10 @@ router.all('/poll-commands', async (req, res) => {
 
 // Complete Enrollment
 router.post('/enrollment-complete', async (req, res) => {
+    console.log('[REMOTE ENROLL] Received completion report:', req.body);
     const pending = await getPendingEnrollment();
     if (!pending) {
+        console.warn('[REMOTE ENROLL] No pending enrollment found for report.');
         return res.status(400).json({ status: 'error', message: 'No active enrollment request.' });
     }
 

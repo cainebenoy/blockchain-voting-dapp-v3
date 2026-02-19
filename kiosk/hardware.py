@@ -548,11 +548,16 @@ class KioskHardware:
         i = self.store_model(target_id)
         if i == adafruit_fingerprint.OK:
             print(f"[FINGER] Success! stored at {target_id}")
-            self.show_msg("Success!", f"ID #{target_id}", "Enrolled")
+            try:
+                self.show_msg("Success!", f"ID #{target_id}", "Enrolled")
+            except Exception as e:
+                print(f"[FINGER] OLED Error post-enroll: {e}")
             return True
         else:
             print(f"[FINGER] Store failed: {i}")
-            self.show_msg("Storage Error", "Write Failed", "")
+            try:
+                self.show_msg("Storage Error", "Write Failed", "")
+            except: pass
             return False
 
     # Low level access for complex flows

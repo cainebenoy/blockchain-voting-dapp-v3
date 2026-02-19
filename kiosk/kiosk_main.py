@@ -219,6 +219,7 @@ def enroll_finger(id):
     hardware.show_msg("ENROLL MODE", f"ID #{id}", "Follow On-Screen Steps")
     try:
         success = hardware.robust_enroll(id)
+        logging.info(f"robust_enroll returned: {success}")
     except Exception as e:
         logging.error(f"robust_enroll exception: {e}")
         success = False
@@ -278,8 +279,10 @@ def poll_admin_commands():
                 
                 # Report back
                 try:
+                    payload = {"success": success, "fingerprint_id": target_id}
+                    logging.info(f"Sending enrollment report: {payload}")
                     requests.post(f"{BACKEND_URL}/api/kiosk/enrollment-complete", 
-                                  json={"success": success, "fingerprint_id": target_id},
+                                  json=payload,
                                   timeout=10)
                 except Exception as e:
                     logging.error(f"Failed to report enrollment: {e}")
