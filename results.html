@@ -348,9 +348,17 @@
                 } else {
                     if (totalVotes > 0) {
                         const sorted = [...list].sort((a, b) => b.voteCount - a.voteCount);
-                        const winner = sorted[0];
-                        document.getElementById('winnerAlert').innerText = `WINNER DECLARED: ${winner.name.toUpperCase()}`;
-                        document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-green-500 animate-pulse";
+                        const maxVotes = sorted[0].voteCount;
+                        const winners = sorted.filter(c => c.voteCount === maxVotes);
+
+                        if (winners.length === 1) {
+                            document.getElementById('winnerAlert').innerText = `WINNER DECLARED: ${winners[0].name.toUpperCase()}`;
+                            document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-green-500 animate-pulse";
+                        } else {
+                            const winnerNames = winners.map(c => c.name.toUpperCase()).join(" & ");
+                            document.getElementById('winnerAlert').innerText = `TIE: ${winnerNames}`;
+                            document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-amber-500 animate-pulse";
+                        }
                     } else {
                         document.getElementById('winnerAlert').innerText = "Election Ended (No Votes Cast)";
                         document.getElementById('winnerAlert').className = "text-xs font-bold uppercase tracking-widest text-red-500";
