@@ -7,7 +7,7 @@
 
 - **Public Dashboard:** [http://localhost:3000](http://localhost:3000)
 - **Backend API:** [http://localhost:3000/api/](http://localhost:3000/api/)
-- **Contract Address:** `0xe75558A0d3b90a409EED77dDcc5ae35537D5eb5c` (Sepolia)
+- **Contract Address:** `0xCfF751AB2d5594822Cf85e7bF68209748Ab6B9cF` (Sepolia)
 - **Network:** Ethereum Sepolia Testnet
 
 🎯 Current Election Status
@@ -48,7 +48,7 @@ Tier 4: Blockchain Ledger (Verification Layer)
 
 Network: Ethereum Sepolia
 
-Contract: VotingV2.sol
+Contract: VotingV3.sol
 
 Status: ✅ Deployed & Verified
 
@@ -120,7 +120,7 @@ Solidity ^0.8.28
 
 Hardhat 3
 
-VotingV2 Smart Contract
+VotingV3 Smart Contract
 
 Database:
 
@@ -154,15 +154,24 @@ Mocha + Chai
 
 ✅ Audit logging (SHA-256 hashed IDs)
 
+✅ Merkle Tree voter registry verification
+
+✅ Zero-Trust Auditor Toolkit
+
+✅ Election tie detection
+
 📁 Project Structure
 
 ```text
 my-voting-dapp/
 ├── contracts/
-│   └── VotingV2.sol        # Kiosk model contract ✅
+│   ├── VotingV2.sol        # Base contract
+│   └── VotingV3.sol        # Current contract (+ Merkle Root) ✅
 ├── backend/
 │   ├── server.js           # API server ✅
-│   ├── VotingV2.json       # Contract ABI
+│   ├── VotingV3.json       # Contract ABI
+│   ├── routes/auditor.js   # Merkle proof endpoint ✅
+│   ├── utils/merkle.js     # Merkle tree generation ✅
 │   └── .env                # Environment config
 ├── test/
 │   └── AdvancedVoting.test.js  # 19 passing tests
@@ -331,5 +340,5 @@ VoteChain V3 is fully operational and ready for demonstration!
 The system successfully bridges the gap between traditional polling booth security and modern blockchain transparency. By abstracting technical complexity from the voter while maintaining cryptographic verification, VoteChain provides a practical solution to the "trust gap" in electronic voting systems.
 
 System Status: ✅ READY FOR DEMO
-Last Updated: November 29, 2025
-Version: 3.0.1
+Last Updated: February 19, 2026
+Version: 3.2.0

@@ -2,7 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
-## [2025-12-04] - Service Discovery System (Complete)
+## [2026-02-19] - V3.2: Auditor Toolkit & VotingV3
+
+### Added — Merkle Tree Auditor Toolkit
+- **VotingV3 Smart Contract**: Inherits VotingV2, adds `bytes32 public voterListRoot` and `setVoterListRoot()` for anchoring the voter registry on-chain.
+- **Merkle Tree Generation**: `backend/utils/merkle.js` generates a Merkle Tree from all registered voters using `keccak256` and `merkletreejs` with `sortPairs: true`.
+- **Audit Endpoints**: `GET /api/audit/root` (proxied on-chain root fetch) and `POST /api/audit/proof` (generate Merkle Proof for a given Aadhaar ID).
+- **Auditor Page**: `auditor.html` fetches root from backend proxy, fetches proof, and performs client-side Merkle verification using ethers.js.
+- **Election Tie Detection**: `results.html` and `admin.html` correctly identify and display tied candidates instead of declaring a single winner.
+- **Admin Fingerprint Reset**: `POST /api/admin/reset-fingerprints` signals the kiosk to wipe its fingerprint library via the `system_config` table.
+- **Dual `.env` Sync**: Admin deploy route now updates both `root/.env` and `backend/.env` for systemd compatibility.
+
+### Fixed
+- **CORS Proxy**: Added backend route for Merkle Root to bypass browser CORS restrictions when accessing Sepolia RPC via ngrok.
+- **Leaf Hashing Bug**: Corrected the returned leaf to be `keccak256(sha256_hash)` instead of raw `sha256_hash`, fixing verification failures.
+- **`tx` Scope Bug**: Fixed a variable scoping issue in the `start-election` route that caused "tx is not defined" errors.
+- **Start Election Flow**: Removed redundant nested `if (contract)` check and ensured Merkle Root is anchored before `startElection()`.
+
+### Changed
+- **Contract**: Active contract upgraded from VotingV2 to VotingV3 (`0xCfF751AB2d5594822Cf85e7bF68209748Ab6B9cF`).
+- **Frontend**: `auditor.html` now uses backend proxy instead of direct Sepolia RPC, with `ngrok-skip-browser-warning` headers on all fetch calls.
+
+---
+
+
 
 ### Added - Service Discovery & Hybrid Hosting
 

@@ -11,9 +11,9 @@ VoteChain V3 is a kiosk-based blockchain voting system composed of the following
 - Edge (Kiosk): Raspberry Pi devices that capture biometric input and relay actions to the backend.
 - Backend: Node.js Express API that performs voter verification, transaction signing, and business logic.
 - Data Layer: Supabase (Postgres) for voter mappings, configs (service discovery), and audit data.
-- Blockchain: Ethereum Sepolia network, where the `Voting` smart contract records votes and emits events.
-- Frontend: Static HTML/JS dashboards (voter results, admin UI) that discover the backend via Supabase.
-- Connectivity: Cloudflare Tunnel (optional) for exposing backend securely when needed.
+- Blockchain: Ethereum Sepolia network, where the `VotingV3` smart contract records votes, emits events, and anchors the Merkle Root of the voter registry.
+- Frontend: Static HTML/JS dashboards (voter results, admin UI, auditor toolkit) that discover the backend via Supabase.
+- Connectivity: Ngrok Tunnel for exposing backend securely when needed.
 
 ---
 
@@ -22,9 +22,9 @@ VoteChain V3 is a kiosk-based blockchain voting system composed of the following
 - `Kiosk` — Runs `kiosk_main.py` (Python). Handles fingerprint reader, touchscreen/OLED, and local UI.
 - `Backend API` — `backend/server.js` (Node.js, ESM). Authenticates requests from kiosks, communicates with Supabase and Ethereum.
 - `Supabase` — Postgres DB + Auth + Storage. Stores biometric mappings, voter status, service discovery table, and logs.
-- `Ethereum (Sepolia)` — Smart contract `Voting.sol` records votes and emits events. Backend submits signed transactions.
-- `Frontend` — `index.html`, `admin.html`, `results.html`. Discovers backend URL via Supabase and displays dashboards.
-- `Cloudflare Tunnel` — Optional secure tunnel for remote access to backend without exposing local network.
+- `Ethereum (Sepolia)` — Smart contract `VotingV3.sol` records votes, emits events, and stores the Merkle Root of the voter registry.
+- `Frontend` — `index.html`, `admin.html`, `results.html`, `auditor.html`, `verify.html`, `simulator.html`. Discovers backend URL via Supabase and displays dashboards.
+- `Ngrok Tunnel` — Secure tunnel for remote access to backend without exposing local network.
 
 ---
 
@@ -37,7 +37,7 @@ flowchart LR
   KioskCluster[Kiosk Cluster (Raspberry Pi devices)] -->|HTTPS| Backend[Backend Server (Node.js)]
   Backend -->|DB/API| Supabase[Supabase (Postgres)]
   Backend -->|RPC| Ethereum[Ethereum (Sepolia)]
-  Cloudflare[Cloudflare Tunnel] -->|Admin Access| Backend
+  Cloudflare[Ngrok Tunnel] -->|Admin Access| Backend
   Frontend[Frontend] -->|Service discovery| Supabase
   Frontend -->|API calls| Backend
 ```
@@ -128,9 +128,11 @@ flowchart LR
 
 ## File references
 
-- Smart contract: `contracts/Voting.sol`
+- Smart contract: `contracts/VotingV3.sol` (inherits VotingV2)
 - Backend server: `backend/server.js`
-- Kiosk software: `kiosk_main.py`
+- Merkle utilities: `backend/utils/merkle.js`
+- Audit routes: `backend/routes/auditor.js`
+- Kiosk software: `kiosk/kiosk_main.py`
 - Diagrams and diagrams source: `docs/DATAFLOW_DIAGRAM.md`, `docs/ENTITY_RELATIONSHIP_DIAGRAM.md`, `docs/ARCHITECTURE.md`
 
 ---
