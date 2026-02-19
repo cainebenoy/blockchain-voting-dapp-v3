@@ -29,8 +29,8 @@ export const initEthereum = () => {
 
         wallet = new ethers.Wallet(process.env.SERVER_PRIVATE_KEY, provider);
 
-        const abiPath = path.join(backendRoot, 'VotingV2.json');
-        const contractJson = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+        const CONTRACT_JSON_PATH = path.join(__dirname, '..', 'VotingV3.json');
+        const contractJson = JSON.parse(fs.readFileSync(CONTRACT_JSON_PATH, 'utf8'));
         ABI = contractJson.abi;
 
         contract = new ethers.Contract(process.env.VOTING_CONTRACT_ADDRESS, ABI, wallet);

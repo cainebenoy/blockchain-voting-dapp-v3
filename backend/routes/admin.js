@@ -6,8 +6,9 @@ import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import crypto from 'crypto';
 import { supabase } from '../services/db.js';
-import { getWallet, getABI, ensureAuthorizedSignerFor, updateContractAddress, getContract } from '../services/ethereumService.js';
+import { getWallet, getABI, ensureAuthorizedSignerFor, updateContractAddress, getContract, getProvider } from '../services/ethereumService.js';
 import { queueEnrollment, getEnrollmentStatus } from '../services/enrollmentService.js';
+import { generateMerkleTree, getRoot } from '../utils/merkle.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +22,7 @@ router.post('/deploy-contract', async (req, res) => {
     console.log('[ADMIN] Deploying new VotingV2 contract...');
     const wallet = getWallet();
     const ABI = getABI();
-    const abiPath = path.join(backendRoot, 'VotingV2.json');
+    const abiPath = path.join(backendRoot, 'VotingV3.json');
     // Wait, backendRoot is 'backend/'. server.js was in backend/. VotingV2.json is in backend/.
     // Note: getABI() loaded it from there too. But for ContractFactory we need bytecode.
     // getABI() in ethereumService only loaded ABI. We need bytecode too.
@@ -51,7 +52,7 @@ router.post('/deploy-contract', async (req, res) => {
 
         // Update .env
         console.log('[ADMIN] Updating .env file...');
-        const envPath = path.join(backendRoot, '.env');
+        const envPath = path.join(backendRoot, '../.env');
         let envContent = fs.readFileSync(envPath, 'utf8');
 
         envContent = envContent.replace(
@@ -60,6 +61,19 @@ router.post('/deploy-contract', async (req, res) => {
         );
 
         fs.writeFileSync(envPath, envContent, 'utf8');
+
+        // Also update backend/.env (used by start-votechain.sh)
+        const backendEnvPath = path.join(backendRoot, '.env');
+        if (fs.existsSync(backendEnvPath)) {
+            let backendEnvContent = fs.readFileSync(backendEnvPath, 'utf8');
+            backendEnvContent = backendEnvContent.replace(
+                /VOTING_CONTRACT_ADDRESS="0x[a-fA-F0-9]{40}"/,
+                `VOTING_CONTRACT_ADDRESS="${contractAddress}"`
+            );
+            fs.writeFileSync(backendEnvPath, backendEnvContent, 'utf8');
+            console.log('[ADMIN] Also updated backend/.env');
+        }
+
 
         // Update Runtime
         process.env.VOTING_CONTRACT_ADDRESS = contractAddress;
@@ -251,10 +265,39 @@ router.post('/start-election', async (req, res) => {
         const contract = getContract();
         if (!contract) throw new Error("Contract not connected.");
 
+        console.log("Starting election on-chain...");
+
+        // 1. Generate Merkle Root from Voter DB
+        const { data: voters } = await supabase
+            .from('voters')
+            .select('aadhaar_id');
+
+        if (voters && voters.length > 0) {
+            const ids = voters.map(v => v.aadhaar_id);
+            const tree = generateMerkleTree(ids);
+            const root = getRoot(tree);
+            console.log(`[MERKLE] Generated Root for ${ids.length} voters: ${root}`);
+
+            // Anchor root on-chain (V3 only)
+            try {
+                if (contract.setVoterListRoot) {
+                    const tx1 = await contract.setVoterListRoot(root);
+                    await tx1.wait();
+                    console.log(`[MERKLE] Root anchored on-chain: ${root}`);
+                } else {
+                    console.warn("[MERKLE] Contract does not support setVoterListRoot (V2?)");
+                }
+            } catch (e) {
+                console.warn("[MERKLE] Failed to anchor root:", e.message);
+            }
+        } else {
+            console.warn("[MERKLE] No voters found - root not set.");
+        }
+
         const tx = await contract.startElection();
         await tx.wait();
+        console.log("Election started on-chain.");
 
-        console.log('[ADMIN] Election started.');
         res.json({ status: 'success', message: 'Election started.', tx: tx.hash });
     } catch (e) {
         console.error('[ADMIN] Start Election Failed:', e);

@@ -1,272 +1,470 @@
 # VoteChain V3 — Blockchain Voting DApp
 
+> A secure, cyber-physical voting system combining biometric authentication, blockchain transparency, and cryptographic auditability — built for real-world elections.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [System Architecture](#system-architecture)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+- [Smart Contracts](#smart-contracts)
+- [Auditor Toolkit (Merkle Tree Verification)](#auditor-toolkit-merkle-tree-verification)
+- [Kiosk Features](#kiosk-features)
+- [Receipt Verification System](#receipt-verification-system)
+- [Database Schema](#database-schema)
+- [Deployment & Production](#deployment--production)
+- [Testing & CI](#testing--ci)
+- [Documentation](#documentation)
+- [Changelog](#changelog)
+
+---
+
 ## Overview
 
-VoteChain V3 is a secure, cyber-physical voting system that combines biometric authentication, blockchain transparency, and a user-friendly kiosk interface. It is designed for real-world elections with emphasis on privacy, auditability, and resilient operation in constrained environments.
+VoteChain V3 is a full-stack decentralized voting application designed for real-world pilot elections. It features:
 
-## Features
+- A **Raspberry Pi kiosk** with fingerprint scanner and OLED display for voter authentication
+- A **Node.js backend** that signs and submits votes to an Ethereum smart contract
+- An **Auditor Toolkit** that anchors the voter registry to the blockchain using Merkle Trees, enabling Zero-Trust verification
+- A suite of **premium web pages** (Admin Portal, Results Dashboard, Auditor Page, Vote Simulator, Receipt Verifier)
 
-- Biometric voter authentication (fingerprint) with retry logic for improved reliability
-- Immutable blockchain vote ledger
-- Real-time public dashboard
-- Server-signed transactions (no voter wallet required)
-- API endpoints for results, health, and configuration
-- Modular architecture: kiosk, backend, database, blockchain
-- Security: double-vote prevention, rate limiting, CORS, audit logging, **one-person-one-vote enforcement (kiosk nonce)**
-- Automated deployment and contract management via backend API
-- Auto-restart capability for production environments
-- **Automatic service discovery**: Frontend and Kiosk auto-discover backend URL via Supabase, enabling seamless hybrid hosting (GitHub Pages + Pi backend)
-- **Hardened Biometrics**: Fingerprint retry limit (2) and session-token gated voting
+The system enforces **one-person-one-vote** through biometric deduplication, and all votes are recorded immutably on the Ethereum Sepolia testnet.
+
+---
+
+## Key Features
+
+### Core Voting
+- Biometric voter authentication (fingerprint) with 2-second hold and retry logic
+- Immutable blockchain vote ledger (Ethereum Sepolia)
+- Server-signed transactions — no voter wallet required
+- One-person-one-vote enforcement via kiosk nonce
+- Short-code receipt system for easy vote verification
+
+### Security & Privacy
+- **Salted Aadhaar hashing** — raw IDs are never stored in the database or on-chain
+- **Merkle Tree integrity** — the entire voter registry is anchored to the blockchain as a single hash
+- Double-vote prevention, rate limiting, CORS protection, audit logging
+- Admin routes protected by `x-admin-secret` header
+
+### Administration
+- Deploy new election contracts via the Admin Portal
+- Add/remove candidates on-chain
+- Start and end elections with one click
+- **Remote fingerprint reset** — admin can signal kiosk to wipe its fingerprint library
+- **Election tie detection** — results page correctly identifies and displays tied candidates
+
+### Infrastructure
+- Automatic service discovery via Supabase (frontend and kiosk auto-discover backend URL)
+- Ngrok tunnel for HTTPS exposure of the Raspberry Pi backend
+- Systemd auto-start on boot (`votechain-startup.service`)
+- Dual `.env` synchronization on contract deployment
+
+---
 
 ## System Architecture
 
-1. **Smart Kiosk (Edge Layer):** Raspberry Pi, fingerprint scanner, OLED display, physical buttons
-2. **Backend Server (Trust Layer):** Node.js, Express, ethers.js, API, transaction signing
-3. **Voter Database (Data Layer):** Supabase (Postgres), biometric mappings, voter status, service discovery config
-4. **Blockchain Ledger (Verification Layer):** Ethereum Sepolia (testnet), VotingV2 smart contract
-5. **Service Discovery (Connectivity Layer):** Cloudflare Tunnel + Supabase `system_config` table for dynamic backend URL resolution
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (GitHub Pages)                      │
+│  index.html │ admin.html │ results.html │ auditor.html │ verify.html│
+│  about.html │ simulator.html                                        │
+└───────────────────────────┬─────────────────────────────────────────┘
+                            │ HTTPS (Ngrok Tunnel)
+┌───────────────────────────▼─────────────────────────────────────────┐
+│                     BACKEND (Node.js / Express)                      │
+│                                                                      │
+│  Routes: /api/admin  /api/vote  /api/audit  /api/kiosk  /api/public │
+│  Services: ethereumService.js  db.js (Supabase)                      │
+│  Utils: merkle.js (Merkle Tree generation)                           │
+└────────┬────────────────────────────┬───────────────────────────────┘
+         │                            │
+┌────────▼────────┐          ┌────────▼────────┐
+│   SUPABASE      │          │   ETHEREUM      │
+│   (Postgres)    │          │   (Sepolia)     │
+│                 │          │                 │
+│  voters         │          │  VotingV3.sol   │
+│  receipts       │          │  - candidates   │
+│  system_config  │          │  - votes        │
+│  audit_log      │          │  - voterListRoot│
+└─────────────────┘          └─────────────────┘
+         ▲
+┌────────┴────────┐
+│   KIOSK         │
+│   (Raspberry Pi)│
+│                 │
+│  Fingerprint    │
+│  OLED Display   │
+│  USB Keyboard   │
+└─────────────────┘
+```
 
-## Deployment Architecture
+### Layer Breakdown
 
-**Hybrid Hosting Pattern:**
+| Layer | Component | Purpose |
+|-------|-----------|---------|
+| **Edge** | Raspberry Pi Kiosk | Biometric authentication, voter UI |
+| **Trust** | Node.js Backend | API gateway, transaction signing, Merkle generation |
+| **Data** | Supabase (Postgres) | Voter records, receipts, service discovery |
+| **Verification** | Ethereum Sepolia | Immutable vote ledger, Merkle Root anchor |
+| **Connectivity** | Ngrok Tunnel | HTTPS exposure for Pi backend |
 
-- **Frontend**: Static HTML files hosted on GitHub Pages (CDN, always available)
-- **Backend**: Node.js server on Raspberry Pi, exposed via Cloudflare Tunnel (free HTTPS tunnel)
-- **Service Discovery**: Supabase acts as a "notice board" where the tunnel script updates the current backend URL whenever the tunnel starts
-- **No Manual Configuration**: Frontend queries Supabase on load to discover backend URL automatically
+---
 
-See [docs/SERVICE_DISCOVERY.md](docs/SERVICE_DISCOVERY.md) for complete setup and troubleshooting.
+## Tech Stack
+
+| Category | Technologies |
+|----------|-------------|
+| **Frontend** | HTML5, Tailwind CSS, ethers.js (v5 UMD), Material Symbols |
+| **Backend** | Node.js, Express, ethers.js (v6), dotenv |
+| **Smart Contracts** | Solidity ^0.8.28, Hardhat 3, OpenZeppelin |
+| **Database** | Supabase (PostgreSQL) |
+| **Blockchain** | Ethereum Sepolia Testnet |
+| **Cryptography** | merkletreejs, keccak256, SHA-256 (salted) |
+| **Kiosk** | Python 3, Adafruit Fingerprint, SSD1306 OLED, evdev |
+| **DevOps** | systemd, Ngrok, GitHub Actions (ESLint) |
+
+---
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js (v18+)
-- npm
-- Python 3 (for kiosk)
-- Supabase project (service_role key for backend)
-- Sepolia RPC provider (Alchemy/Infura) and a backend wallet with testnet ETH
+- Node.js v18+
+- Python 3.9+ (for kiosk)
+- Supabase project with `service_role` key
+- Sepolia RPC URL (Alchemy) and wallet with testnet ETH
 
-### Install
+### Installation
 
 ```bash
 git clone https://github.com/cainebenoy/blockchain-voting-dapp-v3.git
 cd blockchain-voting-dapp-v3
 npm install
-cd backend
-npm install
 ```
 
 ### Configuration
 
-1. Copy `backend/.env.example` to `backend/.env` and set required variables:
+Copy `.env.example` to `.env` in the project root and configure:
 
-   - `SUPABASE_URL` — your Supabase project URL
-   - `SUPABASE_KEY` — Supabase `service_role` key (server-only secret)
-   - `SEPOLIA_RPC_URL` — Alchemy/Infura RPC endpoint
-   - `SERVER_PRIVATE_KEY` — backend signing wallet (authorize as contract `officialSigner`)
-   - `VOTING_CONTRACT_ADDRESS` — deployed VotingV2 address (optional if deploying via backend API)
-   - `AUTO_RESTART` — (optional) set to `true` to enable automatic systemd service restart after contract deployment
+```env
+# Supabase
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_KEY="your-service-role-key"
 
-2. Deploy the smart contract:
+# Blockchain
+SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/your-key"
+SERVER_PRIVATE_KEY="0x..."
+VOTING_CONTRACT_ADDRESS="0x..."
 
-#### Option A: Via Backend API (Recommended for Production)
+# Security
+ADMIN_SECRET="your-admin-secret"
+AADHAAR_SALT="your-salt-for-hashing"
 
-Use the admin UI at `http://localhost:3000/admin.html` and click "Deploy New Election". The backend will:
-
-- Deploy a new VotingV2 contract
-- Update the backend `.env` file with the new contract address
-- Authorize the backend wallet as the official signer
-- Optionally restart the systemd service (if `AUTO_RESTART=true`)
-
-#### Option B: Manual Deployment via Scripts
-
-```bash
-npx hardhat run scripts/deployV2.ts --network sepolia
+# Networking
+PORT=3000
 ```
 
-Note: When using Option A, the backend handles all post-deployment steps automatically.
+> **Note**: Also ensure `backend/.env` is a copy of the root `.env`. The startup script sources environment variables from `backend/.env`.
 
-### Run the system (local testnet)
-
-1. Start backend:
+### Running Locally
 
 ```bash
-cd backend
-node server.js
+# Start backend
+npm run serve
+
+# Or via systemd (Raspberry Pi)
+sudo systemctl start votechain-startup.service
 ```
 
-2.Start kiosk (on Raspberry Pi with hardware):
+Then open:
+- **Admin Portal**: `http://localhost:3000/admin.html`
+- **Results Dashboard**: `http://localhost:3000/results.html`
+- **Auditor Toolkit**: `http://localhost:3000/auditor.html`
+- **Vote Verifier**: `http://localhost:3000/verify.html`
 
-```bash
-sudo -E python3 ../kiosk/kiosk_main.py
-```
+---
 
-3.Open admin UI: `http://localhost:3000/admin.html`
-4.Open verify UI: `http://localhost:3000/verify.html`
-
-## Core API Endpoints (summary)
+## API Reference
 
 ### Public Endpoints
 
-- `GET /api/health` — health check
-- `GET /api/config` — contract and RPC information
-- `GET /api/results` — on-chain results proxy
-- `GET /api/metrics` — combined on-chain + DB metrics
-- `GET /api/active-contract` — returns current contract address and network (useful after deployments)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check |
+| `GET` | `/api/config` | Contract and RPC info |
+| `GET` | `/api/results` | On-chain election results |
+| `GET` | `/api/metrics` | Combined on-chain + DB metrics |
+| `GET` | `/api/active-contract` | Current contract address |
+| `GET` | `/api/recent-transactions` | Last 5 vote transactions |
 
-### Voting Endpoints
+### Voting
 
-- `POST /api/voter/check-in` — validate Aadhaar; returns fingerprint_id for kiosk verification
-- `POST /api/vote` — cast vote (body: `{ aadhaar_id, candidate_id }`)
-  - Response includes `data.transaction_hash` and, when available, `data.receipt_code`.
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/voter/check-in` | `{ aadhaar_id }` | Validate voter, return fingerprint ID |
+| `POST` | `/api/vote` | `{ aadhaar_id, candidate_id }` | Cast vote on-chain |
 
 ### Receipt Verification
 
-- `POST /api/verify-code` — resolve short code to `tx_hash` (body: `{ code }`)
-- `POST /api/lookup-receipt` — given `tx_hash` return `code` (used by kiosk polling)
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/verify-code` | `{ code }` | Resolve short code to tx hash |
+| `POST` | `/api/lookup-receipt` | `{ tx_hash }` | Resolve tx hash to short code |
 
-### Admin & Enrollment Endpoints
+### Auditor
 
-- `POST /api/admin/deploy-contract` — deploy new VotingV2 contract and update backend configuration
-- `POST /api/admin/add-voter` — queue remote enrollment for kiosk
-- `GET /api/admin/enrollment-status` — admin UI polls for status
-- `GET /api/kiosk/poll-commands` — kiosk polls for ENROLL commands
-- `POST /api/kiosk/enrollment-complete` — kiosk reports enrollment result and backend persists `voters` row
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/audit/root` | — | Fetch on-chain Merkle Root (backend proxy) |
+| `POST` | `/api/audit/proof` | `{ aadhaar_id }` | Generate Merkle Proof for voter |
 
-## Short-code Receipt System (how it works)
+### Admin (Protected by `x-admin-secret` header)
 
-1. After the backend sends a vote transaction, it waits for confirmation with a 60s timeout.
-2. The backend generates a short, human-friendly receipt code (e.g., `ABC-123`) and inserts `{ code, tx_hash }` into the `receipts` table in Supabase.
-3. The backend returns the `receipt_code` in the `/api/vote` response when the DB insert succeeds; the kiosk displays it on the OLED.
-4. Voters can verify a code at `verify.html`, which calls `/api/verify-code` to resolve the transaction and then checks the blockchain for confirmation.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/admin/deploy-contract` | Deploy new VotingV3 contract |
+| `POST` | `/api/admin/add-candidate` | Add candidate to election |
+| `POST` | `/api/admin/start-election` | Start election + anchor Merkle Root |
+| `POST` | `/api/admin/end-election` | End election |
+| `POST` | `/api/admin/add-voter` | Queue voter enrollment |
+| `POST` | `/api/admin/reset-fingerprints` | Signal kiosk to wipe fingerprint DB |
+| `GET` | `/api/admin/enrollment-status` | Poll enrollment progress |
 
-## Notes on robustness
+### Kiosk
 
-- If the DB insert for the receipt fails, the backend returns `receipt_code: null`. The kiosk falls back to showing a truncated transaction hash and instructions to verify manually.
-- Kiosk will poll `/api/lookup-receipt` for a short period (e.g., 60s) after vote submission to discover a late-inserted code.
-- Short codes and lookups are normalized to uppercase.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/kiosk/poll-commands` | Check for ENROLL/WIPE commands |
+| `POST` | `/api/kiosk/enrollment-complete` | Report enrollment result |
+| `POST` | `/api/kiosk/heartbeat` | Kiosk heartbeat signal |
 
-## Kiosk Features & Behavior
+---
 
-### Fingerprint Verification with Retry
+## Smart Contracts
 
-The kiosk implements a user-friendly fingerprint verification process:
+### VotingV3.sol
 
-- **First Attempt**: When a voter provides their Aadhaar ID, the kiosk prompts for fingerprint scan
-- **Retry Logic**: If the first scan fails or doesn't match, the voter gets ONE additional attempt
-- **User Feedback**: Clear OLED messages ("Scan Failed - Please try again") and audio beep
-- **Security**: After two failed attempts, the kiosk returns to the idle screen (no indefinite retries)
-- **Reset Option**: Voters can press the START button at any time to return to the beginning
+The latest smart contract (`contracts/VotingV3.sol`) inherits from VotingV2 and adds Merkle Root anchoring:
 
-This retry mechanism reduces false rejections due to scanning issues while maintaining security.
+```solidity
+contract VotingV3 is VotingV2 {
+    bytes32 public voterListRoot;
 
-### Receipt Display
+    event VoterListRootSet(bytes32 root);
 
-After submitting a vote to the backend, the kiosk will:
+    function setVoterListRoot(bytes32 _root) external {
+        require(msg.sender == admin, "Only admin can set root");
+        require(voterListRoot == bytes32(0), "Root already set");
+        voterListRoot = _root;
+        emit VoterListRootSet(_root);
+    }
+}
+```
 
-1. Read `receipt_code` from the `/api/vote` response if present and display it on the OLED.
-2. If `receipt_code` is not returned immediately, the kiosk will poll `/api/lookup-receipt` (with the `tx_hash`) for a short window (default ~60s) to discover a late-inserted code.
-3. If no short code is found within the poll window, the kiosk shows a fallback receipt composed of the truncated transaction hash (e.g., first 10 characters) and instructions to verify on the admin/verify UI.
+**Current Deployment**: `0xCfF751AB2d5594822Cf85e7bF68209748Ab6B9cF` (Sepolia)
 
-Ensure the kiosk can reach the backend (default `http://127.0.0.1:3000` on local deployments). If the kiosk is remote, set the backend URL in `kiosk_main.py` or via environment variable.
+### Deployment
 
-## Database & Supabase notes
+#### Via Admin Portal (Recommended)
+Click **"Deploy New Election"** in the Admin Portal. The backend automatically:
+1. Deploys a new VotingV3 contract
+2. Updates both `.env` files
+3. Authorizes the backend wallet as the official signer
+4. Optionally restarts the systemd service
 
-- `voters` table: `{ aadhaar_id, name, fingerprint_id, constituency, has_voted }`.
-- `receipts` table: `{ id, code, tx_hash, inserted_at }` — ensure `code` and `tx_hash` are unique.
+#### Via Hardhat
+```bash
+npx hardhat run scripts/deployV3.ts --network sepolia
+```
 
-Suggested minimal SQL for `receipts`:
+---
+
+## Auditor Toolkit (Merkle Tree Verification)
+
+The Auditor Toolkit enables **Zero-Trust** verification of the voter registry. It allows anyone to cryptographically prove that a voter's identity is part of the official registry without revealing private data.
+
+### How It Works
+
+```
+Raw Aadhaar ID
+       │
+       ▼ (+ Secret Salt)
+   SHA-256 Hash ──────────► Stored in Supabase (private)
+       │
+       ▼
+   Keccak-256 Hash ───────► Merkle Tree Leaf (never stored)
+       │
+       ▼
+   Merkle Tree ──────────► Merkle Root ──► On-Chain (VotingV3)
+```
+
+### Privacy Guarantees
+
+1. **Salted Hashing**: Aadhaar IDs are combined with a secret salt and hashed (SHA-256) before database storage
+2. **Merkle Hashing**: Database hashes are hashed again (Keccak-256) to form tree leaves
+3. **On-Chain Anchor**: Only the final 32-byte Merkle Root is stored on Ethereum — it is mathematically impossible to reverse this to reveal any voter's identity
+
+### Verification Flow
+
+1. User enters their Aadhaar ID on the Auditor Page
+2. Backend reconstructs the Merkle Tree and returns the **Proof** (sibling hashes) and the **Leaf**
+3. Browser fetches the **Merkle Root** from the smart contract (via backend proxy to avoid CORS)
+4. Browser locally re-computes the root from the leaf and proof
+5. If the computed root matches the on-chain root → **Mathematical Proof Valid** ✅
+
+---
+
+## Kiosk Features
+
+### Hardware Components
+- Raspberry Pi 5
+- Adafruit Fingerprint Sensor (UART)
+- SSD1306 OLED Display (SPI)
+- USB Numeric Keyboard (evdev)
+
+### Authentication Flow
+1. Voter enters 12-digit Aadhaar ID via keyboard
+2. Kiosk validates format and checks against backend
+3. Voter places finger on scanner (2-second hold required)
+4. On match → vote is submitted to backend → receipt displayed on OLED
+5. On failure → one retry allowed, then session resets
+
+### Admin Commands
+The kiosk polls `/api/kiosk/poll-commands` for:
+- **ENROLL**: Captures new fingerprint and registers voter
+- **WIPE**: Clears the entire fingerprint library (triggered by admin)
+
+---
+
+## Receipt Verification System
+
+1. After a vote transaction is confirmed, the backend generates a short code (e.g., `ABC-123`)
+2. The `{ code, tx_hash }` pair is stored in Supabase
+3. The kiosk displays the code on the OLED screen
+4. Voters can verify their vote at `verify.html` by entering the short code
+5. The system resolves the code to a transaction hash and verifies it on Ethereum
+
+---
+
+## Database Schema
+
+### Supabase Tables
+
+| Table | Key Columns | Purpose |
+|-------|------------|---------|
+| `voters` | `aadhaar_id`, `name`, `fingerprint_id`, `has_voted` | Voter registry |
+| `receipts` | `code`, `tx_hash`, `inserted_at` | Vote receipt mapping |
+| `system_config` | `key`, `value` | Service discovery, kiosk commands |
+| `audit_log` | `action`, `details`, `timestamp` | Security audit trail |
+
+### Receipts Table SQL
 
 ```sql
-create table if not exists receipts (
-  id bigserial primary key,
-  code varchar(32) not null unique,
-  tx_hash varchar(66) not null unique,
-  inserted_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS receipts (
+  id BIGSERIAL PRIMARY KEY,
+  code VARCHAR(32) NOT NULL UNIQUE,
+  tx_hash VARCHAR(66) NOT NULL UNIQUE,
+  inserted_at TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-Ensure Supabase RLS policies permit the backend service role to `INSERT` and `SELECT` on these tables.
+---
 
-## E2E smoke test (manual)
+## Deployment & Production
 
-A non-hardware smoke test can script the following API calls:
+### Systemd Service
 
-1. `POST /api/admin/add-voter` — queue enrollment
-1. Poll `GET /api/kiosk/poll-commands` — kiosk receives ENROLL
-1. `POST /api/kiosk/enrollment-complete` — simulate kiosk reporting success (inserts `voters` row)
-1. `POST /api/vote` — cast vote (returns tx hash and maybe receipt code)
-1. `POST /api/verify-code` — verify receipt code resolves to tx hash
-
-> Tip: `POST /api/vote` submits a real transaction when using a real RPC/provider.
-
-## Testing & CI
-
-- Smart contract unit tests: `npx hardhat test` (in `test/`).
-- For CI, stub Supabase or use a test Supabase project and a mock provider to avoid sending real transactions.
-
-## Troubleshooting & common issues
-
-- `Database save failed` on `/api/kiosk/enrollment-complete`: check Supabase policies, table schema, and that `SUPABASE_KEY` is a service role key.
-- `Double voting detected!`: indicates the `voters` row already exists with `has_voted = true`; inspect DB and audit logs.
-- `RPC_TIMEOUT` during `tx.wait()`: network or RPC slowness; check Etherscan for the transaction and logs.
-
-## Deployment & production notes
-
-- Use `systemd` to manage backend and kiosk processes on Raspberry Pi.
-- Protect Supabase keys and backend private keys with a secrets manager.
-- Enable HTTPS and firewall rules to restrict access to the backend.
-- Regularly backup Supabase or configure scheduled exports.
-
-Example `systemd` unit (backend):
+The system auto-starts on boot via `votechain-startup.service`:
 
 ```ini
 [Unit]
-Description=VoteChain Backend
-After=network.target
+Description=VoteChain V3 - Automated Startup Service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/blockchain-voting-dapp-v3/backend
-Environment=NODE_ENV=production
-ExecStart=/usr/bin/node server.js
-Restart=on-failure
+User=root
+WorkingDirectory=/home/cainepi/Desktop/VoteChain - V3/blockchain-voting-dapp-v3
+ExecStart=/bin/bash "start-votechain.sh"
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
 
+### Startup Script (`start-votechain.sh`)
+
+The script orchestrates:
+1. **Backend Server** — `node server.js`
+2. **Ngrok Tunnel** — exposes port 3000 with a static domain
+3. **Service Discovery** — updates Supabase with the public URL
+4. **Kiosk Terminal** — launches `kiosk_main.py` in the foreground
+
+### Production Checklist
+
+- [ ] Use strong, unique values for `ADMIN_SECRET` and `AADHAAR_SALT`
+- [ ] Enable Supabase RLS policies for all tables
+- [ ] Ensure backend wallet has sufficient Sepolia ETH
+- [ ] Verify `backend/.env` is in sync with root `.env`
+- [ ] Test the full enrollment → vote → verify flow after each deploy
+
+---
+
+## Testing & CI
+
+- **Smart Contract Tests**: `npx hardhat test`
+- **E2E Tests**: `npx playwright test` (see `e2e/`)
+- **Linting**: `npm run lint` (ESLint, enforced via GitHub Actions)
+
+---
+
 ## Documentation
 
-- **[SERVICE_DISCOVERY.md](docs/SERVICE_DISCOVERY.md)** — Complete service discovery system architecture, setup guide, and troubleshooting
-- **[HOSTING.md](docs/HOSTING.md)** — Hybrid hosting guide: GitHub Pages frontend + Cloudflare Tunnel backend with automatic URL discovery
-- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** — Raspberry Pi deployment: OS setup, hardware configuration, systemd services
-- **[HARDWARE.md](docs/HARDWARE.md)** — Hardware wiring guide, component specifications, emulation notes
-- **[SECURITY.md](docs/SECURITY.md)** — Security considerations, RLS policies, API key management, CORS configuration
-- **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — Common issues and solutions
-- **[PRIVACY.md](docs/PRIVACY.md)** — Privacy design and voter data handling
-- **[RECEIPTS.md](docs/RECEIPTS.md)** — Receipt code system and vote verification flow
+| Document | Description |
+|----------|-------------|
+| [SERVICE_DISCOVERY.md](docs/SERVICE_DISCOVERY.md) | Service discovery architecture and setup |
+| [HOSTING.md](docs/HOSTING.md) | Hybrid hosting (GitHub Pages + Pi backend) |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Raspberry Pi deployment guide |
+| [HARDWARE.md](docs/HARDWARE.md) | Hardware wiring and components |
+| [SECURITY.md](docs/SECURITY.md) | Security policies and API key management |
+| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues and solutions |
+| [PRIVACY.md](docs/PRIVACY.md) | Privacy design and Aadhaar handling |
+| [RECEIPTS.md](docs/RECEIPTS.md) | Receipt code system |
+| [NGROK_SETUP.md](NGROK_SETUP.md) | Ngrok tunnel configuration |
 
-## Contributing & development
+---
 
-- Keep backend as ESM and follow existing layout.
-- Add tests for new behavior (short-code mapping and verify endpoints).
-- Open PRs against `main` and add a short changelog entry for notable changes.
+## Changelog
 
-## Changelog (short)
+| Date | Version | Changes |
+|------|---------|---------|
+| 2026-02-19 | **V3.2** | Deployed VotingV3 with Merkle Root anchoring. Added Auditor Toolkit (`/api/audit/root`, `/api/audit/proof`). Fixed CORS proxy for ngrok, leaf hashing bug, and dual `.env` sync. Added election tie detection and admin fingerprint reset. |
+| 2026-02-13 | V3.1 | Final security hardening: on-chain idempotency (kiosk nonces), session-token check-in, hardened RLS policies, Raspberry Pi audit. |
+| 2025-12-04 | V3.0 | Service discovery system, Cloudflare Tunnel, Supabase config, hybrid hosting. |
+| 2025-11-30 | V2.5 | Short-code receipt system, verify-code endpoint, kiosk polling, verify UI. |
 
-- 2026-02-13 — **Final Security Hardening (V3.1)**: Implemented on-chain idempotency (kiosk nonces), session-token check-in flow, hardened RLS policies (PII protection), and embedded systems audit for Raspberry Pi kiosks.
-- 2025-12-04 — Service discovery system complete: Cloudflare Tunnel, Supabase config table, frontend auto-discovery, hybrid hosting support (GitHub Pages + Pi backend)
-- 2025-11-30 — Added short-code receipt system, `/api/verify-code`, `/api/lookup-receipt`, kiosk polling improvements, and verify UI updates.
+---
+
+## Contributing
+
+- Keep backend as ESM (`"type": "module"` in package.json)
+- Follow existing route/service architecture
+- Add tests for new behavior
+- Run `npm run lint` before committing
+- Open PRs against `main` with a changelog entry
+
+---
+
+## License
+
+ISC
 
 ## Contact
 
-Open an issue on GitHub or contact the project owner for questions or deployment guidance.
-
-If you'd like, I can also:
-
-- Open a PR with this README update, or
-- Add a small integration test for the `verify-code` endpoint, or
-- Add a `docs/README-DEPLOY.md` with step-by-step Raspberry Pi setup.
+Open an issue on [GitHub](https://github.com/cainebenoy/blockchain-voting-dapp-v3) or contact the project owner for questions or deployment guidance.

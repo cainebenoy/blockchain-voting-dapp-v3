@@ -142,9 +142,9 @@
                         <div>
                             <label
                                 class="text-[10px] font-bold uppercase opacity-50 tracking-widest mb-2 block ml-2">Merkle
-                                Path (Siblings)</label>
-                            <input type="text" id="proofInput" placeholder="JSON Array [0x..., 0x...]"
-                                class="w-full bg-white/5 border border-white/10 px-4 py-3 rounded-xl text-sm font-mono outline-none focus:bg-white/10 transition-all placeholder:text-white/30 text-white">
+                                Proof</label>
+                            <input type="text" id="proofInput" placeholder="Auto-fetched from API" readonly
+                                class="w-full bg-white/5 border border-white/10 px-4 py-3 rounded-xl text-sm font-mono outline-none cursor-not-allowed opacity-50 text-white">
                         </div>
                     </div>
 
@@ -219,9 +219,11 @@
         // --- 1. CONFIGURATION ---
         const CONFIG_SUPABASE_URL = "https://tmtcnjlwetkwslgirpzs.supabase.co";
         const CONFIG_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdGNuamx3ZXRrd3NsZ2lycHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MTA1NTksImV4cCI6MjA3ODA4NjU1OX0.6WVhacoaez8d4xMRUMBspMZEX8qJ9g1tk14B7FDQ5Mc";
-        const DEFAULT_CONTRACT = "0x6A713E81B192d5352f56560e2b575D075296dA32";
+        const DEFAULT_CONTRACT = "0xCfF751AB2d5594822Cf85e7bF68209748Ab6B9cF";
         const providerUrl = "https://rpc.sepolia.org";
-        const ABI = ["function voterListRoot() view returns (bytes32)"];
+        const ABI = [
+            "function voterListRoot() view returns (bytes32)"
+        ];
 
         let BACKEND_URL = "http://127.0.0.1:3000";
         let contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
@@ -252,56 +254,86 @@
             } catch (e) { console.error("Discovery failed", e); }
         }
 
-        // --- 4. BLOCKCHAIN FETCH ---
+        // --- 4. BLOCKCHAIN FETCH (via backend proxy to avoid CORS) ---
         async function fetchRoot() {
+            const display = document.getElementById('rootDisplay');
+            display.innerText = 'Fetching...';
             try {
-                if (!provider) provider = new ethers.providers.JsonRpcProvider(providerUrl);
-                contract = new ethers.Contract(contractAddress, ABI, provider);
-                const root = await contract.voterListRoot();
-                document.getElementById('rootDisplay').innerText = root;
+                const res = await fetch(`${BACKEND_URL}/api/audit/root`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                const data = await res.json();
+                if (data.status === 'ok' && data.root) {
+                    display.innerText = data.root;
+                } else {
+                    display.innerText = 'ERROR: Root not set (election not started yet?)';
+                }
             } catch (e) {
-                document.getElementById('rootDisplay').innerText = "ERROR: UNABLE TO FETCH FROM SEPOLIA";
+                display.innerText = 'ERROR: Unable to reach backend';
+                console.error('fetchRoot failed:', e);
             }
         }
 
         // --- 5. LOCAL AUDIT LOGIC (Merkle Proof Verification) ---
-        function runLocalAudit() {
+        async function runLocalAudit() {
             const voterId = document.getElementById('voterIdInput').value.trim();
-            const proofStr = document.getElementById('proofInput').value.trim();
-            const onChainRoot = document.getElementById('rootDisplay').innerText;
             const resultBox = document.getElementById('auditResult');
+            const onChainRoot = document.getElementById('rootDisplay').innerText;
 
-            if (!voterId || !proofStr || onChainRoot.startsWith('0x...')) {
-                alert("Please fill all fields and ensure the Root is fetched.");
+            if (!voterId || onChainRoot.startsWith('0x...')) {
+                alert("Please enter ID and ensure Root is fetched.");
                 return;
             }
 
             try {
-                const proof = JSON.parse(proofStr);
-                let currentHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(voterId));
+                // Fetch Proof from Backend
+                const res = await fetch(`${BACKEND_URL}/api/audit/proof`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ aadhaar_id: voterId })
+                });
+                const data = await res.json();
+
+                if (data.status !== 'success') {
+                    throw new Error(data.message);
+                }
+
+                const leaf = data.leaf;
+                const proof = data.proof; // Array of hex strings
+
+                // Verify Locally
+                // We use ethers to hash: keccak256(concat(sorted(hash, sibling)))
+                let currentHash = leaf;
+
                 for (let sibling of proof) {
+                    // Sort pairs (standard Merkle Tree behavior)
                     const nodes = [currentHash, sibling].sort();
+                    // Hash the combined buffer (ethers handles 0x strings correctly)
                     currentHash = ethers.utils.keccak256(ethers.utils.concat(nodes));
                 }
 
                 resultBox.classList.remove('hidden');
+
+                // Compare calculated root vs on-chain root
                 if (currentHash.toLowerCase() === onChainRoot.toLowerCase()) {
                     resultBox.className = "p-8 rounded-xl border border-green-500 bg-green-50 dark:bg-green-900/10 text-center animate-fade-in";
                     resultBox.innerHTML = `
                         <span class="material-symbols-rounded text-green-500 text-4xl mb-2">task_alt</span>
                         <h4 class="font-bold text-green-700 dark:text-green-400 text-xl">Mathematical Proof Valid</h4>
-                        <p class="text-sm text-green-600 dark:text-green-300 mt-2">Your ID is confirmed to be part of the immutable registry locked at this root.</p>
+                        <p class="text-xs font-mono text-green-600 my-2 break-all">Calculated: ${currentHash}</p>
+                        <p class="text-sm text-green-600 dark:text-green-300 mt-2">Your ID is confirmed to be part of the immutable registry anchored at this root.</p>
                     `;
                 } else {
                     resultBox.className = "p-8 rounded-xl border border-red-500 bg-red-50 dark:bg-red-900/10 text-center animate-fade-in";
                     resultBox.innerHTML = `
                         <span class="material-symbols-rounded text-red-500 text-4xl mb-2">block</span>
                         <h4 class="font-bold text-red-700 dark:text-red-400 text-xl">Verification Failed</h4>
+                        <p class="text-xs font-mono text-red-600 my-2 break-all">Calculated: ${currentHash}</p>
                         <p class="text-sm text-red-600 dark:text-red-300 mt-2">The computed root does not match the on-chain anchor. Potential tamper detected.</p>
                     `;
                 }
             } catch (e) {
-                alert("Invalid Proof Format. Must be a JSON array of hashes.");
+                alert("Audit Failed: " + e.message);
             }
         }
 
@@ -316,15 +348,19 @@
 
             await discoverBackend();
 
-            // Sync contract address from backend
+            // Sync contract address from backend (always prefer live backend over cached)
             try {
                 const res = await fetch(`${BACKEND_URL}/api/active-contract`);
                 const data = await res.json();
                 if (data.contractAddress) {
                     contractAddress = data.contractAddress;
                     localStorage.setItem("votechain_contract", contractAddress);
+                    console.log('Contract synced from backend:', contractAddress);
                 }
-            } catch (e) { }
+            } catch (e) {
+                // Fall back to localStorage or DEFAULT_CONTRACT
+                contractAddress = localStorage.getItem("votechain_contract") || DEFAULT_CONTRACT;
+            }
 
             fetchRoot();
         });

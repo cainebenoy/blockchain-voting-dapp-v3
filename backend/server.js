@@ -14,6 +14,7 @@ import voteRoutes from './routes/vote.js';
 import adminRoutes from './routes/admin.js';
 import kioskRoutes from './routes/kiosk.js';
 import publicRoutes from './routes/public.js';
+import auditorRoutes from './routes/auditor.js';
 
 // Initialize Env
 dotenv.config();
@@ -103,6 +104,7 @@ app.use('/api/voter', authRoutes);
 app.use('/api', voteRoutes);
 app.use('/api/admin', adminAuth, adminRoutes); // Protected admin routes
 app.use('/api/kiosk', kioskRoutes);   // Public kiosk routes (Heartbeat/Enroll)
+app.use('/api/audit', auditorRoutes); // Auditor Proof routes
 app.use('/api', publicRoutes);
 
 app.get('/api/health', (req, res) => {
