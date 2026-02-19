@@ -246,7 +246,23 @@ def poll_admin_commands():
         if res.status_code == 200:
             POLL_INTERVAL = 1 # Reset on success
             data = res.json()
-            if data.get('command') == 'ENROLL':
+            
+            if data.get('command') == 'WIPE':
+                logging.warning("Received WIPE command. Wiping fingerprint database...")
+                hardware.show_msg("DANGER ZONE", "WIPING DATABASE...", "PLEASE WAIT", big_text=True)
+                hardware.beep(5, 0.1)
+                time.sleep(2)
+                
+                if hardware.wipe_fingerprints():
+                    hardware.show_msg("SUCCESS", "DATABASE CLEARED", "RESTARTING...", big_text=True)
+                    hardware.beep(2)
+                else:
+                    hardware.show_msg("ERROR", "WIPE FAILED", "CHECK LOGS", big_text=True)
+                    hardware.beep(1)
+                time.sleep(5)
+                # No return, loop continues
+
+            elif data.get('command') == 'ENROLL':
                 voter_name = data.get('name')
                 target_id = data.get('target_id') or data.get('target_finger_id')
                 

@@ -288,76 +288,117 @@ class KioskHardware:
             except Exception:
                 pass
 
+    def set_sensor_led(self, color=1, mode=3, speed=0):
+        """
+        Control the fingerprint sensor's built-in LED.
+        Color: 1=Red, 2=Blue/Green, 3=Purple
+        Mode: 1=Breathing, 2=Flashing, 3=Solid, 4=Off, 5=Fade In, 6=Fade Out
+        """
+        if self.finger:
+            try:
+                self.finger.set_led(color=color, mode=mode, speed=speed)
+            except Exception:
+                pass
+
     def scan_finger(self):
-        # Provide detailed console diagnostics for each scan step to aid
-        # debugging in the field when matching fails. Wait up to `wait_seconds`
-        # for the user to place a finger so late placements are tolerated.
-        # Allow configuration of wait time via environment for field tuning
+        """
+        Captures a fingerprint and searches the library for a match (1:N).
+        Uses proven 2-second hold logic and LED feedback.
+        """
+        # Configuration
         try:
             wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '15'))
         except Exception:
             wait_seconds = 15
+        
+        MANDATORY_HOLD_TIME = 2.0
         poll_interval = 0.25
 
         if not self.finger:
             print("[FINGER] No fingerprint device attached.")
             return None
 
+        # Set LED to breathing red/blue (Mode 1, Color 1) for scanning
+        self.set_sensor_led(color=1, mode=1)
+        
         deadline = time.time() + wait_seconds
-        attempt = 0
-        img_res = None
-        # Poll for a readable image until timeout
+        found_finger = False
+
+        # 1. Wait for finger & Hold
         while time.time() < deadline:
-            attempt += 1
-            try:
-                img_res = self.finger.get_image()
-                print(f"[FINGER] get_image attempt={attempt} -> {repr(img_res)}")
-            except Exception as e:
-                print(f"[FINGER] get_image EXCEPTION: {e}")
+            # Allow cancellation from UI
+            if self.is_button_pressed('START'):
+                self.set_sensor_led(color=1, mode=4) # Off
                 return None
 
-            if img_res == adafruit_fingerprint.OK:
-                break
-            # brief UI hint (non-blocking) so user knows to press harder/hold
             try:
-                # update display if available
-                self.show_msg("Hi", "Place Finger", f"{int(deadline-time.time())}s")
-            except Exception:
-                pass
+                img_res = self.finger.get_image()
+            except Exception as e:
+                print(f"[FINGER] get_image EXCEPTION: {e}")
+                img_res = adafruit_fingerprint.IMAGEFAIL
+
+            if img_res == adafruit_fingerprint.OK:
+                # Finger detected! Enforce 2-second hold.
+                print(f"[FINGER] Finger detected. Holding 2s...")
+                try:
+                     self.show_msg("Keep Steady", "Hold Finger", "Capturing...")
+                except: pass
+
+                hold_start = time.time()
+                while (time.time() - hold_start) < MANDATORY_HOLD_TIME:
+                    try:
+                        self.finger.get_image()
+                    except Exception:
+                        pass
+                    time.sleep(0.1)
+                
+                found_finger = True
+                break
+            
+            elif img_res == adafruit_fingerprint.NOFINGER:
+                 # Update UI countdown if needed, but avoid spam
+                 pass
+            elif img_res == adafruit_fingerprint.IMAGEFAIL:
+                print("[FINGER] Imaging error")
+                self.set_sensor_led(color=1, mode=3) # Solid Red
+                return None
+            
             time.sleep(poll_interval)
 
-        if img_res != adafruit_fingerprint.OK:
-            print("[FINGER] No readable finger image within timeout (NOFINGER or FAIL).")
+        if not found_finger:
+            print("[FINGER] Timeout: No finger detected.")
+            self.set_sensor_led(color=1, mode=3) # Solid Red
             return None
 
+        # 2. Template
         try:
             tz_res = self.finger.image_2_tz(1)
-            print(f"[FINGER] image_2_tz -> {repr(tz_res)}")
         except Exception as e:
             print(f"[FINGER] image_2_tz EXCEPTION: {e}")
-            return None
+            tz_res = adafruit_fingerprint.IMAGEFAIL
 
         if tz_res != adafruit_fingerprint.OK:
-            print("[FINGER] Failed to convert image to template.")
+            print(f"[FINGER] Templating failed: {tz_res}")
+            self.set_sensor_led(color=1, mode=3) # Solid Red
             return None
 
+        # 3. Search
         try:
             search_res = self.finger.finger_search()
-            print(f"[FINGER] finger_search -> {repr(search_res)}")
         except Exception as e:
             print(f"[FINGER] finger_search EXCEPTION: {e}")
-            return None
+            search_res = adafruit_fingerprint.IMAGEFAIL
 
-        if search_res != adafruit_fingerprint.OK:
-            print("[FINGER] finger_search returned NOT FOUND")
-            return None
-
-        try:
+        if search_res == adafruit_fingerprint.OK:
+            # MATCH FOUND
             fid = self.finger.finger_id
-            print(f"[FINGER] Match found: id={repr(fid)}")
+            print(f"[FINGER] Match found: id={fid}, confidence={self.finger.confidence}")
+            self.set_sensor_led(color=2, mode=3) # Solid Blue/Green (Success)
             return fid
-        except Exception as e:
-            print(f"[FINGER] finger_id read EXCEPTION: {e}")
+        else:
+            # NO MATCH
+            print("[FINGER] No match found.")
+            self.set_sensor_led(color=1, mode=3) # Solid Red (Failure)
             return None
 
     def enroll_finger_logic(self, location_id):
@@ -366,117 +407,153 @@ class KioskHardware:
         return False
 
     def robust_enroll(self, target_id: int) -> bool:
-        """Robust enrollment routine with retries, UX updates and logging.
+        """Robust enrollment routine using proven 2-second hold logic.
 
-        Waits up to `FINGER_WAIT_SECONDS` for each scan, retries template
-        conversion a few times, and performs model creation + storage.
+        1. Wait for finger.
+        2. Force 2.0s hold while sampling.
+        3. Convert image to template.
+        4. Repeat for second scan.
+        5. Create and store model.
         """
         if not self.finger:
             print("[FINGER] ERROR: No sensor attached")
             return False
-        # Typical R307/AS608 capacity; validate slot range conservatively
+
+        # Validate slot
         try:
             slot_min, slot_max = 1, 162
             if target_id < slot_min or target_id > slot_max:
-                print(f"[FINGER] ERROR: Invalid slot {target_id} (valid {slot_min}-{slot_max})")
+                print(f"[FINGER] ERROR: Invalid slot {target_id}")
                 return False
         except Exception:
             pass
 
+        # Configuration
+        # The user's script uses a shorter initial timeout (10s) but we'll stick to env or default
         try:
-            wait_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '40'))
+            timeout_seconds = int(os.getenv('FINGER_WAIT_SECONDS', '15'))
         except Exception:
-            wait_seconds = 40
-        poll_interval = 0.5
+            timeout_seconds = 15
+        
+        MANDATORY_HOLD_TIME = 2.0
 
-        def attempt_scan(slot: int, label: str) -> bool:
-            deadline = time.time() + wait_seconds
-            print(f"[FINGER] {label}: hold finger flat and firm")
-            
-            found_finger = False
+        def get_image_with_hold(label: str) -> bool:
+            """Waits for finger, then enforces 2s hold."""
+            deadline = time.time() + timeout_seconds
+            print(f"[FINGER] {label}: Waiting for finger...")
+            self.show_msg("Place Finger", label, f"{timeout_seconds}s Timeout")
+
+            # 1. Initial wait for finger placement
             while time.time() < deadline:
-                try:
-                    if self.is_button_pressed('START'):
-                        return False
-                except Exception:
-                    pass
+                # Allow user cancel
+                if self.is_button_pressed('START'):
+                    return False
 
                 try:
-                    img = self.finger.get_image()
+                    i = self.finger.get_image()
                 except Exception as e:
-                    print(f"[FINGER] get_image EXCEPTION: {e}")
-                    img = None
-                
-                if img == adafruit_fingerprint.OK:
-                    print(f"[FINGER] {label} Image captured")
-                    found_finger = True
-                    break
+                    print(f"[FINGER] get_image exception: {e}")
+                    i = adafruit_fingerprint.IMAGEFAIL
 
-                self.show_msg("Place Finger", label, f"{int(deadline-time.time())}s")
-                time.sleep(poll_interval)
-            
-            if not found_finger:
-                print(f"[FINGER] {label} FAILED: no stable OK image within {wait_seconds}s")
-                return False
+                if i == adafruit_fingerprint.OK:
+                    # Finger detected! Enforce 2-second hold.
+                    print(f"[FINGER] {label}: Finger detected. Holding 2s...")
+                    self.show_msg("Keep Steady", "Hold Finger", "Capturing...")
+                    
+                    hold_start = time.time()
+                    while (time.time() - hold_start) < MANDATORY_HOLD_TIME:
+                        try:
+                            self.finger.get_image()
+                        except Exception:
+                            pass
+                        time.sleep(0.1)
 
-            # Retry image_2_tz a few times to overcome transient quality issues
-            for retry in range(3):
-                try:
-                    tz = self.finger.image_2_tz(slot)
-                except Exception as e:
-                    print(f"[FINGER] image_2_tz EXCEPTION: {e}")
-                    tz = None
-                print(f"[FINGER] {label} image_2_tz retry={retry+1} -> {repr(tz)}")
-                if tz == adafruit_fingerprint.OK:
+                    print(f"[FINGER] {label}: Capture complete.")
                     return True
-                # Give operator a moment to reposition/press harder
-                time.sleep(1)
-                try:
-                    img2 = self.finger.get_image()
-                except Exception:
-                    img2 = None
-                if img2 != adafruit_fingerprint.OK:
-                    print(f"[FINGER] {label} re-capture returned {repr(img2)}")
+                
+                elif i == adafruit_fingerprint.NOFINGER:
+                    # blink dot or update timer?
+                    # Minimal updates to avoid I/O spam
+                    pass
+                elif i == adafruit_fingerprint.IMAGEFAIL:
+                    print(f"[FINGER] {label}: Imaging error")
+                    return False
+                else:
+                    print(f"[FINGER] {label}: Error code {i}")
+                    return False
+                
+                time.sleep(0.1)
+
+            print(f"[FINGER] {label}: Timeout")
+            self.show_msg("Enroll Failed", "Timeout", "Try Again")
             return False
 
-        print(f"[FINGER] Starting enroll to slot {target_id}")
-        self.show_msg("Enroll", f"ID {target_id}", "Scan 1/2")
-        if not attempt_scan(1, "Scan1"):
-            print("[FINGER] Scan1 failed")
+        # --- SCAN 1 ---
+        print(f"[FINGER] Starting enroll ID {target_id} - Scan 1")
+        self.show_msg("Enroll Mode", f"ID #{target_id}", "Scan 1/2")
+        
+        if not get_image_with_hold("Scan 1"):
             return False
 
+        print("[FINGER] Templating scan 1...")
+        i = self.image_2_tz(1)
+        if i != adafruit_fingerprint.OK:
+            print(f"[FINGER] Templating failed: {i}")
+            self.show_msg("Error", "Bad Image", "Try Again")
+            return False
+
+        print("[FINGER] Waiting for removal...")
         self.show_msg("Remove Finger", "", "To Continue")
-        self.wait_for_finger_release()
-        time.sleep(1)
+        # specific wait logic from script
+        while True:
+            try:
+                if self.finger.get_image() == adafruit_fingerprint.NOFINGER:
+                    break
+            except Exception:
+                pass
+            time.sleep(0.1)
+        print("[FINGER] Finger removed.")
 
+        # --- SCAN 2 ---
+        print("[FINGER] Starting Scan 2")
         self.show_msg("Place Again", "Scan 2/2", "")
-        if not attempt_scan(2, "Scan2"):
-            print("[FINGER] Scan2 failed")
+        time.sleep(1) # small pause before sensing again
+
+        if not get_image_with_hold("Scan 2"):
             return False
 
-        try:
-            model_res = self.finger.create_model()
-        except Exception as e:
-            print(f"[FINGER] create_model EXCEPTION: {e}")
-            return False
-        print(f"[FINGER] create_model -> {repr(model_res)}")
-        if model_res != adafruit_fingerprint.OK:
-            # 10 commonly ENROLLMISMATCH; treat as failure and advise retry
-            print(f"[FINGER] create_model failed: {repr(model_res)}")
+        print("[FINGER] Templating scan 2...")
+        i = self.image_2_tz(2)
+        if i != adafruit_fingerprint.OK:
+            print(f"[FINGER] Templating failed: {i}")
+            self.show_msg("Error", "Bad Image", "Try Again")
             return False
 
-        try:
-            store_res = self.finger.store_model(target_id)
-        except Exception as e:
-            print(f"[FINGER] store_model EXCEPTION: {e}")
-            return False
-        print(f"[FINGER] store_model({target_id}) -> {repr(store_res)}")
-        success = store_res == adafruit_fingerprint.OK
-        if success:
-            self.show_msg("Enroll Success", f"ID {target_id}", "")
+        # --- CREATE MODEL ---
+        print("[FINGER] Creating model...")
+        i = self.create_model()
+        if i == adafruit_fingerprint.OK:
+            print("[FINGER] Model created.")
         else:
-            self.show_msg("Enroll Failed", f"ID {target_id}", "")
-        return success
+            if i == adafruit_fingerprint.ENROLLMISMATCH:
+                print("[FINGER] Mismatch!")
+                self.show_msg("Enroll Failed", "Finger Mismatch", "Try Again")
+            else:
+                print(f"[FINGER] Model error: {i}")
+                self.show_msg("Error", "Model Create", "Failed")
+            return False
+
+        # --- STORE MODEL ---
+        print(f"[FINGER] Storing at {target_id}...")
+        i = self.store_model(target_id)
+        if i == adafruit_fingerprint.OK:
+            print(f"[FINGER] Success! stored at {target_id}")
+            self.show_msg("Success!", f"ID #{target_id}", "Enrolled")
+            return True
+        else:
+            print(f"[FINGER] Store failed: {i}")
+            self.show_msg("Storage Error", "Write Failed", "")
+            return False
 
     # Low level access for complex flows
     def get_finger_image(self):
@@ -504,6 +581,20 @@ class KioskHardware:
         # Avoid tight busy-loop; yield briefly between checks
         while self.finger.get_image() != adafruit_fingerprint.NOFINGER:
             time.sleep(0.1)
+
+    def wipe_fingerprints(self) -> bool:
+        """Danger Zone: Deletes all templates from the sensor."""
+        if not self.finger: return False
+        try:
+            print("[FINGER] Wiping all fingerprints...")
+            if self.finger.empty_library() == adafruit_fingerprint.OK:
+                print("[FINGER] Library wiped successfully.")
+                return True
+            else:
+                print("[FINGER] Failed to empty library.")
+        except Exception as e:
+            print(f"[FINGER] Wipe exception: {e}")
+        return False
 
     def _start_button_debug(self):
         """Start a background thread that logs button pin values when they change.

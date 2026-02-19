@@ -19,6 +19,22 @@ router.all('/poll-commands', async (req, res) => {
             }, { onConflict: 'key' });
         }
 
+        // 1. Check for system-level commands (like WIPE)
+        const { data: config } = await supabase
+            .from('system_config')
+            .select('value')
+            .eq('key', 'kiosk_pending_command')
+            .maybeSingle();
+
+        if (config && config.value === 'WIPE') {
+            console.log('[KIOSK LOOP] Found WIPE command. Sending to device...');
+
+            // Consume the command (delete or set to NONE) so it doesn't loop
+            await supabase.from('system_config').delete().eq('key', 'kiosk_pending_command');
+
+            return res.json({ command: 'WIPE' });
+        }
+
         const pending = await getEnrollmentStatus();
         if (pending && pending.status === 'WAITING_FOR_KIOSK') {
             console.log(`[REMOTE ENROLL] Kiosk polled, sending command for ${pending.name}...`);

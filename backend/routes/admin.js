@@ -264,6 +264,7 @@ router.post('/start-election', async (req, res) => {
 });
 
 // END ELECTION
+// END ELECTION
 router.post('/end-election', async (req, res) => {
     try {
         console.log('[ADMIN] Ending election...');
@@ -279,6 +280,30 @@ router.post('/end-election', async (req, res) => {
         console.error('[ADMIN] End Election Failed:', e);
         const message = e.revert?.args?.[0] || e.reason || e.message || "End Election failed";
         res.status(500).json({ status: 'error', message: message });
+    }
+});
+
+// RESET FINGERPRINTS (Danger Zone)
+router.post('/reset-fingerprints', async (req, res) => {
+    try {
+        console.log('[ADMIN] Requesting Kiosk Fingerprint Wipe...');
+
+        // Upsert the command into system_config to signal Kiosk
+        const { error } = await supabase
+            .from('system_config')
+            .upsert({
+                key: 'kiosk_pending_command',
+                value: 'WIPE'
+            }, { onConflict: 'key' });
+
+        if (error) throw error;
+
+        console.log('[ADMIN] Wipe command queued for Kiosk.');
+        res.json({ status: 'success', message: 'Wipe command queued. Kiosk will process it on next poll.' });
+
+    } catch (e) {
+        console.error('[ADMIN] Reset Fingerprints Failed:', e);
+        res.status(500).json({ status: 'error', message: e.message });
     }
 });
 
